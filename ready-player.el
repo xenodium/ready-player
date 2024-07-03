@@ -98,8 +98,8 @@ Omit the file path, as it will be automatically appended."
     "jspf" "m2ts" "m2v" "m3u" "m3u8" "m4a" "midi" "mjpeg" "mlp"
     "mka" "mkv" "mlp" "mov" "mp2" "mp3" "mp4" "mpg" "mpeg" "mts"
     "mxf" "oga" "ogg" "ogm" "ogv" "opus" "pls" "pva" "qt" "ra"
-    "ram" "raw" "rf64" "rm" "rmvb" "sami" "spx" "tta" "ts" "vob"
-    "wav" "wavpack" "webm" "wma" "wmv" "wpl" "wv" "xspf")
+    "ram" "raw" "rf64" "rm" "rmvb" "sami" "spx" "tta" "vob" "wav"
+    "wavpack" "webm" "wma" "wmv" "wpl" "wv" "xspf")
   "Supported media types."
   :group 'play-mode
   :type '(repeat string))
