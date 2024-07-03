@@ -4,7 +4,10 @@
 
 A lightweight major mode to open media (audio/video) files in an Emacs buffer.
 
-[[file:ready-player.png]]
+[[file:screenshots/audio-player.png]]
+
+[[file:screenshots/video-player.png]]
+
 * Setup
 
 #+begin_src emacs-lisp :lexical no
