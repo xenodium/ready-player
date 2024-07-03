@@ -237,6 +237,7 @@ When in Dired mode, open file under the cursor.
 
 With a prefix ARG always prompt for command to use."
   (interactive "P")
+  (ready-player-toggle-play-stop)
   (let* ((current-file-name
           (if (derived-mode-p 'dired-mode)
               (dired-get-file-for-visit)
@@ -281,28 +282,41 @@ replacing the current Image mode buffer."
                     (message "")))
   (ready-player-next-file (- n)))
 
+(defun ready-player-stop ()
+  "Stop media playback."
+  (interactive)
+  (when-let ((fpath (buffer-file-name))
+             (process ready-player--process))
+    (delete-process process)
+    (setq ready-player--process nil)
+    (ready-player--refresh-status (file-name-nondirectory fpath) nil)
+    (kill-buffer (ready-player--playback-buffer))))
+
+(defun ready-player-play ()
+  "Start media playback."
+  (interactive)
+  (ready-player-stop)
+  (when-let ((fpath (buffer-file-name)))
+    (setq ready-player--process (apply 'start-process
+                                       (append
+                                        (list "*play mode*" (ready-player--playback-buffer))
+                                        (ready-player--playback-command) (list fpath))))
+    (ready-player--refresh-status (file-name-nondirectory fpath) t)
+    (set-process-sentinel
+     ready-player--process
+     (lambda (process _)
+       (when (memq (process-status process) '(exit signal))
+         (setq ready-player--process nil)
+         (ready-player--refresh-status (file-name-nondirectory fpath) nil))))
+    (set-process-filter ready-player--process #'comint-output-filter)))
+
 (defun ready-player-toggle-play-stop ()
   "Toggle play/stop of media."
   (interactive)
   (if-let ((fpath (buffer-file-name)))
       (if ready-player--process
-          (progn
-            (delete-process ready-player--process)
-            (setq ready-player--process nil)
-            (ready-player--refresh-status (file-name-nondirectory fpath) nil)
-            (kill-buffer (ready-player--playback-buffer)))
-        (setq ready-player--process (apply 'start-process
-                                        (append
-                                         (list "*play mode*" (ready-player--playback-buffer))
-                                         (ready-player--playback-command) (list fpath))))
-        (ready-player--refresh-status (file-name-nondirectory fpath) t)
-        (set-process-sentinel
-         ready-player--process
-         (lambda (process _)
-           (when (memq (process-status process) '(exit signal))
-             (setq ready-player--process nil)
-             (ready-player--refresh-status (file-name-nondirectory fpath) nil))))
-        (set-process-filter ready-player--process #'comint-output-filter))
+          (ready-player-stop)
+        (ready-player-play))
     (error "No file to play/stop")))
 
 (defun ready-player--playback-command ()
