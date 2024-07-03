@@ -12,9 +12,35 @@ A lightweight major mode to open media (audio/video) files in an Emacs buffer.
   (ready-player-add-to-auto-mode-alist)
 #+end_src
 
-To customize supported media files, set `ready-player-supported-media' before invoking `ready-player-add-to-auto-mode-alist'.
+To customize supported media files, set =ready-player-supported-media= before invoking =ready-player-add-to-auto-mode-alist=.
 
-`ready-player-mode' relies on command line utilities to play media. Customize `ready-player-open-playback-commands' to your preference.
+* External dependencies
+
+** Playback
+
+=ready-player-mode= relies on command line utilities to play media.
+
+By default, =ready-player-mode= will try to use either =mpv=, =vlc=, =ffplay=, or =mplayer= (in that order). Customize =ready-player-open-playback-commands= to your preference.
+
+Install either of these using your favorite method.
+
+On macOS:
+
+#+begin_src sh
+  brew install mpv
+#+end_src
+
+** Metadata
+
+Metadata is extracted using =ffprobe=, which comes bundled with [[https://www.youtube.com/watch?v=9kaIXkImCAM][ffmpeg]].
+
+Install using your favorite method.
+
+On macOS:
+
+#+begin_src sh
+  brew install ffmpeg
+#+end_src
 
 * Customizations
 
