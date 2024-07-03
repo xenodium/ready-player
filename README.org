@@ -1,0 +1,95 @@
+👉 [[https://github.com/sponsors/xenodium][Support this work via GitHub Sponsors]]
+
+* Ready Player Mode
+
+A lightweight major mode to open media (audio/video) files in an Emacs buffer.
+
+[[file:ready-player.png]]
+* Setup
+
+#+begin_src emacs-lisp :lexical no
+  (require 'ready-player)
+  (ready-player-add-to-auto-mode-alist)
+#+end_src
+
+To customize supported media files, set `ready-player-supported-media' before invoking `ready-player-add-to-auto-mode-alist'.
+
+`ready-player-mode' relies on command line utilities to play media. Customize `ready-player-open-playback-commands' to your preference.
+
+* Customizations
+
+#+BEGIN_SRC emacs-lisp :results table :colnames '("Custom variable" "Description") :exports results
+  (let ((rows))
+    (mapatoms
+     (lambda (symbol)
+       (when (and (string-match "^ready-player"
+                                (symbol-name symbol))
+                  (custom-variable-p symbol))
+         (push `(,symbol
+                 ,(car
+                   (split-string
+                    (or (get (indirect-variable symbol)
+                             'variable-documentation)
+                        (get symbol 'variable-documentation)
+                        "")
+                    "\n")))
+               rows))))
+    rows)
+#+END_SRC
+
+#+RESULTS:
+| Custom variable                     | Description                                       |
+|-------------------------------------+---------------------------------------------------|
+| ready-player-supported-media        | Supported media types.                            |
+| ready-player-play-icon              | Play icon string, for example: "⏵".               |
+| ready-player-stop-icon              | Stop icon string, for example: "■".               |
+| ready-player-open-externally-icon   | Open externally icon string, for example: "➦".    |
+| ready-player-show-thumbnail         | Whether or not to attempt to display a thumbnail. |
+| ready-player-open-playback-commands | Command line utilities to try for playback.       |
+
+* Commands
+
+#+BEGIN_SRC emacs-lisp :results table :colnames '("Command" "Description") :exports results
+    (let ((rows))
+      (mapatoms
+       (lambda (symbol)
+         (when (and (string-match "^ready-player"
+                                  (symbol-name symbol))
+                    (commandp symbol))
+           (push `(,(string-join
+                     (seq-filter
+                      (lambda (symbol)
+                        (not (string-match "menu" symbol)))
+                      (mapcar
+                       (lambda (keys)
+                         (key-description keys))
+                       (or
+                        (where-is-internal
+                         (symbol-function symbol)
+                         comint-mode-map
+                         nil nil (command-remapping 'comint-next-input))
+                        (where-is-internal
+                         symbol ready-player-mode-map nil nil (command-remapping symbol))
+                        (where-is-internal
+                         (symbol-function symbol)
+                         ready-player-mode-map nil nil (command-remapping symbol)))))  " or ")
+                   ,(symbol-name symbol)
+                   ,(car
+                     (split-string
+                      (or (documentation symbol t) "")
+                      "\n")))
+                 rows))))
+      rows)
+#+END_SRC
+
+#+RESULTS:
+| SPC       | ready-player-toggle-play-stop | Toggle play/stop of media.                                           |
+| o or e    | ready-player-open-externally  | Open visited file in default external program.                       |
+|           | ready-player-mode             | Major mode to preview and play media files.                          |
+| p         | ready-player-previous-file    | Visit the preceding image in the same directory as the current file. |
+| q         | ready-player-quit             | Quit `ready-player-mode' window and kill buffer.                     |
+| n         | ready-player-next-file        | Visit the next media file in the same directory as current file.     |
+| TAB       | ready-player-next-button      | Navigate to next button.                                             |
+| <backtab> | ready-player-previous-button  | Navigate to previous button.                                         |
+
+👉 [[https://github.com/sponsors/xenodium][Support this work via GitHub Sponsors]]
