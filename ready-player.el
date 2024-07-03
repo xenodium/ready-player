@@ -79,7 +79,7 @@
   :group 'ready-player)
 
 (defcustom ready-player-open-playback-commands
-  '(("mpv")
+  '(("mpv" "--audio-display=no")
     ("vlc")
     ("ffplay")
     ("mplayer"))
