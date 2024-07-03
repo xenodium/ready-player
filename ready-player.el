@@ -123,7 +123,7 @@ Omit the file path, as it will be automatically appended."
   (dolist (ext ready-player-supported-media)
     (add-to-list 'auto-mode-alist (cons (concat "\\." ext "\\'") 'ready-player-mode))))
 
-(define-derived-mode ready-player-mode special-mode "Ready player"
+(define-derived-mode ready-player-mode special-mode "Ready Player"
   "Major mode to preview and play media files."
   :keymap ready-player-mode-map
   :after-hook (progn
