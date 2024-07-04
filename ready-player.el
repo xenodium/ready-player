@@ -417,7 +417,8 @@ replacing the current Image mode buffer."
   "Get the process playback buffer."
   (let ((buffer (get-buffer-create "*play*")))
     (with-current-buffer buffer
-      (erase-buffer)
+      (let ((inhibit-read-only t))
+        (erase-buffer))
       (let ((inhibit-message t))
         ;; Silence noise of entering shell-mode.
         (shell-mode)))
