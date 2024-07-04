@@ -118,6 +118,7 @@ Omit the file path, as it will be automatically appended."
 
 (defvar-local ready-player--file-thumbnail nil "Thumbnail as per ffmpeg.")
 
+;;;###autoload
 (defun ready-player-add-to-auto-mode-alist ()
   "Add popular media supported by mpv."
   (dolist (ext ready-player-supported-media)
