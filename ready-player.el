@@ -4,7 +4,7 @@
 
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.3
+;; Version: 0.0.4
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -198,6 +198,8 @@ Omit the file path, as it will be automatically appended."
 (defun ready-player-next-button ()
   "Navigate to next button."
   (interactive)
+  (unless (eq major-mode 'ready-player-mode)
+    (user-error "Not in a ready-player-mode buffer"))
   (or (progn
         (when (equal (symbol-name (symbol-at-point)) ready-player-play-icon)
           (forward-char))
@@ -224,6 +226,8 @@ Omit the file path, as it will be automatically appended."
 (defun ready-player-previous-button ()
   "Navigate to previous button."
   (interactive)
+  (unless (eq major-mode 'ready-player-mode)
+    (user-error "Not in a ready-player-mode buffer"))
   (or (progn
         (when (equal (symbol-name (symbol-at-point))
                      ready-player-open-externally-icon)
@@ -244,6 +248,8 @@ Omit the file path, as it will be automatically appended."
 (defun ready-player-quit ()
   "Quit `ready-player-mode' window and kill buffer."
   (interactive)
+  (unless (eq major-mode 'ready-player-mode)
+    (user-error "Not in a ready-player-mode buffer"))
   (quit-window t))
 
 ;; Based on `crux-open-with'.
@@ -253,6 +259,8 @@ When in Dired mode, open file under the cursor.
 
 With a prefix ARG always prompt for command to use."
   (interactive "P")
+  (unless (eq major-mode 'ready-player-mode)
+    (user-error "Not in a ready-player-mode buffer"))
   (ready-player-toggle-play-stop)
   (let* ((current-file-name
           (if (derived-mode-p 'dired-mode)
@@ -275,6 +283,8 @@ current one, in cyclic alphabetical order.
 This command visits the specified file via `find-alternate-file',
 replacing the current Image mode buffer."
   (interactive "p" ready-player)
+  (unless (eq major-mode 'ready-player-mode)
+    (user-error "Not in a ready-player-mode buffer"))
   (let ((major-mode 'image-mode) ;; pretend to be image-mode.
         (image-file-name-extensions ready-player-supported-media))
     (when (> n 0)
@@ -292,6 +302,8 @@ current one, in cyclic alphabetical order.
 This command visits the specified file via `find-alternate-file',
 replacing the current Image mode buffer."
   (interactive "p" ready-player)
+  (unless (eq major-mode 'ready-player-mode)
+    (user-error "Not in a ready-player-mode buffer"))
   (message "Previous")
   (run-with-timer 0.8 nil
                   (lambda ()
@@ -301,6 +313,8 @@ replacing the current Image mode buffer."
 (defun ready-player-stop ()
   "Stop media playback."
   (interactive)
+  (unless (eq major-mode 'ready-player-mode)
+    (user-error "Not in a ready-player-mode buffer"))
   (when-let ((fpath (buffer-file-name))
              (process ready-player--process))
     (delete-process process)
@@ -311,6 +325,8 @@ replacing the current Image mode buffer."
 (defun ready-player-play ()
   "Start media playback."
   (interactive)
+  (unless (eq major-mode 'ready-player-mode)
+    (user-error "Not in a ready-player-mode buffer"))
   (ready-player-stop)
   (when-let ((fpath (buffer-file-name)))
     (setq ready-player--process (apply 'start-process
@@ -329,6 +345,8 @@ replacing the current Image mode buffer."
 (defun ready-player-toggle-play-stop ()
   "Toggle play/stop of media."
   (interactive)
+  (unless (eq major-mode 'ready-player-mode)
+    (user-error "Not in a ready-player-mode buffer"))
   (if-let ((fpath (buffer-file-name)))
       (if ready-player--process
           (ready-player-stop)
@@ -338,6 +356,8 @@ replacing the current Image mode buffer."
 (defun ready-player-toggle-reload-buffer ()
   "Reload media from file."
   (interactive)
+  (unless (eq major-mode 'ready-player-mode)
+    (user-error "Not in a ready-player-mode buffer"))
   (revert-buffer nil t)
   (message "Reloaded")
   (run-with-timer 1 nil
