@@ -4,7 +4,7 @@
 
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.1
+;; Version: 0.0.2
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -363,15 +363,13 @@ replacing the current Image mode buffer."
 (defun ready-player--refresh-status (fname busy)
   "Refresh and render status in buffer with FNAME and BUSY."
   (let ((inhibit-read-only t)
-        (start (line-beginning-position))
-        (end (line-end-position))
         (saved-point (point)))
     (save-excursion
       (goto-char (point-min))
       (when (search-forward (if busy
                                 ready-player-play-icon
                               ready-player-stop-icon) nil t)
-        (delete-region start end)
+        (delete-region (line-beginning-position) (line-end-position))
         (insert (ready-player--make-file-button-line fname busy))))
     (goto-char saved-point)
     (set-buffer-modified-p nil)
