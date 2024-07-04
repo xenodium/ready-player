@@ -57,6 +57,7 @@
     (define-key map (kbd "e") #'ready-player-open-externally)
     (define-key map (kbd "o") #'ready-player-open-externally)
     (define-key map (kbd "q") #'ready-player-quit)
+    (define-key map (kbd "g") #'ready-player-toggle-reload-buffer)
     map)
   "Keymap for `ready-player'.")
 
@@ -323,6 +324,15 @@ replacing the current Image mode buffer."
           (ready-player-stop)
         (ready-player-play))
     (error "No file to play/stop")))
+
+(defun ready-player-toggle-reload-buffer ()
+  "Reload media from file."
+  (interactive)
+  (revert-buffer nil t)
+  (message "Reloaded")
+  (run-with-timer 1 nil
+                  (lambda ()
+                    (message ""))))
 
 (defun ready-player--playback-command ()
   "Craft a playback command from the first utility found on system."
