@@ -8,6 +8,14 @@ A lightweight major mode to open media (audio/video) files in an Emacs buffer.
 
 [[file:screenshots/video-player.png]]
 
+* Install
+
+This package isn't on MELPA just yet. In the meantime, clone the repo or use the handy =package-vc-install= (as of Emacs 29):
+
+#+begin_src emacs-lisp :lexical no
+  (package-vc-install "https://github.com/xenodium/ready-player")
+#+end_src
+
 * Setup
 
 #+begin_src emacs-lisp :lexical no
@@ -16,6 +24,19 @@ A lightweight major mode to open media (audio/video) files in an Emacs buffer.
 #+end_src
 
 To customize supported media files, set =ready-player-supported-media= before invoking =ready-player-add-to-auto-mode-alist=.
+
+* use-package
+
+You can combine the previous install/setup into something like the following:
+
+#+begin_src emacs-lisp :lexical no
+  (use-package ready-player
+    :init
+    (unless (package-installed-p (intern "ready-player"))
+      (package-vc-install "https://github.com/xenodium/ready-player"))
+    :config
+    (ready-player-add-to-auto-mode-alist))
+#+end_src
 
 * External dependencies
 
