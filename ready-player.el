@@ -134,6 +134,7 @@ Omit the file path, as it will be automatically appended."
                 (goto-char (point-min))
                 (search-forward ready-player-play-icon)
                 (backward-char))
+  (set-buffer-multibyte t)
   (setq buffer-read-only t)
   (setq buffer-undo-list t)
   (let* ((fpath (buffer-file-name))
