@@ -39,7 +39,10 @@
 ;; Note: This is a freshly made package.  Please report issues or send
 ;; patches to https://github.com/xenodium/ready-player
 
+(require 'dired)
+(require 'image-mode)
 (require 'seq)
+(require 'shell)
 
 ;;; Code:
 
