@@ -400,7 +400,6 @@ replacing the current Image mode buffer."
   "Get media thumbnail at MEDIA-FPATH."
   (or
    (when (executable-find "ffmpegthumbnailer")
-     (message "Used: ffmpegthumbnailer")
      (with-temp-buffer
        (let* ((thumbnail-fpath (concat (make-temp-file "ready-player-") ".png"))
               (command (list "ffmpegthumbnailer" nil t nil "-i" media-fpath "-s" "0" "-m" "-o" thumbnail-fpath))
@@ -408,7 +407,6 @@ replacing the current Image mode buffer."
          (when (zerop exit-code)
            thumbnail-fpath))))
    (when (executable-find "ffmpeg")
-     (message "Used: ffmpeg")
      (or
       (when (equal (file-name-extension media-fpath) "mp3")
         (with-temp-buffer
