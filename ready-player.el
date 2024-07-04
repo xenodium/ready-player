@@ -205,6 +205,12 @@ Omit the file path, as it will be automatically appended."
           (forward-char -1)
           t))
       (progn
+        (when (equal (symbol-name (symbol-at-point)) ready-player-stop-icon)
+          (forward-char))
+        (when (search-forward ready-player-stop-icon nil t)
+          (forward-char -1)
+          t))
+      (progn
         (when (equal (symbol-name (symbol-at-point))
                      ready-player-open-externally-icon)
           (forward-char))
@@ -227,6 +233,10 @@ Omit the file path, as it will be automatically appended."
         (when (equal (symbol-name (symbol-at-point)) ready-player-play-icon)
           (forward-char -1))
         (search-backward ready-player-play-icon nil t))
+      (progn
+        (when (equal (symbol-name (symbol-at-point)) ready-player-stop-icon)
+          (forward-char -1))
+        (search-backward ready-player-stop-icon nil t))
       (progn
         (goto-char (point-max))
         (ready-player-previous-button))))
