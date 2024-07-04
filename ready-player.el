@@ -4,7 +4,7 @@
 
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.2
+;; Version: 0.0.3
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -398,19 +398,31 @@ replacing the current Image mode buffer."
 
 (defun ready-player--file-thumbnail (media-fpath)
   "Get media thumbnail at MEDIA-FPATH."
-  (when (executable-find "ffmpeg")
-    (or (with-temp-buffer ;; mp3
+  (or
+   (when (executable-find "ffmpegthumbnailer")
+     (message "Used: ffmpegthumbnailer")
+     (with-temp-buffer
+       (let* ((thumbnail-fpath (concat (make-temp-file "ready-player-") ".png"))
+              (command (list "ffmpegthumbnailer" nil t nil "-i" media-fpath "-s" "0" "-m" "-o" thumbnail-fpath))
+              (exit-code (apply 'call-process command)))
+         (when (zerop exit-code)
+           thumbnail-fpath))))
+   (when (executable-find "ffmpeg")
+     (message "Used: ffmpeg")
+     (or
+      (when (equal (file-name-extension media-fpath) "mp3")
+        (with-temp-buffer
           (let* ((thumbnail-fpath (concat (make-temp-file "ready-player-") ".png"))
                  (command (list "ffmpeg" nil t nil "-i" media-fpath "-an" "-vcodec" "copy" thumbnail-fpath))
                  (exit-code (apply 'call-process command)))
             (when (zerop exit-code)
-              thumbnail-fpath)))
-        (with-temp-buffer ;; video
-          (let* ((thumbnail-fpath (concat (make-temp-file "ready-player-") ".png"))
-                 (command (list "ffmpeg" nil t nil "-i" media-fpath "-ss" "00:00:01.000" "-vframes" "1" thumbnail-fpath))
-                 (exit-code (apply 'call-process command)))
-            (when (zerop exit-code)
-              thumbnail-fpath))))))
+              thumbnail-fpath))))
+      (with-temp-buffer ;; video
+        (let* ((thumbnail-fpath (concat (make-temp-file "ready-player-") ".png"))
+               (command (list "ffmpeg" nil t nil "-i" media-fpath "-ss" "00:00:01.000" "-vframes" "1" thumbnail-fpath))
+               (exit-code (apply 'call-process command)))
+          (when (zerop exit-code)
+            thumbnail-fpath)))))))
 
 (defun ready-player--playback-buffer ()
   "Get the process playback buffer."

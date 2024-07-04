@@ -66,6 +66,18 @@ On macOS:
   brew install ffmpeg
 #+end_src
 
+** Thumbnails
+
+=ready-player-mode= prefers [[https://github.com/dirkvdb/ffmpegthumbnailer][ffmpegthumbnailer]] to generate thumbnails, but will fallback to =ffmpeg= otherwise.
+
+Install using your favorite method.
+
+On macOS:
+
+#+begin_src sh
+  brew install ffmpegthumbnailer
+#+end_src
+
 * Customizations
 
 #+BEGIN_SRC emacs-lisp :results table :colnames '("Custom variable" "Description") :exports results
