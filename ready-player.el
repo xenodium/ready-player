@@ -4,7 +4,7 @@
 
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.12
+;; Version: 0.0.13
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -63,6 +63,11 @@
 
 (defcustom ready-player-show-thumbnail t
   "Whether or not to attempt to display a thumbnail."
+  :type 'boolean
+  :group 'ready-player)
+
+(defcustom ready-player-cache-thumbnails t
+  "Whether or not to cache thumbnails."
   :type 'boolean
   :group 'ready-player)
 
@@ -186,36 +191,45 @@ Note: This function needs to be added to `file-name-handler-alist'."
   (set-buffer-multibyte t)
   (setq buffer-read-only t)
   (setq buffer-undo-list t)
-  (let ((buffer (current-buffer))
-        (fpath (buffer-file-name))
-        (thumbnailer (if (executable-find "ffmpegthumbnailer")
-                         #'ready-player--load-file-thumbnail-via-ffmpegthumbnailer
-                       #'ready-player--load-file-thumbnail-via-ffmpeg)))
-    (funcall thumbnailer
-             fpath (lambda (thumbnail)
-                     (with-current-buffer buffer
-                       (when thumbnail
-                         (setq ready-player--thumbnail thumbnail)
-                         (ready-player--update-buffer
-                          buffer fpath ready-player--process
-                          thumbnail ready-player--metadata)
-                         ;; Point won't move to button
-                         ;; unless delayed ¯\_(ツ)_/¯.
-                         (run-with-timer 0.1 nil
-                                         (lambda ()
-                                           (goto-char (point-min))
-                                           (ready-player-next-button)))))
-                     (goto-char (point-min))))
+  (let* ((buffer (current-buffer))
+         (fpath (buffer-file-name))
+         (cached-thumbnail (ready-player--cached-thumbnail fpath))
+         (thumbnailer (if (executable-find "ffmpegthumbnailer")
+                          #'ready-player--load-file-thumbnail-via-ffmpegthumbnailer
+                        #'ready-player--load-file-thumbnail-via-ffmpeg)))
+    (if cached-thumbnail
+        (progn
+          (setq ready-player--thumbnail cached-thumbnail)
+          (ready-player--update-buffer
+           buffer fpath ready-player--process
+           cached-thumbnail ready-player--metadata))
+      (funcall thumbnailer
+               fpath (lambda (thumbnail)
+                       (when (buffer-live-p buffer)
+                         (with-current-buffer buffer
+                           (when thumbnail
+                             (setq ready-player--thumbnail thumbnail)
+                             (ready-player--update-buffer
+                              buffer fpath ready-player--process
+                              thumbnail ready-player--metadata)
+                             ;; Point won't move to button
+                             ;; unless delayed ¯\_(ツ)_/¯.
+                             (run-with-timer 0.1 nil
+                                             (lambda ()
+                                               (goto-char (point-min))
+                                               (ready-player-next-button))))))
+                       (goto-char (point-min)))))
     (ready-player--load-file-metadata
      fpath (lambda (metadata)
-             (with-current-buffer buffer
-               (when metadata
-                 (setq ready-player--metadata metadata)
-                 (ready-player--update-buffer
-                  buffer fpath ready-player--process
-                  ready-player--thumbnail metadata)
-                 (goto-char (point-min))
-                 (ready-player-next-button)))))
+             (when (buffer-live-p buffer)
+               (with-current-buffer buffer
+                 (when metadata
+                   (setq ready-player--metadata metadata)
+                   (ready-player--update-buffer
+                    buffer fpath ready-player--process
+                    ready-player--thumbnail metadata)
+                   (goto-char (point-min))
+                   (ready-player-next-button))))))
     (ready-player--update-buffer buffer fpath
                                  ready-player--process)
     (goto-char (point-min))
@@ -387,7 +401,7 @@ replacing the current Image mode buffer."
                         (message ""))))
     (image-next-file n)
     (when playing
-      (ready-player--do-play nil))))
+      (ready-player-play))))
 
 (defun ready-player-previous-file (&optional n)
   "Visit the preceding image in the same directory as the current file.
@@ -516,10 +530,32 @@ replacing the current Image mode buffer."
                             (message ""))))
       (message ""))))
 
+(defun ready-player--make-shasum (fpath)
+  "Make shasum for FPATH."
+  (with-temp-buffer
+    (call-process "shasum" nil t nil "-a" "256" fpath)
+    (goto-char (point-min))
+    (car (split-string (buffer-string)))))
+
+(defun ready-player--make-md5 (fpath)
+  "Make md5 hash for FPATH."
+  (with-temp-buffer
+    (call-process "md5" nil t nil fpath)
+    (goto-char (point-min))
+    (string-trim (nth 1 (split-string (buffer-string) "=")))))
+
+(defun ready-player--thumbnail-path (fpath)
+  "Generate thumbnail path for media at FPATH."
+  (let* ((temp-dir (concat (file-name-as-directory temporary-file-directory) "ready-player"))
+         (temp-fpath (concat (file-name-as-directory temp-dir)
+                             (ready-player--make-md5 fpath) ".png")))
+    (make-directory temp-dir t)
+    temp-fpath))
+
 (defun ready-player--load-file-thumbnail-via-ffmpegthumbnailer (media-fpath on-loaded)
   "Load media thumbnail (with ffmpegthumbnailer) at MEDIA-FPATH and invoke ON-LOADED."
   (if (executable-find "ffmpegthumbnailer")
-      (let* ((thumbnail-fpath (concat (make-temp-file "ready-player-") ".png")))
+      (let* ((thumbnail-fpath (ready-player--thumbnail-path media-fpath)))
         (make-process
          :name "ffmpegthumbnailer-process"
          :buffer (get-buffer-create "*ffmpegthumbnailer-output*")
@@ -530,10 +566,16 @@ replacing the current Image mode buffer."
              (funcall on-loaded thumbnail-fpath)))))
     (message "Metadata not available (ffmpegthumbnailer not found)")))
 
+(defun ready-player--cached-thumbnail (fpath)
+  "Get cached thumbnail for media at FPATH."
+  (let ((cache-fpath (ready-player--thumbnail-path fpath)))
+    (when (file-exists-p cache-fpath)
+      cache-fpath)))
+
 (defun ready-player--load-file-thumbnail-via-ffmpeg (media-fpath on-loaded)
   "Load media thumbnail (with ffmpeg) at MEDIA-FPATH and invoke ON-LOADED."
   (if (executable-find "ffmpeg")
-      (let* ((thumbnail-fpath (concat (make-temp-file "ready-player-") ".png")))
+      (let* ((thumbnail-fpath (ready-player--thumbnail-path media-fpath)))
         (make-process
          :name "ffmpeg-process"
          :buffer (get-buffer-create "*ffmpeg-output*")
@@ -573,15 +615,15 @@ replacing the current Image mode buffer."
 (defun ready-player--format-metadata-rows (rows)
   "Format metadata ROWS for rendering."
   (if rows
-    (let ((max-label-length (+ 1 (apply #'max (mapcar (lambda (row) (length (cdr (assoc 'label row)))) rows)))))
-      (mapconcat (lambda (row)
-                   (let ((label (cdr (assoc 'label row)))
-                         (value (cdr (assoc 'value row))))
-                     (format " %s%s %s\n\n"
-                             (propertize label 'face 'font-lock-comment-face)
-                             (make-string (- max-label-length (length label)) ?\s)
-                             value)))
-                 rows))
+      (let ((max-label-length (+ 1 (apply #'max (mapcar (lambda (row) (length (cdr (assoc 'label row)))) rows)))))
+        (mapconcat (lambda (row)
+                     (let ((label (cdr (assoc 'label row)))
+                           (value (cdr (assoc 'value row))))
+                       (format " %s%s %s\n\n"
+                               (propertize label 'face 'font-lock-comment-face)
+                               (make-string (- max-label-length (length label)) ?\s)
+                               value)))
+                   rows))
     ""))
 
 (defun ready-player--format-duration (duration)
@@ -607,7 +649,8 @@ replacing the current Image mode buffer."
 
 (defun ready-player--clean-up ()
   "Kill playback process."
-  (when ready-player--thumbnail
+  (when (and (not ready-player-cache-thumbnails)
+             ready-player--thumbnail)
     (condition-case nil
         (delete-file ready-player--thumbnail)
       (file-error nil)))
