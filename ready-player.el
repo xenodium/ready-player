@@ -4,7 +4,7 @@
 
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.10
+;; Version: 0.0.11
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -187,21 +187,24 @@ Note: This function needs to be added to `file-name-handler-alist'."
   (setq buffer-read-only t)
   (setq buffer-undo-list t)
   (let ((buffer (current-buffer))
-        (fpath (buffer-file-name)))
-    (ready-player--load-file-thumbnail
-     fpath (lambda (thumbnail)
-             (with-current-buffer buffer
-               (when thumbnail
-                 (setq ready-player--thumbnail thumbnail)
-                 (ready-player--update-buffer
-                  buffer fpath thumbnail ready-player--metadata)
-                 ;; Point won't move to button
-                 ;; unless delayed ¯\_(ツ)_/¯.
-                 (run-with-timer 0.1 nil
-                                 (lambda ()
-                                   (goto-char (point-min))
-                                   (ready-player-next-button)))))
-             (goto-char (point-min))))
+        (fpath (buffer-file-name))
+        (thumbnailer (if (executable-find "ffmpegthumbnailer")
+                         #'ready-player--load-file-thumbnail-via-ffmpegthumbnailer
+                       #'ready-player--load-file-thumbnail-via-ffmpeg)))
+    (funcall thumbnailer
+             fpath (lambda (thumbnail)
+                     (with-current-buffer buffer
+                       (when thumbnail
+                         (setq ready-player--thumbnail thumbnail)
+                         (ready-player--update-buffer
+                          buffer fpath thumbnail ready-player--metadata)
+                         ;; Point won't move to button
+                         ;; unless delayed ¯\_(ツ)_/¯.
+                         (run-with-timer 0.1 nil
+                                         (lambda ()
+                                           (goto-char (point-min))
+                                           (ready-player-next-button)))))
+                     (goto-char (point-min))))
     (ready-player--load-file-metadata
      fpath (lambda (metadata)
              (with-current-buffer buffer
@@ -507,8 +510,8 @@ replacing the current Image mode buffer."
                             (message ""))))
       (message ""))))
 
-(defun ready-player--load-file-thumbnail (media-fpath on-loaded)
-  "Load media thumbnail at MEDIA-FPATH and invoke ON-LOADED."
+(defun ready-player--load-file-thumbnail-via-ffmpegthumbnailer (media-fpath on-loaded)
+  "Load media thumbnail (with ffmpegthumbnailer) at MEDIA-FPATH and invoke ON-LOADED."
   (if (executable-find "ffmpegthumbnailer")
       (let* ((thumbnail-fpath (concat (make-temp-file "ready-player-") ".png")))
         (make-process
@@ -520,6 +523,20 @@ replacing the current Image mode buffer."
            (when (eq (process-exit-status process) 0)
              (funcall on-loaded thumbnail-fpath)))))
     (message "Metadata not available (ffmpegthumbnailer not found)")))
+
+(defun ready-player--load-file-thumbnail-via-ffmpeg (media-fpath on-loaded)
+  "Load media thumbnail (with ffmpeg) at MEDIA-FPATH and invoke ON-LOADED."
+  (if (executable-find "ffmpeg")
+      (let* ((thumbnail-fpath (concat (make-temp-file "ready-player-") ".png")))
+        (make-process
+         :name "ffmpeg-process"
+         :buffer (get-buffer-create "*ffmpeg-output*")
+         :command (list "ffmpeg" "-i" media-fpath "-vf" "thumbnail" "-frames:v" "1" thumbnail-fpath)
+         :sentinel
+         (lambda (process _)
+           (when (eq (process-exit-status process) 0)
+             (funcall on-loaded thumbnail-fpath)))))
+    (message "Metadata not available (ffmpeg not found)")))
 
 (defun ready-player--load-file-metadata (fpath on-loaded)
   "Load media metadata at FPATH and invoke ON-LOADED."
