@@ -4,7 +4,7 @@
 
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.6
+;; Version: 0.0.7
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -124,7 +124,7 @@ Omit the file path, as it will be automatically appended."
 
 ;;;###autoload
 (defun ready-player-add-to-auto-mode-alist ()
-  "Add popular media supported by `ready-player-mode'."
+  "Add media recognized by `ready-player-mode'."
   (interactive)
   (add-to-list 'auto-mode-alist
                (cons (concat "\\." (regexp-opt ready-player-supported-media t) "\\'")
@@ -141,7 +141,7 @@ Omit the file path, as it will be automatically appended."
     'ready-player-file-name-handler)))
 
 (defun ready-player-remove-from-auto-mode-alist ()
-  "Add popular media supported by `ready-player-mode'."
+  "Remove media recognized by `ready-player-mode'."
   (interactive)
   (setq auto-mode-alist
         (seq-remove (lambda (entry)

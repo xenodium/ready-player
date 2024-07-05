@@ -145,13 +145,18 @@ On macOS:
 #+END_SRC
 
 #+RESULTS:
-| SPC       | ready-player-toggle-play-stop | Toggle play/stop of media.                                           |
-| o or e    | ready-player-open-externally  | Open visited file in default external program.                       |
-|           | ready-player-mode             | Major mode to preview and play media files.                          |
-| p         | ready-player-previous-file    | Visit the preceding image in the same directory as the current file. |
-| q         | ready-player-quit             | Quit `ready-player-mode' window and kill buffer.                     |
-| n         | ready-player-next-file        | Visit the next media file in the same directory as current file.     |
-| TAB       | ready-player-next-button      | Navigate to next button.                                             |
-| <backtab> | ready-player-previous-button  | Navigate to previous button.                                         |
+|           | ready-player-add-to-auto-mode-alist      | Add media recognized by `ready-player-mode'.                         |
+|           | ready-player-stop                        | Stop media playback.                                                 |
+| SPC       | ready-player-toggle-play-stop            | Toggle play/stop of media.                                           |
+|           | ready-player-play                        | Start media playback.                                                |
+|           | ready-player-remove-from-auto-mode-alist | Remove media recognized by `ready-player-mode'.                      |
+| o or e    | ready-player-open-externally             | Open visited file in default external program.                       |
+|           | ready-player-mode                        | Major mode to preview and play media files.                          |
+| p         | ready-player-previous-file               | Visit the preceding image in the same directory as the current file. |
+| q         | ready-player-quit                        | Quit `ready-player-mode' window and kill buffer.                     |
+| g         | ready-player-toggle-reload-buffer        | Reload media from file.                                              |
+| n         | ready-player-next-file                   | Visit the next media file in the same directory as current file.     |
+| TAB       | ready-player-next-button                 | Navigate to next button.                                             |
+| <backtab> | ready-player-previous-button             | Navigate to previous button.                                         |
 
 👉 [[https://github.com/sponsors/xenodium][Support this work via GitHub Sponsors]]
