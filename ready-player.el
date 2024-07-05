@@ -145,6 +145,11 @@ preview-and-play buffer."
        (when visit (setq buffer-file-name file)))
      (ready-player-mode)
      (list file (point-max)))
+    (file-attributes
+     (let* ((file-name-handler-alist nil)
+	    (res (apply 'file-name-non-special action file more)))
+       (setf (nth 7 res) 0)
+       res))
     ((file-writable-p make-auto-save-file-name) nil)
     (t
      (let* ((file-name-handler-alist nil)
@@ -163,7 +168,8 @@ preview-and-play buffer."
   (set-buffer-multibyte t)
   (setq buffer-read-only t)
   (setq buffer-undo-list t)
-  (let* ((fpath (buffer-file-name))
+  (let* ((file-name-handler-alist nil)
+         (fpath (buffer-file-name))
          (fname (file-name-nondirectory fpath))
          (attributes (file-attributes fpath))
          (buffer-read-only nil)
