@@ -4,7 +4,7 @@
 
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.5
+;; Version: 0.0.6
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -118,9 +118,9 @@ Omit the file path, as it will be automatically appended."
 
 (defvar-local ready-player--process nil "Media-playing process.")
 
-(defvar-local ready-player--metadata nil "File metadata as per ffprobe.")
+(defvar-local ready-player--metadata nil "Metadata as per ffprobe.")
 
-(defvar-local ready-player--file-thumbnail nil "Thumbnail as per ffmpeg.")
+(defvar-local ready-player--thumbnail nil "Thumbnail as per ffmpeg.")
 
 ;;;###autoload
 (defun ready-player-add-to-auto-mode-alist ()
@@ -183,30 +183,63 @@ Note: This function needs to be added to `file-name-handler-alist'."
 (define-derived-mode ready-player-mode special-mode "Ready Player"
   "Major mode to preview and play media files."
   :keymap ready-player-mode-map
-  :after-hook (progn
-                (goto-char (point-min))
-                (search-forward ready-player-play-icon)
-                (backward-char))
   (set-buffer-multibyte t)
   (setq buffer-read-only t)
   (setq buffer-undo-list t)
-  (let* ((fpath (buffer-file-name))
-         (fname (file-name-nondirectory fpath))
-         (buffer-read-only nil)
-         (metadata-rows nil))
-    (erase-buffer)
-    (setq ready-player--metadata (ready-player--file-metadata fpath))
-    (when ready-player-show-thumbnail
-      (setq ready-player--file-thumbnail (ready-player--file-thumbnail fpath))
-      (when ready-player--file-thumbnail
-        (insert "\n ")
-        (insert-image (create-image ready-player--file-thumbnail nil nil :max-width 400))
-        (insert "\n")))
-    (insert "\n")
-    (insert (ready-player--make-file-button-line fname nil))
-    (insert "\n")
-    (insert "\n")
-    (let-alist ready-player--metadata
+  (let ((buffer (current-buffer))
+        (fpath (buffer-file-name)))
+    (ready-player--load-file-thumbnail
+     fpath (lambda (thumbnail)
+             (with-current-buffer buffer
+               (when thumbnail
+                 (setq ready-player--thumbnail thumbnail)
+                 (ready-player--update-buffer
+                  buffer fpath thumbnail ready-player--metadata)
+                 ;; Point won't move to button
+                 ;; unless delayed ¯\_(ツ)_/¯.
+                 (run-with-timer 0.1 nil
+                                 (lambda ()
+                                   (ready-player-next-button)))))
+             (goto-char (point-min))))
+    (ready-player--load-file-metadata
+     fpath (lambda (metadata)
+             (with-current-buffer buffer
+               (when metadata
+                 (setq ready-player--metadata metadata)
+                 (ready-player--update-buffer
+                  buffer fpath ready-player--thumbnail metadata)
+                 (ready-player-next-button)))))
+    (ready-player--update-buffer buffer fpath)
+    (ready-player-next-button))
+  (add-hook 'kill-buffer-hook #'ready-player--clean-up nil t))
+
+(defun ready-player--update-buffer (buffer fpath &optional thumbnail metadata)
+  "Update entire BUFFER content with FPATH THUMBNAIL and METADATA."
+  (let ((fname (file-name-nondirectory fpath))
+        (buffer-read-only nil))
+    (with-current-buffer buffer
+      (erase-buffer)
+      (goto-char (point-min))
+      (when (and ready-player-show-thumbnail thumbnail)
+        (let ((inhibit-read-only t))
+          (when thumbnail
+            (insert "\n ")
+            (insert-image (create-image thumbnail nil nil :max-width 400))
+            (insert "\n"))
+          (set-buffer-modified-p nil)))
+      (insert "\n")
+      (insert (ready-player--make-file-button-line fname nil))
+      (insert "\n")
+      (insert "\n")
+      (when metadata
+        (insert (ready-player--format-metadata-rows
+                 (ready-player--make-metadata-rows metadata))))
+      (set-buffer-modified-p nil))))
+
+(defun ready-player--make-metadata-rows (metadata)
+  "Make METADATA row data."
+  (let ((metadata-rows))
+    (let-alist metadata
       (when .format.tags.title
         (setq metadata-rows
               (append metadata-rows
@@ -243,9 +276,7 @@ Note: This function needs to be added to `file-name-handler-alist'."
                       (list
                        (list (cons 'label "File size:")
                              (cons 'value (ready-player--readable-size .format.size))))))))
-    (insert (ready-player--format-metadata-rows metadata-rows))
-    (add-hook 'kill-buffer-hook #'ready-player--clean-up nil t)
-    (set-buffer-modified-p nil)))
+    metadata-rows))
 
 (defun ready-player-next-button ()
   "Navigate to next button."
@@ -473,46 +504,34 @@ replacing the current Image mode buffer."
                             (message ""))))
       (message ""))))
 
-(defun ready-player--file-metadata (fpath)
-  "Get media metadata at FPATH."
-  (if (executable-find "ffprobe")
-      (with-temp-buffer
-        (let* ((command (list "ffprobe" nil t nil "-v" "quiet" "-print_format" "json" "-show_format" "-show_streams" fpath))
-               (exit-code (apply 'call-process command)))
-          (if (zerop exit-code)
-              (progn
-                (goto-char (point-min))
-                (json-parse-buffer :object-type 'alist))
-            (message "ffprobe couldn't fetch metadata")
-            nil)))
-    (message "Metadata not available (ffprob not found)")
-    nil))
+(defun ready-player--load-file-thumbnail (media-fpath on-loaded)
+  "Load media thumbnail at MEDIA-FPATH and invoke ON-LOADED."
+  (if (executable-find "ffmpegthumbnailer")
+      (let* ((thumbnail-fpath (concat (make-temp-file "ready-player-") ".png")))
+        (make-process
+         :name "ffmpegthumbnailer-process"
+         :buffer (get-buffer-create "*ffmpegthumbnailer-output*")
+         :command (list "ffmpegthumbnailer" "-i" media-fpath "-s" "0" "-m" "-o" thumbnail-fpath)
+         :sentinel
+         (lambda (process _)
+           (when (eq (process-exit-status process) 0)
+             (funcall on-loaded thumbnail-fpath)))))
+    (message "Metadata not available (ffmpegthumbnailer not found)")))
 
-(defun ready-player--file-thumbnail (media-fpath)
-  "Get media thumbnail at MEDIA-FPATH."
-  (or
-   (when (executable-find "ffmpegthumbnailer")
-     (with-temp-buffer
-       (let* ((thumbnail-fpath (concat (make-temp-file "ready-player-") ".png"))
-              (command (list "ffmpegthumbnailer" nil t nil "-i" media-fpath "-s" "0" "-m" "-o" thumbnail-fpath))
-              (exit-code (apply 'call-process command)))
-         (when (zerop exit-code)
-           thumbnail-fpath))))
-   (when (executable-find "ffmpeg")
-     (or
-      (when (equal (file-name-extension media-fpath) "mp3")
-        (with-temp-buffer
-          (let* ((thumbnail-fpath (concat (make-temp-file "ready-player-") ".png"))
-                 (command (list "ffmpeg" nil t nil "-i" media-fpath "-an" "-vcodec" "copy" thumbnail-fpath))
-                 (exit-code (apply 'call-process command)))
-            (when (zerop exit-code)
-              thumbnail-fpath))))
-      (with-temp-buffer ;; video
-        (let* ((thumbnail-fpath (concat (make-temp-file "ready-player-") ".png"))
-               (command (list "ffmpeg" nil t nil "-i" media-fpath "-ss" "00:00:01.000" "-vframes" "1" thumbnail-fpath))
-               (exit-code (apply 'call-process command)))
-          (when (zerop exit-code)
-            thumbnail-fpath)))))))
+(defun ready-player--load-file-metadata (fpath on-loaded)
+  "Load media metadata at FPATH and invoke ON-LOADED."
+  (if (executable-find "ffprobe")
+      (make-process
+       :name "ffprobe-process"
+       :buffer (get-buffer-create "*ffprobe-output*")
+       :command (list "ffprobe" "-v" "quiet" "-print_format" "json" "-show_format" "-show_streams" fpath)
+       :sentinel
+       (lambda (process _)
+         (when (eq (process-exit-status process) 0)
+           (with-current-buffer (process-buffer process)
+             (goto-char (point-min))
+             (funcall on-loaded (json-parse-buffer :object-type 'alist))))))
+    (message "Metadata not available (ffprobe not found)")))
 
 (defun ready-player--playback-buffer ()
   "Get the process playback buffer."
@@ -562,9 +581,9 @@ replacing the current Image mode buffer."
 
 (defun ready-player--clean-up ()
   "Kill playback process."
-  (when ready-player--file-thumbnail
+  (when ready-player--thumbnail
     (condition-case nil
-        (delete-file ready-player--file-thumbnail)
+        (delete-file ready-player--thumbnail)
       (file-error nil)))
   (when ready-player--process
     (delete-process ready-player--process)
