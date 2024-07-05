@@ -87,6 +87,14 @@
   :type 'string
   :group 'ready-player)
 
+(defcustom ready-player-stop-icon
+  (if (string-equal system-type "darwin")
+      "􀛷"
+    "■")
+  "Stop icon string, for example: \"■\"."
+  :type 'string
+  :group 'ready-player)
+
 (defcustom ready-player-open-playback-commands
   '(("mpv" "--audio-display=no")
     ("vlc")
@@ -112,14 +120,6 @@ Omit the file path, as it will be automatically appended."
   "Supported media types."
   :group 'play-mode
   :type '(repeat string))
-
-(defcustom ready-player-stop-icon
-  (if (string-equal system-type "darwin")
-      "􀛷"
-    "■")
-  "Stop icon string, for example: \"■\"."
-  :type 'string
-  :group 'ready-player)
 
 (defvar-local ready-player--process nil "Media-playing process.")
 
