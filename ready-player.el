@@ -124,9 +124,52 @@ Omit the file path, as it will be automatically appended."
 
 ;;;###autoload
 (defun ready-player-add-to-auto-mode-alist ()
-  "Add popular media supported by mpv."
+  "Add popular media supported by `ready-player-mode'."
+  (interactive)
   (dolist (ext ready-player-supported-media)
-    (add-to-list 'auto-mode-alist (cons (concat "\\." ext "\\'") 'ready-player-mode))))
+    (add-to-list 'auto-mode-alist (cons (concat "\\." ext "\\'") 'ready-player-mode)))
+  ;; Suppress unnecessary buffer loading via file-name-handler-alist.
+  (add-to-list
+   'file-name-handler-alist
+   (cons
+    (concat "\\." (regexp-opt (append ready-player-supported-media
+                                     ;; Also include uppercase extensions.
+                                     ;; APFS (Apple File System) is case-insensitive.
+                                     (mapcar 'upcase ready-player-supported-media))
+                             t) "\\'")
+    'ready-player-file-name-handler)))
+
+(defun ready-player-remove-from-auto-mode-alist ()
+  "Add popular media supported by `ready-player-mode'."
+  (interactive)
+  (setq auto-mode-alist
+        (seq-remove (lambda (entry)
+                      (and (symbolp (cdr entry))
+                           (string-match "ready-player-mode" (symbol-name (cdr entry)))))
+                    auto-mode-alist))
+  (setq file-name-handler-alist
+        (seq-remove (lambda (entry)
+                      (equal 'ready-player-file-name-handler (cdr entry)))
+                    file-name-handler-alist)))
+
+(defun ready-player-file-name-handler (operation &rest args)
+  "Suppress `insert-file-contents' OPERATION with ARGS.
+
+`ready-player-mode' doesn't need to load files into the buffer.
+
+Note: This function needs to be added to `file-name-handler-alist'."
+  (pcase operation
+    ('insert-file-contents
+     (cl-destructuring-bind (filename visit _beg _end _replace) args
+       (when visit
+         (setq buffer-file-name filename))
+       (list buffer-file-name (point-max))))
+    (_ (let ((inhibit-file-name-handlers
+              (cons 'ready-player-file-name-handler
+                    (and (eq inhibit-file-name-operation operation)
+                         inhibit-file-name-handlers)))
+             (inhibit-file-name-operation operation))
+         (apply operation args)))))
 
 (define-derived-mode ready-player-mode special-mode "Ready Player"
   "Major mode to preview and play media files."
