@@ -4,7 +4,7 @@
 
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.7
+;; Version: 0.0.8
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -274,7 +274,7 @@ Note: This function needs to be added to `file-name-handler-alist'."
         (setq metadata-rows
               (append metadata-rows
                       (list
-                       (list (cons 'label "File size:")
+                       (list (cons 'label "Size:")
                              (cons 'value (ready-player--readable-size .format.size))))))))
     metadata-rows))
 
