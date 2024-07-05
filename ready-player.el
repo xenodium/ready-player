@@ -164,6 +164,14 @@ Note: This function needs to be added to `file-name-handler-alist'."
        (when visit
          (setq buffer-file-name filename))
        (list buffer-file-name (point-max))))
+    ('file-attributes
+     (let* ((file-name-handler-alist nil)
+	    (attributes (apply 'file-name-non-special
+                               (append (list operation) args))))
+       ;; 7 is file size location
+       ;; as per `file-attributes'.
+       (setf (nth 7 attributes) 0)
+       attributes))
     (_ (let ((inhibit-file-name-handlers
               (cons 'ready-player-file-name-handler
                     (and (eq inhibit-file-name-operation operation)
@@ -228,12 +236,13 @@ Note: This function needs to be added to `file-name-handler-alist'."
               (append metadata-rows
                       (list
                        (list (cons 'label "Duration:")
-                             (cons 'value (ready-player--format-duration .format.duration))))))))
-    (setq metadata-rows
-          (append metadata-rows
-                  (list
-                   (list (cons 'label "File size:")
-                         (cons 'value (ready-player--readable-size (nth 7 attributes))))) ))
+                             (cons 'value (ready-player--format-duration .format.duration)))))))
+      (when .format.duration
+        (setq metadata-rows
+              (append metadata-rows
+                      (list
+                       (list (cons 'label "File size:")
+                             (cons 'value (ready-player--readable-size .format.size))))))))
     (insert (ready-player--format-metadata-rows metadata-rows))
     (add-hook 'kill-buffer-hook #'ready-player--clean-up nil t)
     (set-buffer-modified-p nil)))
@@ -538,6 +547,7 @@ replacing the current Image mode buffer."
 
 (defun ready-player--readable-size (size)
   "Format SIZE in a human-readable format."
+  (setq size (string-to-number size))
   (cond
    ((> size (* 1024 1024 1024))
     (format "%.2f GB" (/ (float size) (* 1024 1024 1024))))
