@@ -128,6 +128,31 @@ Omit the file path, as it will be automatically appended."
   (dolist (ext ready-player-supported-media)
     (add-to-list 'auto-mode-alist (cons (concat "\\." ext "\\'") 'ready-player-mode))))
 
+(defun ready-player-add-to-file-handler-alist ()
+  "Add popular media supported by mpv using handler. This should be
+better when possibly playing huge files."
+  (add-to-list 'file-name-handler-alist
+               (cons (concat "\\." (regexp-opt ready-player-supported-media t) "\\'") 'ready-player-handler)))
+
+;;;###autoload
+(defun ready-player-handler (action &optional file &rest more)
+  "Do not actually load content of video files, just make a
+preview-and-play buffer."
+  (cl-case action
+    ((insert-file-contents)
+     (message "Handle %S %S %S ..." action file more)
+     (cl-destructuring-bind (visit beg end replace) more
+       (when visit (setq buffer-file-name file)))
+     (ready-player-mode)
+     (list file (point-max)))
+    ((file-writable-p make-auto-save-file-name) nil)
+    (t
+     (let* ((file-name-handler-alist nil)
+	    (res (apply 'file-name-non-special action file more)))
+       ;;      (message "Handle %S %S %S -> %S" action file more res)
+       res))))
+
+
 (define-derived-mode ready-player-mode special-mode "Ready Player"
   "Major mode to preview and play media files."
   :keymap ready-player-mode-map
