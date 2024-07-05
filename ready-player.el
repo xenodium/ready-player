@@ -126,8 +126,9 @@ Omit the file path, as it will be automatically appended."
 (defun ready-player-add-to-auto-mode-alist ()
   "Add popular media supported by `ready-player-mode'."
   (interactive)
-  (dolist (ext ready-player-supported-media)
-    (add-to-list 'auto-mode-alist (cons (concat "\\." ext "\\'") 'ready-player-mode)))
+  (add-to-list 'auto-mode-alist
+               (cons (concat "\\." (regexp-opt ready-player-supported-media t) "\\'")
+                     'ready-player-mode))
   ;; Suppress unnecessary buffer loading via file-name-handler-alist.
   (add-to-list
    'file-name-handler-alist
