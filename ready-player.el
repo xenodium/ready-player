@@ -191,7 +191,6 @@ Note: This function needs to be added to `file-name-handler-alist'."
   (setq buffer-undo-list t)
   (let* ((fpath (buffer-file-name))
          (fname (file-name-nondirectory fpath))
-         (attributes (file-attributes fpath))
          (buffer-read-only nil)
          (metadata-rows nil))
     (erase-buffer)
@@ -237,7 +236,7 @@ Note: This function needs to be added to `file-name-handler-alist'."
                       (list
                        (list (cons 'label "Duration:")
                              (cons 'value (ready-player--format-duration .format.duration)))))))
-      (when .format.duration
+      (when .format.size
         (setq metadata-rows
               (append metadata-rows
                       (list
@@ -527,15 +526,17 @@ replacing the current Image mode buffer."
 
 (defun ready-player--format-metadata-rows (rows)
   "Format metadata ROWS for rendering."
-  (let ((max-label-length (+ 1 (apply #'max (mapcar (lambda (row) (length (cdr (assoc 'label row)))) rows)))))
-    (mapconcat (lambda (row)
-                 (let ((label (cdr (assoc 'label row)))
-                       (value (cdr (assoc 'value row))))
-                   (format " %s%s %s\n\n"
-                           (propertize label 'face 'font-lock-comment-face)
-                           (make-string (- max-label-length (length label)) ?\s)
-                           value)))
-               rows)))
+  (if rows
+    (let ((max-label-length (+ 1 (apply #'max (mapcar (lambda (row) (length (cdr (assoc 'label row)))) rows)))))
+      (mapconcat (lambda (row)
+                   (let ((label (cdr (assoc 'label row)))
+                         (value (cdr (assoc 'value row))))
+                     (format " %s%s %s\n\n"
+                             (propertize label 'face 'font-lock-comment-face)
+                             (make-string (- max-label-length (length label)) ?\s)
+                             value)))
+                 rows))
+    ""))
 
 (defun ready-player--format-duration (duration)
   "Format DURATION in a human-readable format."
