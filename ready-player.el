@@ -4,7 +4,7 @@
 
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.8
+;; Version: 0.0.10
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -199,6 +199,7 @@ Note: This function needs to be added to `file-name-handler-alist'."
                  ;; unless delayed ¯\_(ツ)_/¯.
                  (run-with-timer 0.1 nil
                                  (lambda ()
+                                   (goto-char (point-min))
                                    (ready-player-next-button)))))
              (goto-char (point-min))))
     (ready-player--load-file-metadata
@@ -208,8 +209,10 @@ Note: This function needs to be added to `file-name-handler-alist'."
                  (setq ready-player--metadata metadata)
                  (ready-player--update-buffer
                   buffer fpath ready-player--thumbnail metadata)
+                 (goto-char (point-min))
                  (ready-player-next-button)))))
     (ready-player--update-buffer buffer fpath)
+    (goto-char (point-min))
     (ready-player-next-button))
   (add-hook 'kill-buffer-hook #'ready-player--clean-up nil t))
 
