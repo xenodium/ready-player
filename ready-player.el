@@ -4,7 +4,7 @@
 
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.11
+;; Version: 0.0.12
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -197,7 +197,8 @@ Note: This function needs to be added to `file-name-handler-alist'."
                        (when thumbnail
                          (setq ready-player--thumbnail thumbnail)
                          (ready-player--update-buffer
-                          buffer fpath thumbnail ready-player--metadata)
+                          buffer fpath ready-player--process
+                          thumbnail ready-player--metadata)
                          ;; Point won't move to button
                          ;; unless delayed ¯\_(ツ)_/¯.
                          (run-with-timer 0.1 nil
@@ -211,16 +212,18 @@ Note: This function needs to be added to `file-name-handler-alist'."
                (when metadata
                  (setq ready-player--metadata metadata)
                  (ready-player--update-buffer
-                  buffer fpath ready-player--thumbnail metadata)
+                  buffer fpath ready-player--process
+                  ready-player--thumbnail metadata)
                  (goto-char (point-min))
                  (ready-player-next-button)))))
-    (ready-player--update-buffer buffer fpath)
+    (ready-player--update-buffer buffer fpath
+                                 ready-player--process)
     (goto-char (point-min))
     (ready-player-next-button))
   (add-hook 'kill-buffer-hook #'ready-player--clean-up nil t))
 
-(defun ready-player--update-buffer (buffer fpath &optional thumbnail metadata)
-  "Update entire BUFFER content with FPATH THUMBNAIL and METADATA."
+(defun ready-player--update-buffer (buffer fpath busy &optional thumbnail metadata)
+  "Update entire BUFFER content with FPATH BUSY THUMBNAIL and METADATA."
   (let ((fname (file-name-nondirectory fpath))
         (buffer-read-only nil))
     (with-current-buffer buffer
@@ -234,7 +237,7 @@ Note: This function needs to be added to `file-name-handler-alist'."
             (insert "\n"))
           (set-buffer-modified-p nil)))
       (insert "\n")
-      (insert (ready-player--make-file-button-line fname nil))
+      (insert (ready-player--make-file-button-line fname busy))
       (insert "\n")
       (insert "\n")
       (when metadata
@@ -375,13 +378,16 @@ replacing the current Image mode buffer."
   (unless (eq major-mode 'ready-player-mode)
     (user-error "Not in a ready-player-mode buffer"))
   (let ((major-mode 'image-mode) ;; pretend to be image-mode.
-        (image-file-name-extensions ready-player-supported-media))
+        (image-file-name-extensions ready-player-supported-media)
+        (playing ready-player--process))
     (when (> n 0)
       (message "Next")
       (run-with-timer 0.8 nil
                       (lambda ()
                         (message ""))))
-    (image-next-file n)))
+    (image-next-file n)
+    (when playing
+      (ready-player--do-play nil))))
 
 (defun ready-player-previous-file (&optional n)
   "Visit the preceding image in the same directory as the current file.
@@ -408,7 +414,7 @@ replacing the current Image mode buffer."
              (process ready-player--process))
     (delete-process process)
     (setq ready-player--process nil)
-    (ready-player--refresh-status (file-name-nondirectory fpath) nil)
+    (ready-player--refresh-status (file-name-nondirectory fpath) ready-player--process)
     (kill-buffer (ready-player--playback-buffer))))
 
 (defun ready-player-play ()
@@ -422,13 +428,13 @@ replacing the current Image mode buffer."
                                        (append
                                         (list "*play mode*" (ready-player--playback-buffer))
                                         (ready-player--playback-command) (list fpath))))
-    (ready-player--refresh-status (file-name-nondirectory fpath) t)
+    (ready-player--refresh-status (file-name-nondirectory fpath) ready-player--process)
     (set-process-sentinel
      ready-player--process
      (lambda (process _)
        (when (memq (process-status process) '(exit signal))
          (setq ready-player--process nil)
-         (ready-player--refresh-status (file-name-nondirectory fpath) nil))))
+         (ready-player--refresh-status (file-name-nondirectory fpath) ready-player--process))))
     (set-process-filter ready-player--process #'comint-output-filter)))
 
 (defun ready-player-toggle-play-stop ()
@@ -608,7 +614,7 @@ replacing the current Image mode buffer."
   (when ready-player--process
     (delete-process ready-player--process)
     (setq ready-player--process nil)
-    (ready-player--refresh-status (file-name-nondirectory (buffer-file-name)) nil)))
+    (ready-player--refresh-status (file-name-nondirectory (buffer-file-name)) ready-player--process)))
 
 (provide 'ready-player)
 
