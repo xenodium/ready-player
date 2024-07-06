@@ -4,7 +4,7 @@
 
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.13
+;; Version: 0.0.14
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -442,6 +442,7 @@ replacing the current Image mode buffer."
                                        (append
                                         (list "*play mode*" (ready-player--playback-buffer))
                                         (ready-player--playback-command) (list fpath))))
+    (set-process-query-on-exit-flag ready-player--process nil)
     (ready-player--refresh-status (file-name-nondirectory fpath) ready-player--process)
     (set-process-sentinel
      ready-player--process
