@@ -4,7 +4,7 @@
 
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.17
+;; Version: 0.0.19
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -565,14 +565,18 @@ replacing the current Image mode buffer."
          :command (list "ffmpegthumbnailer" "-i" media-fpath "-s" "0" "-m" "-o" thumbnail-fpath)
          :sentinel
          (lambda (process _)
-           (when (eq (process-exit-status process) 0)
-             (funcall on-loaded thumbnail-fpath)))))
+           (if (eq (process-exit-status process) 0)
+               (funcall on-loaded thumbnail-fpath)
+             (condition-case nil
+                 (delete-file thumbnail-fpath)
+               (file-error nil))))))
     (message "Metadata not available (ffmpegthumbnailer not found)")))
 
 (defun ready-player--cached-thumbnail (fpath)
   "Get cached thumbnail for media at FPATH."
   (let ((cache-fpath (ready-player--thumbnail-path fpath)))
-    (when (file-exists-p cache-fpath)
+    (when (and (file-exists-p cache-fpath)
+               (> (file-attribute-size (file-attributes cache-fpath)) 0))
       cache-fpath)))
 
 (defun ready-player--load-file-thumbnail-via-ffmpeg (media-fpath on-loaded)
@@ -585,8 +589,11 @@ replacing the current Image mode buffer."
          :command (list "ffmpeg" "-i" media-fpath "-vf" "thumbnail" "-frames:v" "1" thumbnail-fpath)
          :sentinel
          (lambda (process _)
-           (when (eq (process-exit-status process) 0)
-             (funcall on-loaded thumbnail-fpath)))))
+           (if (eq (process-exit-status process) 0)
+               (funcall on-loaded thumbnail-fpath)
+             (condition-case nil
+                 (delete-file thumbnail-fpath)
+               (file-error nil))))))
     (message "Metadata not available (ffmpeg not found)")))
 
 (defun ready-player--load-file-metadata (fpath on-loaded)
