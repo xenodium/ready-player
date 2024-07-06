@@ -4,7 +4,7 @@
 
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.21
+;; Version: 0.0.22
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -88,11 +88,26 @@
         (setq result nil)))
     result))
 
+(defcustom ready-player--default-button 'play-stop
+  "Button to focus on launch."
+  :type 'symbol
+  :group 'ready-player)
+
+(defcustom ready-player-previous-icon "<<"
+  "Previous button icon string, for example: \"<<\"."
+  :type 'string
+  :group 'ready-player)
+
 (defcustom ready-player-play-icon
   (if (ready-player-displays-as-sf-symbol-p "􀊄")
       "􀊄"
     "⏵")
-  "Play icon string, for example: \"⏵\"."
+  "Play button icon string, for example: \"⏵\"."
+  :type 'string
+  :group 'ready-player)
+
+(defcustom ready-player-next-icon ">>"
+  "Next button icon string, for example: \">>\"."
   :type 'string
   :group 'ready-player)
 
@@ -100,7 +115,7 @@
   (if (ready-player-displays-as-sf-symbol-p "􀉐")
       "􀉐"
     "➦")
-  "Open externally icon string, for example: \"➦\"."
+  "Open externally button icon string, for example: \"➦\"."
   :type 'string
   :group 'ready-player)
 
@@ -233,8 +248,9 @@ Note: This function needs to be added to `file-name-handler-alist'."
                              ;; unless delayed ¯\_(ツ)_/¯.
                              (run-with-timer 0.1 nil
                                              (lambda ()
-                                               (goto-char (point-min))
-                                               (ready-player-next-button))))))
+                                               (with-current-buffer buffer
+                                                 (ready-player--goto-button
+                                                  ready-player--default-button)))))))
                        (goto-char (point-min)))))
     (ready-player--load-file-metadata
      fpath (lambda (metadata)
@@ -245,13 +261,20 @@ Note: This function needs to be added to `file-name-handler-alist'."
                    (ready-player--update-buffer
                     buffer fpath ready-player--process
                     ready-player--thumbnail metadata)
-                   (goto-char (point-min))
-                   (ready-player-next-button))))))
+                   (ready-player--goto-button
+                    ready-player--default-button))))))
     (ready-player--update-buffer buffer fpath
                                  ready-player--process)
-    (goto-char (point-min))
-    (ready-player-next-button))
-  (add-hook 'kill-buffer-hook #'ready-player--clean-up nil t))
+    (ready-player--goto-button
+     ready-player--default-button))
+  (add-hook 'kill-buffer-hook #'ready-player--clean-up nil t)
+  (add-hook 'post-command-hook #'ready-player--save-default-button nil t))
+
+(defun ready-player--save-default-button ()
+  "Detect and handle point movement."
+  (setq ready-player--default-button
+        (or (get-text-property (point) 'button)
+            'play-stop)))
 
 (defun ready-player--update-buffer (buffer fpath busy &optional thumbnail metadata)
   "Update entire BUFFER content with FPATH BUSY THUMBNAIL and METADATA."
@@ -318,29 +341,54 @@ Note: This function needs to be added to `file-name-handler-alist'."
                              (cons 'value (ready-player--readable-size .format.size))))))))
     metadata-rows))
 
+(defun ready-player--goto-button (button)
+  "Goto BUTTON."
+  (message "jump to: %s" button)
+  (goto-char (point-min))
+  (ready-player-search-forward 'button button))
+
+(defun ready-player-search-forward (prop val)
+  "Search forward for text with property PROP set to VAL."
+  (interactive)
+  (let ((pos (text-property-any (point) (point-max) prop val)))
+    (when pos
+      (goto-char pos))))
+
+(defun ready-player-search-backward (prop val)
+  "Search backward for text with property PROP set to VAL."
+  (interactive)
+  (let ((pos (text-property-any (point-min) (point) prop val))
+        (closest-pos nil))
+    (while pos
+      (setq closest-pos pos)
+      (setq pos (text-property-any (1+ pos) (point) prop val)))
+    (when closest-pos
+      (goto-char closest-pos))))
+
 (defun ready-player-next-button ()
   "Navigate to next button."
   (interactive)
   (unless (eq major-mode 'ready-player-mode)
     (user-error "Not in a ready-player-mode buffer"))
   (or (progn
-        (when (equal (symbol-name (symbol-at-point)) ready-player-play-icon)
-          (forward-char))
-        (when (search-forward ready-player-play-icon nil t)
-          (forward-char -1)
+        (when (eq (get-text-property (point) 'button) 'previous)
+          (ready-player-search-forward 'button nil))
+        (when (ready-player-search-forward 'button 'previous)
           t))
       (progn
-        (when (equal (symbol-name (symbol-at-point)) ready-player-stop-icon)
-          (forward-char))
-        (when (search-forward ready-player-stop-icon nil t)
-          (forward-char -1)
+        (when (eq (get-text-property (point) 'button) 'play-stop)
+          (ready-player-search-forward 'button nil))
+        (when (ready-player-search-forward 'button 'play-stop)
           t))
       (progn
-        (when (equal (symbol-name (symbol-at-point))
-                     ready-player-open-externally-icon)
-          (forward-char))
-        (when (search-forward ready-player-open-externally-icon nil t)
-          (forward-char -1)
+        (when (eq (get-text-property (point) 'button) 'next)
+          (ready-player-search-forward 'button nil))
+        (when (ready-player-search-forward 'button 'next)
+          t))
+      (progn
+        (when (eq (get-text-property (point) 'button) 'open-externally)
+          (ready-player-search-forward 'button nil))
+        (when (ready-player-search-forward 'button 'open-externally)
           t))
       (progn
         (goto-char (point-min))
@@ -352,18 +400,25 @@ Note: This function needs to be added to `file-name-handler-alist'."
   (unless (eq major-mode 'ready-player-mode)
     (user-error "Not in a ready-player-mode buffer"))
   (or (progn
-        (when (equal (symbol-name (symbol-at-point))
-                     ready-player-open-externally-icon)
-          (forward-char -1))
-        (search-backward ready-player-open-externally-icon nil t))
+        (when (eq (get-text-property (point) 'button) 'open-externally)
+          (ready-player-search-backward 'button nil))
+        (when (ready-player-search-backward 'button 'open-externally)
+          t))
       (progn
-        (when (equal (symbol-name (symbol-at-point)) ready-player-play-icon)
-          (forward-char -1))
-        (search-backward ready-player-play-icon nil t))
+        (when (eq (get-text-property (point) 'button) 'next)
+          (ready-player-search-backward 'button nil))
+        (when (ready-player-search-backward 'button 'next)
+          t))
       (progn
-        (when (equal (symbol-name (symbol-at-point)) ready-player-stop-icon)
-          (forward-char -1))
-        (search-backward ready-player-stop-icon nil t))
+        (when (eq (get-text-property (point) 'button) 'play-stop)
+          (ready-player-search-backward 'button nil))
+        (when (ready-player-search-backward 'button 'play-stop)
+          t))
+      (progn
+        (when (eq (get-text-property (point) 'button) 'previous)
+          (ready-player-search-backward 'button nil))
+        (when (ready-player-search-backward 'button 'previous)
+          t))
       (progn
         (goto-char (point-max))
         (ready-player-previous-button))))
@@ -513,7 +568,17 @@ replacing the current Image mode buffer."
 
 (defun ready-player--make-file-button-line (fname busy)
   "Create button line with FNAME and BUSY."
-  (format " %s %s"
+  (format " %s %s %s %s"
+          (propertize
+           (format " %s " ready-player-previous-icon)
+           'face '(:box t)
+           'pointer 'hand
+           'keymap (let ((map (make-sparse-keymap)))
+                     (define-key map [mouse-1] #'ready-player-previous-file)
+                     (define-key map (kbd "RET") #'ready-player-previous-file)
+                     (define-key map [remap self-insert-command] 'ignore)
+                     map)
+           'button 'previous)
           (propertize
            (format " %s %s "
                    (if busy
@@ -526,7 +591,17 @@ replacing the current Image mode buffer."
                      (define-key map [mouse-1] #'ready-player-toggle-play-stop)
                      (define-key map (kbd "RET") #'ready-player-toggle-play-stop)
                      (define-key map [remap self-insert-command] 'ignore)
-                     map))
+                     map)
+           'button 'play-stop)
+          (propertize (format " %s " ready-player-next-icon)
+                      'face '(:box t)
+                      'pointer 'hand
+                      'keymap (let ((map (make-sparse-keymap)))
+                                (define-key map [mouse-1] #'ready-player-next-file)
+                                (define-key map (kbd "RET") #'ready-player-next-file)
+                                (define-key map [remap self-insert-command] 'ignore)
+                                map)
+                      'button 'next)
           (propertize (format " %s " ready-player-open-externally-icon)
                       'face '(:box t)
                       'pointer 'hand
@@ -534,7 +609,8 @@ replacing the current Image mode buffer."
                                 (define-key map [mouse-1] #'ready-player-open-externally)
                                 (define-key map (kbd "RET") #'ready-player-open-externally)
                                 (define-key map [remap self-insert-command] 'ignore)
-                                map))))
+                                map)
+                      'button 'open-externally)))
 
 (defun ready-player--refresh-buffer-status (buffer fname busy)
   "Refresh and render status in buffer with BUFFER, FNAME and BUSY."
