@@ -4,7 +4,7 @@
 
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.15
+;; Version: 0.0.16
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -71,26 +71,17 @@
   :type 'boolean
   :group 'ready-player)
 
-(defcustom ready-player-play-icon
-  (if (string-equal system-type "darwin")
-      "􀊄"
-    "⏵")
+(defcustom ready-player-play-icon "⏵"
   "Play icon string, for example: \"⏵\"."
   :type 'string
   :group 'ready-player)
 
-(defcustom ready-player-open-externally-icon
-  (if (string-equal system-type "darwin")
-      "􀉐"
-    "➦")
+(defcustom ready-player-open-externally-icon "➦"
   "Open externally icon string, for example: \"➦\"."
   :type 'string
   :group 'ready-player)
 
-(defcustom ready-player-stop-icon
-  (if (string-equal system-type "darwin")
-      "􀛷"
-    "■")
+(defcustom ready-player-stop-icon "■"
   "Stop icon string, for example: \"■\"."
   :type 'string
   :group 'ready-player)
