@@ -4,7 +4,7 @@
 
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.19
+;; Version: 0.0.20
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -599,16 +599,20 @@ replacing the current Image mode buffer."
 (defun ready-player--load-file-metadata (fpath on-loaded)
   "Load media metadata at FPATH and invoke ON-LOADED."
   (if (executable-find "ffprobe")
-      (make-process
-       :name "ffprobe-process"
-       :buffer (get-buffer-create "*ffprobe-output*")
-       :command (list "ffprobe" "-v" "quiet" "-print_format" "json" "-show_format" "-show_streams" fpath)
-       :sentinel
-       (lambda (process _)
-         (when (eq (process-exit-status process) 0)
-           (with-current-buffer (process-buffer process)
-             (goto-char (point-min))
-             (funcall on-loaded (json-parse-buffer :object-type 'alist))))))
+      (let ((buffer (generate-new-buffer "*ffprobe-output*")))
+        (with-current-buffer buffer
+          (erase-buffer))
+        (make-process
+         :name "ffprobe-process"
+         :buffer buffer
+         :command (list "ffprobe" "-v" "quiet" "-print_format" "json" "-show_format" "-show_streams" fpath)
+         :sentinel
+         (lambda (process _)
+           (when (eq (process-exit-status process) 0)
+             (with-current-buffer (process-buffer process)
+               (goto-char (point-min))
+               (funcall on-loaded (json-parse-buffer :object-type 'alist))))
+           (kill-buffer (process-buffer process)))))
     (message "Metadata not available (ffprobe not found)")))
 
 (defun ready-player--playback-buffer ()
