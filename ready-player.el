@@ -4,7 +4,7 @@
 
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.14
+;; Version: 0.0.15
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -468,7 +468,11 @@ replacing the current Image mode buffer."
   (interactive)
   (unless (eq major-mode 'ready-player-mode)
     (user-error "Not in a ready-player-mode buffer"))
-  (revert-buffer nil t)
+  (let ((playing ready-player--process))
+    (ready-player-stop)
+    (revert-buffer nil t)
+    (when playing
+      (ready-player-play)))
   (message "Reloaded")
   (run-with-timer 1 nil
                   (lambda ()
