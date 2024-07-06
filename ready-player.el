@@ -4,7 +4,7 @@
 
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.22
+;; Version: 0.0.23
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -250,8 +250,7 @@ Note: This function needs to be added to `file-name-handler-alist'."
                                              (lambda ()
                                                (with-current-buffer buffer
                                                  (ready-player--goto-button
-                                                  ready-player--default-button)))))))
-                       (goto-char (point-min)))))
+                                                  ready-player--default-button))))))))))
     (ready-player--load-file-metadata
      fpath (lambda (metadata)
              (when (buffer-live-p buffer)
@@ -267,14 +266,7 @@ Note: This function needs to be added to `file-name-handler-alist'."
                                  ready-player--process)
     (ready-player--goto-button
      ready-player--default-button))
-  (add-hook 'kill-buffer-hook #'ready-player--clean-up nil t)
-  (add-hook 'post-command-hook #'ready-player--save-default-button nil t))
-
-(defun ready-player--save-default-button ()
-  "Detect and handle point movement."
-  (setq ready-player--default-button
-        (or (get-text-property (point) 'button)
-            'play-stop)))
+  (add-hook 'kill-buffer-hook #'ready-player--clean-up nil t))
 
 (defun ready-player--update-buffer (buffer fpath busy &optional thumbnail metadata)
   "Update entire BUFFER content with FPATH BUSY THUMBNAIL and METADATA."
@@ -471,6 +463,9 @@ replacing the current Image mode buffer."
       (run-with-timer 0.8 nil
                       (lambda ()
                         (message ""))))
+    (when (get-text-property (point) 'button)
+      (setq ready-player--default-button
+            (get-text-property (point) 'button)))
     (image-next-file n)
     (when playing
       (ready-player-play))))
