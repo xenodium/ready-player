@@ -109,6 +109,17 @@ On macOS:
 | ready-player-show-thumbnail         | Whether or not to attempt to display a thumbnail. |
 | ready-player-open-playback-commands | Command line utilities to try for playback.       |
 
+** macOS SF Symbols
+
+By default, =ready-player-mode= will try to use macOS [[https://developer.apple.com/sf-symbols/][SF Symbols]] (if available) for =ready-player-play-icon= =ready-player-stop-icon= and =ready-player-open-externally-icon=.
+
+You'll need to [[https://lmno.lol/alvaro/emacs-insert-and-render-sf-symbols][enable SF symbol rendering in Emacs]] /(before loading =ready-player.el=)/.
+
+#+begin_src emacs-lisp :lexical no
+  (when (memq system-type '(darwin))
+    (set-fontset-font t nil "SF Pro Display" nil 'append))
+#+end_src
+
 * Commands
 
 #+BEGIN_SRC emacs-lisp :results table :colnames '("Command" "Description") :exports results

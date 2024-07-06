@@ -4,7 +4,7 @@
 
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.20
+;; Version: 0.0.21
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -71,17 +71,43 @@
   :type 'boolean
   :group 'ready-player)
 
-(defcustom ready-player-play-icon "⏵"
+;; TODO: Find a better way of checking for SF rendeing.
+(defun ready-player-displays-as-sf-symbol-p (text)
+  "Return t if TEXT can be displayed as macoOS SF symbols.  nil otherwise."
+  (let ((result t)
+        (displayable)
+        (char))
+    (dotimes (i (length text))
+      (setq char (aref text i))
+      (setq displayable (char-displayable-p char))
+      (when (or (eq displayable t)
+                (not (and (fontp displayable)
+                          (string-match-p
+                           "SF"
+                           (font-get (char-displayable-p char) :name)))))
+        (setq result nil)))
+    result))
+
+(defcustom ready-player-play-icon
+  (if (ready-player-displays-as-sf-symbol-p "􀊄")
+      "􀊄"
+    "⏵")
   "Play icon string, for example: \"⏵\"."
   :type 'string
   :group 'ready-player)
 
-(defcustom ready-player-open-externally-icon "➦"
+(defcustom ready-player-open-externally-icon
+  (if (ready-player-displays-as-sf-symbol-p "􀉐")
+      "􀉐"
+    "➦")
   "Open externally icon string, for example: \"➦\"."
   :type 'string
   :group 'ready-player)
 
-(defcustom ready-player-stop-icon "■"
+(defcustom ready-player-stop-icon
+  (if (ready-player-displays-as-sf-symbol-p "􀛷")
+      "􀛷"
+    "■")
   "Stop icon string, for example: \"■\"."
   :type 'string
   :group 'ready-player)
