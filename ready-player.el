@@ -4,7 +4,7 @@
 
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.16
+;; Version: 0.0.17
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -416,10 +416,12 @@ replacing the current Image mode buffer."
   (unless (eq major-mode 'ready-player-mode)
     (user-error "Not in a ready-player-mode buffer"))
   (when-let ((fpath (buffer-file-name))
-             (process ready-player--process))
+             (process ready-player--process)
+             (buffer (current-buffer)))
     (delete-process process)
     (setq ready-player--process nil)
-    (ready-player--refresh-status (file-name-nondirectory fpath) ready-player--process)
+    (ready-player--refresh-buffer-status
+     buffer (file-name-nondirectory fpath) ready-player--process)
     (kill-buffer (ready-player--playback-buffer))))
 
 (defun ready-player-play ()
@@ -428,19 +430,22 @@ replacing the current Image mode buffer."
   (unless (eq major-mode 'ready-player-mode)
     (user-error "Not in a ready-player-mode buffer"))
   (ready-player-stop)
-  (when-let ((fpath (buffer-file-name)))
+  (when-let ((fpath (buffer-file-name))
+             (buffer (current-buffer)))
     (setq ready-player--process (apply 'start-process
                                        (append
                                         (list "*play mode*" (ready-player--playback-buffer))
                                         (ready-player--playback-command) (list fpath))))
     (set-process-query-on-exit-flag ready-player--process nil)
-    (ready-player--refresh-status (file-name-nondirectory fpath) ready-player--process)
+    (ready-player--refresh-buffer-status
+     buffer (file-name-nondirectory fpath) ready-player--process)
     (set-process-sentinel
      ready-player--process
      (lambda (process _)
        (when (memq (process-status process) '(exit signal))
          (setq ready-player--process nil)
-         (ready-player--refresh-status (file-name-nondirectory fpath) ready-player--process))))
+         (ready-player--refresh-buffer-status
+          buffer (file-name-nondirectory fpath) ready-player--process))))
     (set-process-filter ready-player--process #'comint-output-filter)))
 
 (defun ready-player-toggle-play-stop ()
@@ -505,26 +510,28 @@ replacing the current Image mode buffer."
                                 (define-key map [remap self-insert-command] 'ignore)
                                 map))))
 
-(defun ready-player--refresh-status (fname busy)
-  "Refresh and render status in buffer with FNAME and BUSY."
-  (let ((inhibit-read-only t)
-        (saved-point (point)))
-    (save-excursion
-      (goto-char (point-min))
-      (when (search-forward (if busy
-                                ready-player-play-icon
-                              ready-player-stop-icon) nil t)
-        (delete-region (line-beginning-position) (line-end-position))
-        (insert (ready-player--make-file-button-line fname busy))))
-    (goto-char saved-point)
-    (set-buffer-modified-p nil)
-    (if busy
-        (progn
-          (message "Playing...")
-          (run-with-timer 0.8 nil
-                          (lambda ()
-                            (message ""))))
-      (message ""))))
+(defun ready-player--refresh-buffer-status (buffer fname busy)
+  "Refresh and render status in buffer with BUFFER, FNAME and BUSY."
+  (when-let ((inhibit-read-only t)
+             (saved-point (point))
+             (_ (buffer-live-p buffer)))
+    (with-current-buffer buffer
+      (save-excursion
+        (goto-char (point-min))
+        (when (search-forward (if busy
+                                  ready-player-play-icon
+                                ready-player-stop-icon) nil t)
+          (delete-region (line-beginning-position) (line-end-position))
+          (insert (ready-player--make-file-button-line fname busy))))
+      (goto-char saved-point)
+      (set-buffer-modified-p nil)
+      (if busy
+          (progn
+            (message "Playing...")
+            (run-with-timer 0.8 nil
+                            (lambda ()
+                              (message ""))))
+        (message "")))))
 
 (defun ready-player--make-shasum (fpath)
   "Make shasum for FPATH."
@@ -652,8 +659,7 @@ replacing the current Image mode buffer."
       (file-error nil)))
   (when ready-player--process
     (delete-process ready-player--process)
-    (setq ready-player--process nil)
-    (ready-player--refresh-status (file-name-nondirectory (buffer-file-name)) ready-player--process)))
+    (setq ready-player--process nil)))
 
 (provide 'ready-player)
 
