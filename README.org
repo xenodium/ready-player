@@ -4,11 +4,21 @@
 
 A lightweight major mode to open media (audio/video) files in an Emacs buffer.
 
-#+ATTR_HTML: :width 60%
+#+BEGIN_HTML
+<div style="width: 60%">
+#+END_HTML
 [[file:screenshots/audio-player.png]]
+#+BEGIN_HTML
+</div>
+#+END_HTML
 
-#+ATTR_HTML: :width 60%
+#+BEGIN_HTML
+<div style="width: 60%">
+#+END_HTML
 [[file:screenshots/video-player.png]]
+#+BEGIN_HTML
+</div>
+#+END_HTML
 
 * Install
 
