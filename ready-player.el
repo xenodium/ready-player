@@ -102,8 +102,8 @@
   :group 'ready-player)
 
 (defcustom ready-player-play-icon
-  (if (ready-player-displays-as-sf-symbol-p "􀊃")
-      "􀊃"
+  (if (ready-player-displays-as-sf-symbol-p "􀊄")
+      "􀊄"
     "⏵")
   "Play button icon string, for example: \"⏵\"."
   :type 'string
@@ -126,8 +126,8 @@
   :group 'ready-player)
 
 (defcustom ready-player-stop-icon
-  (if (ready-player-displays-as-sf-symbol-p "􀛶")
-      "􀛶"
+  (if (ready-player-displays-as-sf-symbol-p "􀛷")
+      "􀛷"
     "■")
   "Stop icon string, for example: \"■\"."
   :type 'string
