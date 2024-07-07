@@ -4,7 +4,7 @@
 
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.31
+;; Version: 0.0.32
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -63,6 +63,11 @@
 
 (defcustom ready-player-show-thumbnail t
   "Whether or not to attempt to display a thumbnail."
+  :type 'boolean
+  :group 'ready-player)
+
+(defcustom ready-player-repeat t
+  "Continue playing if there's more media in current directory."
   :type 'boolean
   :group 'ready-player)
 
@@ -130,6 +135,14 @@
       "􀛷"
     "■")
   "Stop icon string, for example: \"■\"."
+  :type 'string
+  :group 'ready-player)
+
+(defcustom ready-player-repeat-icon
+  (if (ready-player-displays-as-sf-symbol-p "􀊞")
+      "􀊞"
+    "⇆")
+  "Repeat icon string, for example: \"⇆\"."
   :type 'string
   :group 'ready-player)
 
@@ -245,7 +258,9 @@ Note: This function needs to be added to `file-name-handler-alist'."
         (progn
           (setq ready-player--thumbnail cached-thumbnail)
           (ready-player--update-buffer
-           buffer fpath ready-player--process
+           buffer fpath
+           ready-player--process
+           ready-player-repeat
            cached-thumbnail ready-player--metadata))
       (funcall thumbnailer
                fpath (lambda (thumbnail)
@@ -254,7 +269,9 @@ Note: This function needs to be added to `file-name-handler-alist'."
                            (when thumbnail
                              (setq ready-player--thumbnail thumbnail)
                              (ready-player--update-buffer
-                              buffer fpath ready-player--process
+                              buffer fpath
+                              ready-player--process
+                              ready-player-repeat
                               thumbnail ready-player--metadata)
                              ;; Point won't move to button
                              ;; unless delayed ¯\_(ツ)_/¯.
@@ -270,18 +287,21 @@ Note: This function needs to be added to `file-name-handler-alist'."
                  (when metadata
                    (setq ready-player--metadata metadata)
                    (ready-player--update-buffer
-                    buffer fpath ready-player--process
+                    buffer fpath
+                    ready-player--process
+                    ready-player-repeat
                     ready-player--thumbnail metadata)
                    (ready-player--goto-button
                     ready-player--default-button))))))
     (ready-player--update-buffer buffer fpath
-                                 ready-player--process)
+                                 ready-player--process
+                                 ready-player-repeat)
     (ready-player--goto-button
      ready-player--default-button))
   (add-hook 'kill-buffer-hook #'ready-player--clean-up nil t))
 
-(defun ready-player--update-buffer (buffer fpath busy &optional thumbnail metadata)
-  "Update entire BUFFER content with FPATH BUSY THUMBNAIL and METADATA."
+(defun ready-player--update-buffer (buffer fpath busy repeat &optional thumbnail metadata)
+  "Update entire BUFFER content with FPATH BUSY REPEAT THUMBNAIL and METADATA."
   (let ((fname (file-name-nondirectory fpath))
         (buffer-read-only nil))
     (with-current-buffer buffer
@@ -298,12 +318,12 @@ Note: This function needs to be added to `file-name-handler-alist'."
       (insert (format " %s" (propertize fname 'face 'info-title-2)))
       (insert " ")
       (insert (propertize "(playing)"
-                          'face `(:foreground ,(face-foreground 'font-lock-comment-face) :inherit 'info-title-2)
+                          'face `(:foreground ,(face-foreground 'font-lock-comment-face) :inherit info-title-2)
                           'invisible (not busy)
                           'playing-status t))
       (insert "\n")
       (insert "\n")
-      (insert (ready-player--make-file-button-line fname busy))
+      (insert (ready-player--make-file-button-line busy repeat))
       (insert "\n")
       (insert "\n")
       (when metadata
@@ -491,7 +511,9 @@ replacing the current Image mode buffer."
     (delete-process process)
     (setq ready-player--process nil)
     (ready-player--refresh-buffer-status
-     buffer (file-name-nondirectory fpath) ready-player--process)
+     buffer (file-name-nondirectory fpath)
+     ready-player--process
+     ready-player-repeat)
     (kill-buffer (ready-player--playback-buffer))))
 
 (defun ready-player-play ()
@@ -508,14 +530,25 @@ replacing the current Image mode buffer."
                                         (ready-player--playback-command) (list fpath))))
     (set-process-query-on-exit-flag ready-player--process nil)
     (ready-player--refresh-buffer-status
-     buffer (file-name-nondirectory fpath) ready-player--process)
+     buffer (file-name-nondirectory fpath)
+     ready-player--process
+     ready-player-repeat)
     (set-process-sentinel
      ready-player--process
      (lambda (process _)
        (when (memq (process-status process) '(exit signal))
-         (setq ready-player--process nil)
-         (ready-player--refresh-buffer-status
-          buffer (file-name-nondirectory fpath) ready-player--process))))
+         (with-current-buffer buffer
+           (if (and ready-player-repeat
+                    (buffer-live-p buffer)
+                    (eq (process-exit-status process) 0))
+               (progn
+                 (call-interactively #'ready-player-next-file)
+                 (ready-player-play))
+             (setq ready-player--process nil)
+             (ready-player--refresh-buffer-status
+              buffer (file-name-nondirectory fpath)
+              ready-player--process
+              ready-player-repeat))))))
     (set-process-filter ready-player--process #'comint-output-filter)))
 
 (defun ready-player-toggle-play-stop ()
@@ -529,6 +562,24 @@ replacing the current Image mode buffer."
           (ready-player-stop)
         (ready-player-play))
     (error "No file to play/stop")))
+
+(defun ready-player-toggle-repeat ()
+  "Toggle repeat setting."
+  (interactive)
+  (unless (eq major-mode 'ready-player-mode)
+    (user-error "Not in a ready-player-mode buffer"))
+  (setq ready-player-repeat (not ready-player-repeat))
+  (ready-player--refresh-buffer-status
+   (current-buffer)
+   (file-name-nondirectory (buffer-file-name))
+   ready-player--process
+   ready-player-repeat)
+  (message "Repeat: %s" (if ready-player-repeat
+                            "ON"
+                          "OFF"))
+  (run-with-timer 1 nil
+                  (lambda ()
+                    (message ""))))
 
 (defun ready-player-toggle-reload-buffer ()
   "Reload media from file."
@@ -556,56 +607,61 @@ replacing the current Image mode buffer."
                 (mapconcat
                  'identity (seq-map #'seq-first ready-player-open-playback-commands) " "))))
 
-(defun ready-player--make-file-button-line (fname busy)
-  "Create button line with FNAME and BUSY."
-  (format " %s %s %s %s"
-          (propertize
-           (format " %s " ready-player-previous-icon)
-           'face '(:box t)
-           'pointer 'hand
-           'keymap (let ((map (make-sparse-keymap)))
-                     (define-key map [mouse-1] #'ready-player-previous-file)
-                     (define-key map (kbd "RET") #'ready-player-previous-file)
-                     (define-key map [remap self-insert-command] 'ignore)
-                     map)
-           'button 'previous)
-          (propertize
-           (format "  %s  "
-                   (if busy
-                       ready-player-stop-icon
-                     ready-player-play-icon))
-           'face '(:box t)
-           'pointer 'hand
-           'keymap (let ((map (make-sparse-keymap)))
-                     (define-key map [mouse-1] #'ready-player-toggle-play-stop)
-                     (define-key map (kbd "RET") #'ready-player-toggle-play-stop)
-                     (define-key map [remap self-insert-command] 'ignore)
-                     map)
-           'button 'play-stop)
-          (propertize (format " %s " ready-player-next-icon)
-                      'face '(:box t)
-                      'pointer 'hand
-                      'keymap (let ((map (make-sparse-keymap)))
-                                (define-key map [mouse-1] #'ready-player-next-file)
-                                (define-key map (kbd "RET") #'ready-player-next-file)
-                                (define-key map [remap self-insert-command] 'ignore)
-                                map)
-                      'button 'next)
-          (propertize (format " %s " ready-player-open-externally-icon)
-                      'face '(:box t)
-                      'pointer 'hand
-                      'keymap (let ((map (make-sparse-keymap)))
-                                (define-key map [mouse-1] #'ready-player-open-externally)
-                                (define-key map (kbd "RET") #'ready-player-open-externally)
-                                (define-key map [remap self-insert-command] 'ignore)
-                                map)
-                      'button 'open-externally)))
+(defun ready-player--make-file-button-line (busy repeat)
+  "Create button line with BUSY and REPEAT."
+  (format " %s %s %s %s %s"
+          (ready-player--make-button ready-player-previous-icon
+                                     'previous
+                                     #'ready-player-previous-file)
+          (ready-player--make-button (if busy
+                                         ready-player-stop-icon
+                                       ready-player-play-icon)
+                                     'play-stop
+                                     #'ready-player-toggle-play-stop)
+          (ready-player--make-button ready-player-next-icon
+                                     'next
+                                     #'ready-player-next-file)
+          (ready-player--make-button ready-player-open-externally-icon
+                                     'open-externally
+                                     #'ready-player-open-externally)
+          (ready-player--make-checkbox-button ready-player-repeat-icon repeat ;; FIXME
+                                              'repeat
+                                              #'ready-player-toggle-repeat)))
 
-(defun ready-player--refresh-buffer-status (buffer fname busy)
-  "Refresh and render status in buffer with BUFFER, FNAME and BUSY."
+(defun ready-player--make-checkbox-button (text checked kind action)
+  "Make a checkbox button with TEXT, CHECKED state, KIND, and ACTION."
+  (propertize
+   (format "%s%s"
+           text
+           (if checked
+               "*"
+             " "))
+   'pointer 'hand
+   'keymap (let ((map (make-sparse-keymap)))
+             (define-key map [mouse-1] action)
+             (define-key map (kbd "RET") action)
+             (define-key map [remap self-insert-command] 'ignore)
+             map)
+   'button kind))
+
+(defun ready-player--make-button (text kind action)
+  "Make button with TEXT, KIND, and ACTION."
+  (propertize
+   (format " %s " text)
+   'face '(:box t)
+   'pointer 'hand
+   'keymap (let ((map (make-sparse-keymap)))
+             (define-key map [mouse-1] action)
+             (define-key map (kbd "RET") action)
+             (define-key map [remap self-insert-command] 'ignore)
+             map)
+   'button kind))
+
+(defun ready-player--refresh-buffer-status (buffer fname busy repeat)
+  "Refresh and render status in buffer with BUFFER, FNAME, BUSY and REPEAT."
   (when-let ((inhibit-read-only t)
              (saved-point (point))
-             (_ (buffer-live-p buffer)))
+             (live-buffer (buffer-live-p buffer)))
     (with-current-buffer buffer
       (save-excursion
         (goto-char (point-min))
@@ -620,11 +676,9 @@ replacing the current Image mode buffer."
 
         (goto-char (point-min))
 
-        (when (search-forward (if busy
-                                  ready-player-play-icon
-                                ready-player-stop-icon) nil t)
+        (when (text-property-search-forward 'button)
           (delete-region (line-beginning-position) (line-end-position))
-          (insert (ready-player--make-file-button-line fname busy))))
+          (insert (ready-player--make-file-button-line busy repeat))))
       (goto-char saved-point)
 
       ;; Toggle (playing) in buffer name.
@@ -667,7 +721,9 @@ replacing the current Image mode buffer."
     temp-fpath))
 
 (defun ready-player--load-file-thumbnail-via-ffmpegthumbnailer (media-fpath on-loaded)
-  "Load media thumbnail (with ffmpegthumbnailer) at MEDIA-FPATH and invoke ON-LOADED."
+  "Load media thumbnail at MEDIA-FPATH and invoke ON-LOADED.
+
+Note: This needs the ffmpegthumbnailer command line utility."
   (if (executable-find "ffmpegthumbnailer")
       (let* ((thumbnail-fpath (ready-player--thumbnail-path media-fpath)))
         (make-process
@@ -691,7 +747,9 @@ replacing the current Image mode buffer."
       cache-fpath)))
 
 (defun ready-player--load-file-thumbnail-via-ffmpeg (media-fpath on-loaded)
-  "Load media thumbnail (with ffmpeg) at MEDIA-FPATH and invoke ON-LOADED."
+  "Load media thumbnail at MEDIA-FPATH and invoke ON-LOADED.
+
+Note: This needs the ffmpeg command line utility."
   (if (executable-find "ffmpeg")
       (let* ((thumbnail-fpath (ready-player--thumbnail-path media-fpath)))
         (make-process
