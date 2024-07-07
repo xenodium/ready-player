@@ -13,7 +13,7 @@ A lightweight major mode to open media (audio/video) files in an Emacs buffer.
 This package isn't on MELPA just yet. In the meantime, clone the repo or use the handy =package-vc-install= (as of Emacs 29):
 
 #+begin_src emacs-lisp :lexical no
-  (package-vc-install "https://github.com/xenodium/ready-player")
+  (package-vc-install "https://github.com/xenodium/ready-player" :last-release)
 #+end_src
 
 * Setup
@@ -33,7 +33,7 @@ You can combine the previous install/setup into something like the following:
   (use-package ready-player
     :init
     (unless (package-installed-p (intern "ready-player"))
-      (package-vc-install "https://github.com/xenodium/ready-player"))
+      (package-vc-install "https://github.com/xenodium/ready-player" :last-release))
     :config
     (ready-player-add-to-auto-mode-alist))
 #+end_src
