@@ -4,7 +4,7 @@
 
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.27
+;; Version: 0.0.28
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -159,7 +159,7 @@ Omit the file path, as it will be automatically appended."
   :group 'play-mode
   :type '(repeat string))
 
-(defvar-local ready-player--process nil "Media-playing process.")
+(defvar ready-player--process nil "Media-playing process.")
 
 (defvar-local ready-player--metadata nil "Metadata as per ffprobe.")
 
@@ -229,6 +229,12 @@ Note: This function needs to be added to `file-name-handler-alist'."
   (set-buffer-multibyte t)
   (setq buffer-read-only t)
   (setq buffer-undo-list t)
+
+  ;; Never play more than one process. Stop existing.
+  (when ready-player--process
+    (delete-process ready-player--process)
+    (setq ready-player--process nil))
+
   (let* ((buffer (current-buffer))
          (fpath (buffer-file-name))
          (cached-thumbnail (ready-player--cached-thumbnail fpath))
