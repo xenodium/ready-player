@@ -4,7 +4,7 @@
 
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.33
+;; Version: 0.0.34
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -66,8 +66,10 @@
   :type 'boolean
   :group 'ready-player)
 
-(defcustom ready-player-repeat t
-  "Continue playing if there's more media in current directory."
+(defcustom ready-player-repeat nil
+  "Continue playing if there's more media in current directory.
+
+Disabled by default (work in progress)."
   :type 'boolean
   :group 'ready-player)
 
