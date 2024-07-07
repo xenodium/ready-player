@@ -4,7 +4,7 @@
 
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.25
+;; Version: 0.0.26
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -288,6 +288,9 @@ Note: This function needs to be added to `file-name-handler-alist'."
             (insert-image (create-image thumbnail nil nil :max-width 400))
             (insert "\n"))
           (set-buffer-modified-p nil)))
+      (insert "\n")
+      (insert (format " %s" (propertize fname 'face 'info-title-2)))
+      (insert "\n")
       (insert "\n")
       (insert (ready-player--make-file-button-line fname busy))
       (insert "\n")
@@ -580,11 +583,10 @@ replacing the current Image mode buffer."
                      map)
            'button 'previous)
           (propertize
-           (format " %s %s "
+           (format "  %s  "
                    (if busy
                        ready-player-stop-icon
-                     ready-player-play-icon)
-                   fname)
+                     ready-player-play-icon))
            'face '(:box t)
            'pointer 'hand
            'keymap (let ((map (make-sparse-keymap)))
