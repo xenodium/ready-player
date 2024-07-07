@@ -4,7 +4,7 @@
 
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.28
+;; Version: 0.0.29
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -676,9 +676,11 @@ replacing the current Image mode buffer."
 (defun ready-player--make-md5 (fpath)
   "Make md5 hash for FPATH."
   (with-temp-buffer
-    (call-process "md5" nil t nil fpath)
+    (call-process "md5sum" nil t nil fpath)
     (goto-char (point-min))
-    (string-trim (nth 1 (split-string (buffer-string) "=")))))
+    (let ((hash (buffer-substring-no-properties
+                 (point) (line-end-position))))
+      (car (split-string hash)))))
 
 (defun ready-player--thumbnail-path (fpath)
   "Generate thumbnail path for media at FPATH."
