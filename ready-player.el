@@ -4,7 +4,7 @@
 
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.23
+;; Version: 0.0.24
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -335,7 +335,6 @@ Note: This function needs to be added to `file-name-handler-alist'."
 
 (defun ready-player--goto-button (button)
   "Goto BUTTON."
-  (message "jump to: %s" button)
   (goto-char (point-min))
   (ready-player-search-forward 'button button))
 
