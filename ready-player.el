@@ -4,7 +4,7 @@
 
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.32
+;; Version: 0.0.33
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -777,7 +777,7 @@ Note: This needs the ffmpeg command line utility."
 
 (defun ready-player--playback-buffer ()
   "Get the process playback buffer."
-  (let ((buffer (get-buffer-create "*play*")))
+  (let ((buffer (get-buffer-create (format "*%s* (ready-player)" (nth 0 (ready-player--playback-command))))))
     (with-current-buffer buffer
       (let ((inhibit-read-only t))
         (erase-buffer))
