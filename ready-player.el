@@ -703,20 +703,11 @@ replacing the current Image mode buffer."
     (goto-char (point-min))
     (car (split-string (buffer-string)))))
 
-(defun ready-player--make-md5 (fpath)
-  "Make md5 hash for FPATH."
-  (with-temp-buffer
-    (call-process "md5sum" nil t nil fpath)
-    (goto-char (point-min))
-    (let ((hash (buffer-substring-no-properties
-                 (point) (line-end-position))))
-      (car (split-string hash)))))
-
 (defun ready-player--thumbnail-path (fpath)
   "Generate thumbnail path for media at FPATH."
   (let* ((temp-dir (concat (file-name-as-directory temporary-file-directory) "ready-player"))
          (temp-fpath (concat (file-name-as-directory temp-dir)
-                             (ready-player--make-md5 fpath) ".png")))
+                             (md5 fpath) ".png")))
     (make-directory temp-dir t)
     temp-fpath))
 
