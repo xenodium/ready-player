@@ -93,20 +93,26 @@
   :type 'symbol
   :group 'ready-player)
 
-(defcustom ready-player-previous-icon "<<"
+(defcustom ready-player-previous-icon
+  (if (ready-player-displays-as-sf-symbol-p "􀊉")
+      "􀊉"
+    "<<")
   "Previous button icon string, for example: \"<<\"."
   :type 'string
   :group 'ready-player)
 
 (defcustom ready-player-play-icon
   (if (ready-player-displays-as-sf-symbol-p "􀊄")
-      "􀊄"
+      "􀊃"
     "⏵")
   "Play button icon string, for example: \"⏵\"."
   :type 'string
   :group 'ready-player)
 
-(defcustom ready-player-next-icon ">>"
+(defcustom ready-player-next-icon
+  (if (ready-player-displays-as-sf-symbol-p "􀊋")
+      "􀊋"
+    ">>")
   "Next button icon string, for example: \">>\"."
   :type 'string
   :group 'ready-player)
