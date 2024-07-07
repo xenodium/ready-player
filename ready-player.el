@@ -299,7 +299,7 @@ Note: This function needs to be added to `file-name-handler-alist'."
       (insert " ")
       (insert (propertize "(playing)"
                           'face `(:foreground ,(face-foreground 'font-lock-comment-face) :inherit 'info-title-2)
-                          'invisible t
+                          'invisible (not busy)
                           'playing-status t))
       (insert "\n")
       (insert "\n")
