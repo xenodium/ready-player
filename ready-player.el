@@ -4,7 +4,7 @@
 
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.24
+;; Version: 0.0.25
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -102,7 +102,7 @@
   :group 'ready-player)
 
 (defcustom ready-player-play-icon
-  (if (ready-player-displays-as-sf-symbol-p "􀊄")
+  (if (ready-player-displays-as-sf-symbol-p "􀊃")
       "􀊃"
     "⏵")
   "Play button icon string, for example: \"⏵\"."
@@ -126,8 +126,8 @@
   :group 'ready-player)
 
 (defcustom ready-player-stop-icon
-  (if (ready-player-displays-as-sf-symbol-p "􀛷")
-      "􀛷"
+  (if (ready-player-displays-as-sf-symbol-p "􀛶")
+      "􀛶"
     "■")
   "Stop icon string, for example: \"■\"."
   :type 'string
