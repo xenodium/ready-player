@@ -4,7 +4,7 @@
 
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.26
+;; Version: 0.0.27
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -290,6 +290,11 @@ Note: This function needs to be added to `file-name-handler-alist'."
           (set-buffer-modified-p nil)))
       (insert "\n")
       (insert (format " %s" (propertize fname 'face 'info-title-2)))
+      (insert " ")
+      (insert (propertize "(playing)"
+                          'face `(:foreground ,(face-foreground 'font-lock-comment-face) :inherit 'info-title-2)
+                          'invisible t
+                          'playing-status t))
       (insert "\n")
       (insert "\n")
       (insert (ready-player--make-file-button-line fname busy))
@@ -622,12 +627,30 @@ replacing the current Image mode buffer."
     (with-current-buffer buffer
       (save-excursion
         (goto-char (point-min))
+
+        ;; Toggle (playing) next to file name.
+        (when-let* ((match (text-property-search-forward 'playing-status))
+                    (start (prop-match-beginning match))
+                    (end (prop-match-end match)))
+          (if busy
+              (remove-text-properties start end '(invisible t))
+            (add-text-properties start end '(invisible t))))
+
+        (goto-char (point-min))
+
         (when (search-forward (if busy
                                   ready-player-play-icon
                                 ready-player-stop-icon) nil t)
           (delete-region (line-beginning-position) (line-end-position))
           (insert (ready-player--make-file-button-line fname busy))))
       (goto-char saved-point)
+
+      ;; Toggle (playing) in buffer name.
+      (let ((base-name (replace-regexp-in-string " (playing)$" "" fname)))
+        (rename-buffer (if busy
+                           (concat base-name " (playing)")
+                         base-name)))
+
       (set-buffer-modified-p nil)
       (if busy
           (progn
