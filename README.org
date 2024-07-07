@@ -4,9 +4,9 @@
 
 A lightweight major mode to open media (audio/video) files in an Emacs buffer.
 
-#+HTML: <img src="https://raw.githubusercontent.com/xenodium/ready-player/main/screenshots/audio-player.png" width="60%" />
+#+HTML: <img src="https://raw.githubusercontent.com/xenodium/ready-player/main/screenshots/audio-player.png" width="50%" />
 
-#+HTML: <img src="https://raw.githubusercontent.com/xenodium/ready-player/main/screenshots/video-player.png" width="60%" />
+#+HTML: <img src="https://raw.githubusercontent.com/xenodium/ready-player/main/screenshots/video-player.png" width="70%" />
 
 * Install
 
