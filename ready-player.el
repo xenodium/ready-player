@@ -642,6 +642,10 @@ With FEEDBACK, provide user feedback of the interaction."
   (interactive)
   (unless (eq major-mode 'ready-player-mode)
     (user-error "Not in a ready-player-mode buffer"))
+  (when ready-player--thumbnail
+    (condition-case nil
+        (delete-file ready-player--thumbnail)
+      (file-error nil)))
   (let ((playing ready-player--process))
     (ready-player--stop-playback-process)
     (revert-buffer nil t)
@@ -751,13 +755,6 @@ With FEEDBACK, provide user feedback of the interaction."
                             (lambda ()
                               (message ""))))
         (message "")))))
-
-(defun ready-player--make-shasum (fpath)
-  "Make shasum for FPATH."
-  (with-temp-buffer
-    (call-process "shasum" nil t nil "-a" "256" fpath)
-    (goto-char (point-min))
-    (car (split-string (buffer-string)))))
 
 (defun ready-player--thumbnail-path (fpath)
   "Generate thumbnail path for media at FPATH."
