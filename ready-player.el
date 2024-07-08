@@ -4,7 +4,7 @@
 
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.34
+;; Version: 0.0.35
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -52,8 +52,8 @@
     (define-key map (kbd "SPC") #'ready-player-toggle-play-stop)
     (define-key map (kbd "TAB") #'ready-player-next-button)
     (define-key map (kbd "<backtab>") #'ready-player-previous-button)
-    (define-key map (kbd "n") #'ready-player-next-file)
-    (define-key map (kbd "p") #'ready-player-previous-file)
+    (define-key map (kbd "n") #'ready-player-open-next-file)
+    (define-key map (kbd "p") #'ready-player-open-previous-file)
     (define-key map (kbd "e") #'ready-player-open-externally)
     (define-key map (kbd "o") #'ready-player-open-externally)
     (define-key map (kbd "q") #'ready-player-quit)
@@ -97,7 +97,9 @@ Disabled by default (work in progress)."
 
 (defcustom ready-player--default-button 'play-stop
   "Button to focus on launch."
-  :type 'symbol
+  :type '(choice (const :tag "Next" next)
+                 (const :tag "Previous" previous)
+                 (const :tag "Play/Stop" play-stop))
   :group 'ready-player)
 
 (defcustom ready-player-previous-icon
@@ -176,6 +178,8 @@ Omit the file path, as it will be automatically appended."
 
 (defvar ready-player--process nil "Media-playing process.")
 
+(defvar ready-player--active-buffer nil "Buffer to interact with.")
+
 (defvar-local ready-player--metadata nil "Metadata as per ffprobe.")
 
 (defvar-local ready-player--thumbnail nil "Thumbnail as per ffmpeg.")
@@ -191,12 +195,15 @@ Omit the file path, as it will be automatically appended."
   (add-to-list
    'file-name-handler-alist
    (cons
-    (concat "\\." (regexp-opt (append ready-player-supported-media
-                                     ;; Also include uppercase extensions.
-                                     ;; APFS (Apple File System) is case-insensitive.
-                                     (mapcar 'upcase ready-player-supported-media))
-                             t) "\\'")
+    (concat "\\." (regexp-opt (ready-player--supported-media-with-uppercase) t) "\\'")
     'ready-player-file-name-handler)))
+
+(defun ready-player--supported-media-with-uppercase ()
+  "Duplicate `ready-player-supported-media' with uppercase equivalents."
+  (append ready-player-supported-media
+          ;; Also include uppercase extensions.
+          ;; APFS (Apple File System) is case-insensitive.
+          (mapcar 'upcase ready-player-supported-media)))
 
 (defun ready-player-remove-from-auto-mode-alist ()
   "Remove media recognized by `ready-player-mode'."
@@ -240,6 +247,8 @@ Note: This function needs to be added to `file-name-handler-alist'."
 
 (define-derived-mode ready-player-mode special-mode "Ready Player"
   "Major mode to preview and play media files."
+  :after-hook (progn
+                (ready-player--goto-button ready-player--default-button))
   :keymap ready-player-mode-map
   (set-buffer-multibyte t)
   (setq buffer-read-only t)
@@ -256,6 +265,10 @@ Note: This function needs to be added to `file-name-handler-alist'."
          (thumbnailer (if (executable-find "ffmpegthumbnailer")
                           #'ready-player--load-file-thumbnail-via-ffmpegthumbnailer
                         #'ready-player--load-file-thumbnail-via-ffmpeg)))
+    (setq ready-player--active-buffer buffer)
+    (ready-player--update-buffer buffer fpath
+                                 ready-player--process
+                                 ready-player-repeat)
     (if cached-thumbnail
         (progn
           (setq ready-player--thumbnail cached-thumbnail)
@@ -294,44 +307,40 @@ Note: This function needs to be added to `file-name-handler-alist'."
                     ready-player-repeat
                     ready-player--thumbnail metadata)
                    (ready-player--goto-button
-                    ready-player--default-button))))))
-    (ready-player--update-buffer buffer fpath
-                                 ready-player--process
-                                 ready-player-repeat)
-    (ready-player--goto-button
-     ready-player--default-button))
+                    ready-player--default-button)))))))
   (add-hook 'kill-buffer-hook #'ready-player--clean-up nil t))
 
 (defun ready-player--update-buffer (buffer fpath busy repeat &optional thumbnail metadata)
   "Update entire BUFFER content with FPATH BUSY REPEAT THUMBNAIL and METADATA."
-  (let ((fname (file-name-nondirectory fpath))
-        (buffer-read-only nil))
-    (with-current-buffer buffer
-      (erase-buffer)
-      (goto-char (point-min))
-      (when (and ready-player-show-thumbnail thumbnail)
-        (let ((inhibit-read-only t))
-          (when thumbnail
-            (insert "\n ")
-            (insert-image (create-image thumbnail nil nil :max-width 400))
-            (insert "\n"))
-          (set-buffer-modified-p nil)))
-      (insert "\n")
-      (insert (format " %s" (propertize fname 'face 'info-title-2)))
-      (insert " ")
-      (insert (propertize "(playing)"
-                          'face `(:foreground ,(face-foreground 'font-lock-comment-face) :inherit info-title-2)
-                          'invisible (not busy)
-                          'playing-status t))
-      (insert "\n")
-      (insert "\n")
-      (insert (ready-player--make-file-button-line busy repeat))
-      (insert "\n")
-      (insert "\n")
-      (when metadata
-        (insert (ready-player--format-metadata-rows
-                 (ready-player--make-metadata-rows metadata))))
-      (set-buffer-modified-p nil))))
+  (save-excursion
+    (let ((fname (file-name-nondirectory fpath))
+          (buffer-read-only nil))
+      (with-current-buffer buffer
+        (erase-buffer)
+        (goto-char (point-min))
+        (when (and ready-player-show-thumbnail thumbnail)
+          (let ((inhibit-read-only t))
+            (when thumbnail
+              (insert "\n ")
+              (insert-image (create-image thumbnail nil nil :max-width 400))
+              (insert "\n"))
+            (set-buffer-modified-p nil)))
+        (insert "\n")
+        (insert (format " %s" (propertize fname 'face 'info-title-2)))
+        (insert " ")
+        (insert (propertize "(playing)"
+                            'face `(:foreground ,(face-foreground 'font-lock-comment-face) :inherit info-title-2)
+                            'invisible (not busy)
+                            'playing-status t))
+        (insert "\n")
+        (insert "\n")
+        (insert (ready-player--make-file-button-line busy repeat))
+        (insert "\n")
+        (insert "\n")
+        (when metadata
+          (insert (ready-player--format-metadata-rows
+                   (ready-player--make-metadata-rows metadata))))
+        (set-buffer-modified-p nil)))))
 
 (defun ready-player--make-metadata-rows (metadata)
   "Make METADATA row data."
@@ -376,17 +385,15 @@ Note: This function needs to be added to `file-name-handler-alist'."
     metadata-rows))
 
 (defun ready-player--goto-button (button)
-  "Goto BUTTON."
+  "Goto BUTTON (see `ready-player--default-button' for values)."
   (goto-char (point-min))
-  (ready-player-search-forward 'button button))
+  (text-property-search-forward 'button button))
 
 ;; TODO: Replace with text-property-search-forward.
 (defun ready-player-search-forward (prop val)
   "Search forward for text with property PROP set to VAL."
-  (interactive)
-  (let ((pos (text-property-any (point) (point-max) prop val)))
-    (when pos
-      (goto-char pos))))
+  (when-let ((pos (text-property-any (point) (point-max) prop val)))
+    (goto-char pos)))
 
 ;; TODO: Simplify like ready-player-previous-button.
 (defun ready-player-next-button ()
@@ -458,78 +465,122 @@ With a prefix ARG always prompt for command to use."
                     open)))
     (call-process program nil 0 nil current-file-name)))
 
-;; Piggybacks off `image-next-file'.
-(defun ready-player-next-file (&optional n)
-  "Visit the next media file in the same directory as current file.
-With optional argument N, visit the Nth image file after the
-current one, in cyclic alphabetical order.
+(defun ready-player-open-previous-file (&optional n)
+  "Open the previous media file in the same directory.
 
-This command visits the specified file via `find-alternate-file',
-replacing the current Image mode buffer."
+With optional argument N, visit the Nth file before the current one."
   (interactive "p" ready-player)
   (unless (eq major-mode 'ready-player-mode)
     (user-error "Not in a ready-player-mode buffer"))
-  (let ((major-mode 'image-mode) ;; pretend to be image-mode.
-        (image-file-name-extensions ready-player-supported-media)
-        (playing ready-player--process))
-    (when (> n 0)
-      (message "Next")
-      (ready-player--goto-button 'next)
-      (run-with-timer 0.8 nil
-                      (lambda ()
-                        (message ""))))
-    (when (get-text-property (point) 'button)
-      (setq ready-player--default-button
-            (get-text-property (point) 'button)))
-    (image-next-file n)
-    (when playing
-      (ready-player-play))))
+  (ready-player--open-file-at-offset (- n) t))
 
-(defun ready-player-previous-file (&optional n)
-  "Visit the preceding image in the same directory as the current file.
-With optional argument N, visit the Nth image file preceding the
-current one, in cyclic alphabetical order.
+(defun ready-player-open-next-file (&optional n)
+  "Open the next media file in the same directory.
 
-This command visits the specified file via `find-alternate-file',
-replacing the current Image mode buffer."
+With optional argument N, visit the Nth file after the current one."
   (interactive "p" ready-player)
   (unless (eq major-mode 'ready-player-mode)
     (user-error "Not in a ready-player-mode buffer"))
-  (message "Previous")
-  (ready-player--goto-button 'previous)
-  (run-with-timer 0.8 nil
-                  (lambda ()
-                    (message "")))
-  (ready-player-next-file (- n)))
+  (ready-player--open-file-at-offset n t))
+
+(defun ready-player--open-file-at-offset (n feedback)
+  "Open the next media file in the same directory.
+
+With optional argument N offset, visit the Nth file after the current
+one.  Negative values move backwards.
+
+With FEEDBACK, provide user feedback of the interaction."
+  (interactive "p" ready-player)
+  (unless (eq major-mode 'ready-player-mode)
+    (user-error "Not in a ready-player-mode buffer"))
+  (when feedback
+    (ready-player--goto-button (if (> n 0) 'next 'previous))
+    (setq ready-player--default-button (if (> n 0) 'next 'previous)))
+
+  (let* ((playing ready-player--process)
+         (old-buffer (current-buffer))
+         (old-file (buffer-file-name old-buffer))
+         (new-file (ready-player--next-dired-file buffer-file-name n))
+         (new-buffer (when new-file
+                       (find-file-noselect new-file))))
+    (ready-player--stop-playback-process)
+    (if new-buffer
+        (with-current-buffer new-buffer
+          (when (get-buffer-window-list old-buffer nil t)
+            (set-window-buffer (car (get-buffer-window-list old-buffer nil t)) new-buffer))
+          (kill-buffer old-buffer)
+          (when playing
+            (ready-player--start-playback-process)))
+      (if playing
+          (progn
+            (message "No more media to play"))
+        (message "No more media")))
+    new-file))
+
+(defun ready-player--next-dired-file (file n)
+  "Like `image-next-file' but `dired' only.  Same rules for FILE and N."
+  (let ((regexp (regexp-opt (ready-player--supported-media-with-uppercase) t))
+        (buffers (progn
+                   (find-file-noselect (file-name-directory file))
+                   (dired-buffers-for-dir (file-name-directory file))))
+        next)
+    ;; Move point in all relevant dired buffers.
+    (dolist (buffer buffers)
+      (with-current-buffer buffer
+        (dired-goto-file file)
+        (let (found)
+          (while (and (not found)
+                      (if (> n 0)
+                          (not (eobp))
+                        (not (bobp))))
+            (dired-next-line n)
+            (when-let* ((candidate (dired-get-filename nil t))
+                        (match-p (string-match-p regexp (file-name-extension candidate))))
+              (setq found candidate)))
+          (if found
+              (setq next found)
+            ;; No next match. Restore point.
+            (dired-goto-file file)))))
+    next))
 
 (defun ready-player-stop ()
   "Stop media playback."
   (interactive)
-  (unless (eq major-mode 'ready-player-mode)
-    (user-error "Not in a ready-player-mode buffer"))
-  (when-let ((fpath (buffer-file-name))
-             (process ready-player--process)
-             (buffer (current-buffer)))
-    (delete-process process)
-    (setq ready-player--process nil)
-    (ready-player--refresh-buffer-status
-     buffer (file-name-nondirectory fpath)
-     ready-player--process
-     ready-player-repeat)
-    (kill-buffer (ready-player--playback-buffer))))
+  (ready-player--stop-playback-process)
+  (message "Stopped")
+  (progn
+    (run-with-timer 3 nil
+                    (lambda ()
+                      (message "")))))
 
 (defun ready-player-play ()
   "Start media playback."
   (interactive)
   (unless (eq major-mode 'ready-player-mode)
     (user-error "Not in a ready-player-mode buffer"))
-  (ready-player-stop)
-  (when-let ((fpath (buffer-file-name))
-             (buffer (current-buffer)))
+  (setq ready-player--default-button 'play-stop)
+  (ready-player--start-playback-process))
+
+(defun ready-player--stop-playback-process ()
+  "Stop playback process."
+  ;; Only kill the process.
+  ;; The process sentinel updates the buffer status.
+  (when ready-player--process
+    (delete-process ready-player--process)
+    (setq ready-player--process nil)))
+
+(defun ready-player--start-playback-process ()
+  "Start playback process."
+  (unless (eq major-mode 'ready-player-mode)
+    (user-error "Not in a ready-player-mode buffer"))
+  (ready-player--stop-playback-process)
+  (when-let* ((fpath (buffer-file-name))
+              (command (append
+                        (list "*play mode*" (ready-player--playback-buffer))
+                        (ready-player--playback-command) (list fpath)))
+              (buffer (current-buffer)))
     (setq ready-player--process (apply 'start-process
-                                       (append
-                                        (list "*play mode*" (ready-player--playback-buffer))
-                                        (ready-player--playback-command) (list fpath))))
+                                       command))
     (set-process-query-on-exit-flag ready-player--process nil)
     (ready-player--refresh-buffer-status
      buffer (file-name-nondirectory fpath)
@@ -543,9 +594,11 @@ replacing the current Image mode buffer."
            (if (and ready-player-repeat
                     (buffer-live-p buffer)
                     (eq (process-exit-status process) 0))
-               (progn
-                 (call-interactively #'ready-player-next-file)
-                 (ready-player-play))
+               (unless (ready-player--open-file-at-offset 1 nil)
+                 (ready-player--refresh-buffer-status
+                  buffer (file-name-nondirectory fpath)
+                  ready-player--process
+                  ready-player-repeat))
              (setq ready-player--process nil)
              (ready-player--refresh-buffer-status
               buffer (file-name-nondirectory fpath)
@@ -556,14 +609,15 @@ replacing the current Image mode buffer."
 (defun ready-player-toggle-play-stop ()
   "Toggle play/stop of media."
   (interactive)
-  (unless (eq major-mode 'ready-player-mode)
-    (user-error "Not in a ready-player-mode buffer"))
-  (ready-player--goto-button 'play-stop)
-  (if-let ((fpath (buffer-file-name)))
-      (if ready-player--process
-          (ready-player-stop)
-        (ready-player-play))
-    (error "No file to play/stop")))
+  (if (and ready-player--active-buffer
+           (buffer-live-p ready-player--active-buffer))
+      (with-current-buffer ready-player--active-buffer
+        (ready-player--goto-button 'play-stop)
+        (if-let ((fpath (buffer-file-name)))
+            (if ready-player--process
+                (ready-player-stop)
+              (ready-player-play))
+          (error "No file to play/stop")))))
 
 (defun ready-player-toggle-repeat ()
   "Toggle repeat setting."
@@ -589,7 +643,7 @@ replacing the current Image mode buffer."
   (unless (eq major-mode 'ready-player-mode)
     (user-error "Not in a ready-player-mode buffer"))
   (let ((playing ready-player--process))
-    (ready-player-stop)
+    (ready-player--stop-playback-process)
     (revert-buffer nil t)
     (when playing
       (ready-player-play)))
@@ -614,7 +668,7 @@ replacing the current Image mode buffer."
   (format " %s %s %s %s %s"
           (ready-player--make-button ready-player-previous-icon
                                      'previous
-                                     #'ready-player-previous-file)
+                                     #'ready-player-open-previous-file)
           (ready-player--make-button (if busy
                                          ready-player-stop-icon
                                        ready-player-play-icon)
@@ -622,7 +676,7 @@ replacing the current Image mode buffer."
                                      #'ready-player-toggle-play-stop)
           (ready-player--make-button ready-player-next-icon
                                      'next
-                                     #'ready-player-next-file)
+                                     #'ready-player-open-next-file)
           (ready-player--make-button ready-player-open-externally-icon
                                      'open-externally
                                      #'ready-player-open-externally)
@@ -693,7 +747,7 @@ replacing the current Image mode buffer."
       (if busy
           (progn
             (message "Playing...")
-            (run-with-timer 0.8 nil
+            (run-with-timer 3 nil
                             (lambda ()
                               (message ""))))
         (message "")))))
