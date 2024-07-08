@@ -4,7 +4,7 @@
 
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.35
+;; Version: 0.0.36
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -500,7 +500,8 @@ With FEEDBACK, provide user feedback of the interaction."
   (let* ((playing ready-player--process)
          (old-buffer (current-buffer))
          (old-file (buffer-file-name old-buffer))
-         (new-file (ready-player--next-dired-file buffer-file-name n))
+         (new-file (or (ready-player--next-dired-file buffer-file-name n)
+                       (ready-player--next-dired-file buffer-file-name n t)))
          (new-buffer (when new-file
                        (find-file-noselect new-file))))
     (ready-player--stop-playback-process)
@@ -517,8 +518,10 @@ With FEEDBACK, provide user feedback of the interaction."
         (message "No more media")))
     new-file))
 
-(defun ready-player--next-dired-file (file n)
-  "Like `image-next-file' but `dired' only.  Same rules for FILE and N."
+(defun ready-player--next-dired-file (file n &optional from-top)
+  "Like `image-next-file' but `dired' only.  Same rules for FILE and N.
+
+Set FROM-TOP to start from top of the Dired buffer instead of at FILE."
   (let ((regexp (regexp-opt (ready-player--supported-media-with-uppercase) t))
         (buffers (progn
                    (find-file-noselect (file-name-directory file))
@@ -527,7 +530,9 @@ With FEEDBACK, provide user feedback of the interaction."
     ;; Move point in all relevant dired buffers.
     (dolist (buffer buffers)
       (with-current-buffer buffer
-        (dired-goto-file file)
+        (if from-top
+            (goto-char (point-min))
+          (dired-goto-file file))
         (let (found)
           (while (and (not found)
                       (if (> n 0)
