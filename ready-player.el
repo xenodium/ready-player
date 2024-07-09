@@ -40,6 +40,7 @@
 ;; Note: This is a new package.  Please report issues or send
 ;; patches to https://github.com/xenodium/ready-player
 
+(require 'cl-lib)
 (require 'dired)
 (require 'seq)
 (require 'shell)
