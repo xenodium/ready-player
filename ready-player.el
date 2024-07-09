@@ -181,7 +181,7 @@ Omit the file path, as it will be automatically appended."
 (defvar-local ready-player--thumbnail nil "Thumbnail as per ffmpeg.")
 
 (defvar ready-player--last-button-focus 'play-stop
-  "Last button focused ('next or 'previous 'play-stop).
+  "Last button focused (\=next\= or \=previous\= \=play-stop\=).
 
 Used to remember button position across files in continuous playback.")
 
