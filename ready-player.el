@@ -576,7 +576,7 @@ Set FROM-TOP to start from top of the Dired buffer instead of at FILE."
   (ready-player--stop-playback-process)
   (when-let* ((fpath (buffer-file-name))
               (command (append
-                        (list "*play mode*" (ready-player--playback-buffer))
+                        (list "*ready player mode*" (ready-player--playback-buffer))
                         (ready-player--playback-command) (list fpath)))
               (buffer (current-buffer)))
     (setq ready-player--process (apply 'start-process
