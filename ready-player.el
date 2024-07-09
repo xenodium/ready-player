@@ -405,7 +405,7 @@ Note: This function needs to be added to `file-name-handler-alist'."
     metadata-rows))
 
 (defun ready-player--goto-button (button)
-  "Goto BUTTON (see \=ready-player--last-button-focus\= for values)."
+  "Goto BUTTON (see \=`ready-player--last-button-focus'\= for values)."
   (goto-char (point-min))
   (text-property-search-forward 'button button))
 
