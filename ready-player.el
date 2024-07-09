@@ -3,6 +3,7 @@
 ;; Copyright (C) 2024 Alvaro Ramirez
 
 ;; Author: Alvaro Ramirez https://xenodium.com
+;; Package-Requires: ((emacs "28.1"))
 ;; URL: https://github.com/xenodium/ready-player
 ;; Version: 0.0.40
 
