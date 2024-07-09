@@ -92,13 +92,6 @@ Repeats and starts over from the beginning of the directory."
         (setq result nil)))
     result))
 
-(defcustom ready-player--default-button 'play-stop
-  "Button to focus on launch."
-  :type '(choice (const :tag "Next" next)
-                 (const :tag "Previous" previous)
-                 (const :tag "Play/Stop" play-stop))
-  :group 'ready-player)
-
 (defcustom ready-player-previous-icon
   (if (ready-player-displays-as-sf-symbol-p "􀊉")
       "􀊉"
@@ -269,7 +262,7 @@ Note: This function needs to be added to `file-name-handler-alist'."
 (define-derived-mode ready-player-major-mode special-mode "Ready Player"
   "Major mode to preview and play media files."
   :after-hook (progn
-                (ready-player--goto-button ready-player--default-button))
+                (ready-player--goto-button ready-player--last-button-focus))
   :keymap ready-player-major-mode-map
   (set-buffer-multibyte t)
   (setq buffer-read-only t)
@@ -315,7 +308,7 @@ Note: This function needs to be added to `file-name-handler-alist'."
                                              (lambda ()
                                                (with-current-buffer buffer
                                                  (ready-player--goto-button
-                                                  ready-player--default-button))))))))))
+                                                  ready-player--last-button-focus))))))))))
     (ready-player--load-file-metadata
      fpath (lambda (metadata)
              (when (buffer-live-p buffer)
@@ -328,7 +321,7 @@ Note: This function needs to be added to `file-name-handler-alist'."
                     ready-player-repeat
                     ready-player--thumbnail metadata)
                    (ready-player--goto-button
-                    ready-player--default-button)))))))
+                    ready-player--last-button-focus)))))))
   (add-hook 'kill-buffer-hook #'ready-player--clean-up nil t))
 
 (defun ready-player--update-buffer (buffer fpath busy repeat &optional thumbnail metadata)
@@ -406,7 +399,7 @@ Note: This function needs to be added to `file-name-handler-alist'."
     metadata-rows))
 
 (defun ready-player--goto-button (button)
-  "Goto BUTTON (see `ready-player--default-button' for values)."
+  "Goto BUTTON (see `ready-player--last-button-focus' for values)."
   (goto-char (point-min))
   (text-property-search-forward 'button button))
 
@@ -516,7 +509,7 @@ With FEEDBACK, provide user feedback of the interaction."
     (user-error "Not in a ready-player-major-mode buffer"))
   (when feedback
     (ready-player--goto-button (if (> n 0) 'next 'previous))
-    (setq ready-player--default-button (if (> n 0) 'next 'previous)))
+    (setq ready-player--last-button-focus (if (> n 0) 'next 'previous)))
 
   (let* ((playing ready-player--process)
          (old-buffer (current-buffer))
@@ -585,7 +578,7 @@ Set FROM-TOP to start from top of the Dired buffer instead of at FILE."
   (interactive)
   (unless (eq major-mode 'ready-player-major-mode)
     (user-error "Not in a ready-player-major-mode buffer"))
-  (setq ready-player--default-button 'play-stop)
+  (setq ready-player--last-button-focus 'play-stop)
   (ready-player--start-playback-process))
 
 (defun ready-player--stop-playback-process ()
