@@ -4,7 +4,7 @@
 
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.38
+;; Version: 0.0.39
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -401,41 +401,19 @@ Note: This function needs to be added to `file-name-handler-alist'."
   (goto-char (point-min))
   (text-property-search-forward 'button button))
 
-;; TODO: Replace with text-property-search-forward.
-(defun ready-player-search-forward (prop val)
-  "Search forward for text with property PROP set to VAL."
-  (when-let ((pos (text-property-any (point) (point-max) prop val)))
-    (goto-char pos)))
-
-;; TODO: Simplify like ready-player-previous-button.
 (defun ready-player-next-button ()
   "Navigate to next button."
   (interactive)
   (unless (eq major-mode 'ready-player-major-mode)
     (user-error "Not in a ready-player-major-mode buffer"))
-  (or (progn
-        (when (eq (get-text-property (point) 'button) 'previous)
-          (ready-player-search-forward 'button nil))
-        (when (ready-player-search-forward 'button 'previous)
-          t))
-      (progn
-        (when (eq (get-text-property (point) 'button) 'play-stop)
-          (ready-player-search-forward 'button nil))
-        (when (ready-player-search-forward 'button 'play-stop)
-          t))
-      (progn
-        (when (eq (get-text-property (point) 'button) 'next)
-          (ready-player-search-forward 'button nil))
-        (when (ready-player-search-forward 'button 'next)
-          t))
-      (progn
-        (when (eq (get-text-property (point) 'button) 'open-externally)
-          (ready-player-search-forward 'button nil))
-        (when (ready-player-search-forward 'button 'open-externally)
-          t))
-      (progn
-        (goto-char (point-min))
-        (ready-player-next-button))))
+  (or
+   (let ((result (text-property-search-forward 'button nil nil t)))
+     (when result
+       (goto-char (prop-match-beginning result))
+       result))
+   (progn
+     (goto-char (point-min))
+     (ready-player-next-button))))
 
 (defun ready-player-previous-button ()
   "Navigate to previous button."
