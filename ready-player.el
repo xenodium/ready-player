@@ -187,9 +187,18 @@ Omit the file path, as it will be automatically appended."
 
 See `ready-player-supported-media' for recognized types."
   :global t
-  (if ready-player-mode
-      (ready-player-add-to-auto-mode-alist)
-    (ready-player-remove-from-auto-mode-alist)))
+  (let ((called-interactively (called-interactively-p 'interactive)))
+    (if ready-player-mode
+        (progn
+          (ready-player-add-to-auto-mode-alist)
+          (when (and called-interactively
+                     (string-match-p "no-conversion"
+                                     (symbol-name buffer-file-coding-system)))
+            (revert-buffer nil t)))
+      (ready-player-remove-from-auto-mode-alist)
+      (when (and called-interactively
+                 (eq major-mode 'ready-player-major-mode))
+        (revert-buffer nil t)))))
 
 ;;;###autoload
 (defun ready-player-add-to-auto-mode-alist ()
