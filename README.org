@@ -20,10 +20,14 @@ This package isn't on MELPA just yet. In the meantime, clone the repo or use the
 
 #+begin_src emacs-lisp :lexical no
   (require 'ready-player)
-  (ready-player-add-to-auto-mode-alist)
+  (ready-player-mode)
 #+end_src
 
-To customize supported media files, set =ready-player-supported-media= before invoking =ready-player-add-to-auto-mode-alist=.
+To customize supported media files, set =ready-player-supported-media= before toggling =ready-player-mode=.
+
+* Toggle recognition
+
+You can optionally toggle media recognition on and off interactively via =M-x ready-player-mode=.
 
 * use-package
 
@@ -35,7 +39,7 @@ You can combine the previous install/setup into something like the following:
     (unless (package-installed-p (intern "ready-player"))
       (package-vc-install "https://github.com/xenodium/ready-player" :last-release))
     :config
-    (ready-player-add-to-auto-mode-alist))
+    (ready-player-mode))
 #+end_src
 
 * External dependencies
@@ -86,7 +90,9 @@ On macOS:
      (lambda (symbol)
        (when (and (string-match "^ready-player"
                                 (symbol-name symbol))
-                  (custom-variable-p symbol))
+                  (not (string-match "--" (symbol-name symbol)))
+                  (or (custom-variable-p symbol)
+                      (boundp symbol)))
          (push `(,symbol
                  ,(car
                    (split-string
@@ -100,14 +106,23 @@ On macOS:
 #+END_SRC
 
 #+RESULTS:
-| Custom variable                     | Description                                       |
-|-------------------------------------+---------------------------------------------------|
-| ready-player-supported-media        | Supported media types.                            |
-| ready-player-play-icon              | Play icon string, for example: "⏵".               |
-| ready-player-stop-icon              | Stop icon string, for example: "■".               |
-| ready-player-open-externally-icon   | Open externally icon string, for example: "➦".    |
-| ready-player-show-thumbnail         | Whether or not to attempt to display a thumbnail. |
-| ready-player-open-playback-commands | Command line utilities to try for playback.       |
+| Custom variable                      | Description                                                  |
+|--------------------------------------+--------------------------------------------------------------|
+| ready-player-supported-media         | Supported media types.                                       |
+| ready-player-play-icon               | Play button icon string, for example: "⏵".                   |
+| ready-player-previous-icon           | Previous button icon string, for example: "<<".              |
+| ready-player-cache-thumbnails        | When non-nil, cache thumbnail.                               |
+| ready-player-major-mode-hook         | Hook run after entering Ready Player mode.                   |
+| ready-player-mode                    | Non-nil if Ready-Player mode is enabled.                     |
+| ready-player-stop-icon               | Stop icon string, for example: "■".                          |
+| ready-player-repeat                  | Continue playing if there's more media in current directory. |
+| ready-player-open-externally-icon    | Open externally button icon string, for example: "➦".        |
+| ready-player-show-thumbnail          | When non-nil, display file's thumbnail if available.         |
+| ready-player-next-icon               | Next button icon string, for example: ">>".                  |
+| ready-player-major-mode-map          | Keymap for `ready-player'.                                   |
+| ready-player-open-playback-commands  | Command line utilities to try for playback.                  |
+| ready-player-major-mode-syntax-table | Syntax table for `ready-player-major-mode'.                  |
+| ready-player-repeat-icon             | Repeat icon string, for example: "⇆".                        |
 
 ** macOS SF Symbols
 
@@ -142,10 +157,10 @@ You'll need to [[https://lmno.lol/alvaro/emacs-insert-and-render-sf-symbols][ena
                          comint-mode-map
                          nil nil (command-remapping 'comint-next-input))
                         (where-is-internal
-                         symbol ready-player-mode-map nil nil (command-remapping symbol))
+                         symbol ready-player-major-mode-map nil nil (command-remapping symbol))
                         (where-is-internal
                          (symbol-function symbol)
-                         ready-player-mode-map nil nil (command-remapping symbol)))))  " or ")
+                         ready-player-major-mode-map nil nil (command-remapping symbol)))))  " or ")
                    ,(symbol-name symbol)
                    ,(car
                      (split-string
@@ -156,18 +171,21 @@ You'll need to [[https://lmno.lol/alvaro/emacs-insert-and-render-sf-symbols][ena
 #+END_SRC
 
 #+RESULTS:
-|           | ready-player-add-to-auto-mode-alist      | Add media recognized by `ready-player-mode'.                         |
-|           | ready-player-stop                        | Stop media playback.                                                 |
-| SPC       | ready-player-toggle-play-stop            | Toggle play/stop of media.                                           |
-|           | ready-player-play                        | Start media playback.                                                |
-|           | ready-player-remove-from-auto-mode-alist | Remove media recognized by `ready-player-mode'.                      |
-| o or e    | ready-player-open-externally             | Open visited file in default external program.                       |
-|           | ready-player-mode                        | Major mode to preview and play media files.                          |
-| p         | ready-player-previous-file               | Visit the preceding image in the same directory as the current file. |
-| q         | ready-player-quit                        | Quit `ready-player-mode' window and kill buffer.                     |
-| g         | ready-player-toggle-reload-buffer        | Reload media from file.                                              |
-| n         | ready-player-next-file                   | Visit the next media file in the same directory as current file.     |
-| TAB       | ready-player-next-button                 | Navigate to next button.                                             |
-| <backtab> | ready-player-previous-button             | Navigate to previous button.                                         |
+|           | ready-player-add-to-auto-mode-alist      | Add media recognized by `ready-player-mode'.           |
+| p         | ready-player-open-previous-file          | Open the previous media file in the same directory.    |
+|           | ready-player-stop                        | Stop media playback.                                   |
+| SPC       | ready-player-toggle-play-stop            | Toggle play/stop of media.                             |
+|           | ready-player-play                        | Start media playback.                                  |
+|           | ready-player-remove-from-auto-mode-alist | Remove media recognized by `ready-player-mode'.        |
+| o or e    | ready-player-open-externally             | Open visited file in default external program.         |
+|           | ready-player-mode                        | Toggle Ready Player mode media file recognition.       |
+| n         | ready-player-open-next-file              | Open the next media file in the same directory.        |
+| q         | ready-player-quit                        | Quit `ready-player-major-mode' window and kill buffer. |
+| g         | ready-player-toggle-reload-buffer        | Reload media from file.                                |
+|           | ready-player-major-mode                  | Major mode to preview and play media files.            |
+|           | ready-player-toggle-repeat               | Toggle repeat setting.                                 |
+| TAB       | ready-player-next-button                 | Navigate to next button.                               |
+| <backtab> | ready-player-previous-button             | Navigate to previous button.                           |
+|           | ready-player--open-file-at-offset        | Open the next media file in the same directory.        |
 
 👉 [[https://github.com/sponsors/xenodium][Support this work via GitHub Sponsors]]

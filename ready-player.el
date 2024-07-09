@@ -201,7 +201,6 @@ See `ready-player-supported-media' for recognized types."
 ;;;###autoload
 (defun ready-player-add-to-auto-mode-alist ()
   "Add media recognized by `ready-player-mode'."
-  (interactive)
   (add-to-list 'auto-mode-alist
                (cons (concat "\\." (regexp-opt ready-player-supported-media t) "\\'")
                      'ready-player-major-mode))
@@ -221,7 +220,6 @@ See `ready-player-supported-media' for recognized types."
 
 (defun ready-player-remove-from-auto-mode-alist ()
   "Remove media recognized by `ready-player-mode'."
-  (interactive)
   (setq auto-mode-alist
         (seq-remove (lambda (entry)
                       (and (symbolp (cdr entry))
