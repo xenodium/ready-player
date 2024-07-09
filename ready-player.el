@@ -59,19 +59,19 @@
   "Keymap for `ready-player'.")
 
 (defcustom ready-player-show-thumbnail t
-  "Whether or not to attempt to display a thumbnail."
+  "When non-nil, display file's thumbnail if available."
   :type 'boolean
   :group 'ready-player)
 
 (defcustom ready-player-repeat nil
   "Continue playing if there's more media in current directory.
 
-Disabled by default (work in progress)."
+Repeats and starts over from the beginning of the directory."
   :type 'boolean
   :group 'ready-player)
 
 (defcustom ready-player-cache-thumbnails t
-  "Whether or not to cache thumbnails."
+  "When non-nil, cache thumbnail."
   :type 'boolean
   :group 'ready-player)
 
@@ -180,6 +180,11 @@ Omit the file path, as it will be automatically appended."
 (defvar-local ready-player--metadata nil "Metadata as per ffprobe.")
 
 (defvar-local ready-player--thumbnail nil "Thumbnail as per ffmpeg.")
+
+(defvar-local ready-player--last-button-focus 'play-stop
+  "Last button focused ('next or 'previous 'play-stop).
+
+Used to remember button position across files in continuous playback.")
 
 ;;;###autoload
 (define-minor-mode ready-player-mode
