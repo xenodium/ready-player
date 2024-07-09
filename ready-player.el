@@ -39,10 +39,7 @@
 ;; Note: This is a freshly made package.  Please report issues or send
 ;; patches to https://github.com/xenodium/ready-player
 
-(require 'dired)
-(require 'image-mode)
 (require 'seq)
-(require 'shell)
 
 ;;; Code:
 
@@ -522,6 +519,7 @@ With FEEDBACK, provide user feedback of the interaction."
   "Like `image-next-file' but `dired' only.  Same rules for FILE and N.
 
 Set FROM-TOP to start from top of the Dired buffer instead of at FILE."
+  (require 'dired)
   (let ((regexp (regexp-opt (ready-player--supported-media-with-uppercase) t))
         (buffers (progn
                    (find-file-noselect (file-name-directory file))
@@ -576,6 +574,8 @@ Set FROM-TOP to start from top of the Dired buffer instead of at FILE."
 
 (defun ready-player--start-playback-process ()
   "Start playback process."
+  (require 'shell) ;; prettifies process buffer.
+
   (unless (eq major-mode 'ready-player-mode)
     (user-error "Not in a ready-player-mode buffer"))
   (ready-player--stop-playback-process)
