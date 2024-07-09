@@ -39,7 +39,9 @@
 ;; Note: This is a freshly made package.  Please report issues or send
 ;; patches to https://github.com/xenodium/ready-player
 
+(require 'dired)
 (require 'seq)
+(require 'shell)
 
 ;;; Code:
 
@@ -57,6 +59,10 @@
     (define-key map (kbd "g") #'ready-player-toggle-reload-buffer)
     map)
   "Keymap for `ready-player'.")
+
+(defgroup ready-player nil
+  "Settings for Ready Player mode."
+  :group 'media)
 
 (defcustom ready-player-show-thumbnail t
   "When non-nil, display file's thumbnail if available."
@@ -397,7 +403,7 @@ Note: This function needs to be added to `file-name-handler-alist'."
     metadata-rows))
 
 (defun ready-player--goto-button (button)
-  "Goto BUTTON (see `ready-player--last-button-focus' for values)."
+  "Goto BUTTON (see \=ready-player--last-button-focus\= for values)."
   (goto-char (point-min))
   (text-property-search-forward 'button button))
 
@@ -489,7 +495,6 @@ With FEEDBACK, provide user feedback of the interaction."
 
   (let* ((playing ready-player--process)
          (old-buffer (current-buffer))
-         (old-file (buffer-file-name old-buffer))
          (new-file (or (ready-player--next-dired-file buffer-file-name n)
                        (ready-player--next-dired-file buffer-file-name n t)))
          (new-buffer (when new-file
@@ -512,7 +517,6 @@ With FEEDBACK, provide user feedback of the interaction."
   "Like `image-next-file' but `dired' only.  Same rules for FILE and N.
 
 Set FROM-TOP to start from top of the Dired buffer instead of at FILE."
-  (require 'dired)
   (let ((regexp (regexp-opt (ready-player--supported-media-with-uppercase) t))
         (buffers (progn
                    (find-file-noselect (file-name-directory file))
@@ -567,8 +571,6 @@ Set FROM-TOP to start from top of the Dired buffer instead of at FILE."
 
 (defun ready-player--start-playback-process ()
   "Start playback process."
-  (require 'shell) ;; prettifies process buffer.
-
   (unless (eq major-mode 'ready-player-major-mode)
     (user-error "Not in a ready-player-major-mode buffer"))
   (ready-player--stop-playback-process)
