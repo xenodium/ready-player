@@ -5,7 +5,7 @@
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; Package-Requires: ((emacs "28.1"))
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.45
+;; Version: 0.0.46
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -59,6 +59,8 @@
     (define-key map (kbd "o") #'ready-player-open-externally)
     (define-key map (kbd "q") #'ready-player-quit)
     (define-key map (kbd "g") #'ready-player-toggle-reload-buffer)
+    (define-key map (kbd "m") #'ready-player-mark-dired-file)
+    (define-key map (kbd "u") #'ready-player-unmark-dired-file)
     map)
   "Keymap for `ready-player'.")
 
@@ -567,6 +569,48 @@ Set SHUFFLE to choose next file at random."
             ;; No next match. Restore point.
             (dired-goto-file file)))))
     next))
+
+;; Based on `image-mode-mark-file'.
+(defun ready-player-mark-dired-file ()
+  "Mark the current file in the appropriate Dired buffer(s)."
+  (interactive nil ready-player-major-mode)
+  (unless buffer-file-name
+    (user-error "No media file in this buffer"))
+  (ready-player--apply-dired-function #'dired-mark buffer-file-name "marked"))
+
+;; Based on `image-mode-unmark-file'.
+(defun ready-player-unmark-dired-file ()
+  "Unmark the current file in the appropriate Dired buffer(s)."
+  (interactive nil ready-player-major-mode)
+  (unless buffer-file-name
+    (user-error "No media file in this buffer"))
+  (ready-player--apply-dired-function #'dired-unmark buffer-file-name "unmarked"))
+
+;; Based on `image-mode--mark-file'.
+(defun ready-player--apply-dired-function (function file message)
+  (let* ((dir (file-name-directory file))
+	 (buffers (seq-filter (lambda (buffer)
+                                (and (eq major-mode 'dired-mode)
+			             (equal (file-truename dir)
+				            (file-truename default-directory))))
+                              (dired-buffers-for-dir dir)))
+         results)
+    (unless buffers
+      (save-excursion
+        (setq buffers (list (find-file-noselect dir)))))
+    ;; TODO: Simplify message logic.
+    (dolist (buffer buffers)
+      (with-current-buffer buffer
+	(if (not (dired-goto-file file))
+            (push (format "couldn't find in %s" (directory-file-name dir))
+                  results)
+	  (funcall function 1)
+          (push (format "%s in %s" message (directory-file-name dir))
+                results))))
+    ;; Capitalize first character.
+    (let ((string (mapconcat #'identity results "; ")))
+      (message "%s%s" (capitalize (substring string 0 1))
+               (substring string 1)))))
 
 (defun ready-player-stop ()
   "Stop media playback."
