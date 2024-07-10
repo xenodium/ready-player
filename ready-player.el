@@ -5,7 +5,7 @@
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; Package-Requires: ((emacs "28.1"))
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.41
+;; Version: 0.0.42
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -312,9 +312,10 @@ Note: This function needs to be added to `file-name-handler-alist'."
                              ;; unless delayed ¯\_(ツ)_/¯.
                              (run-with-timer 0.1 nil
                                              (lambda ()
-                                               (with-current-buffer buffer
-                                                 (ready-player--goto-button
-                                                  ready-player--last-button-focus))))))))))
+                                               (when (buffer-live-p buffer)
+                                                 (with-current-buffer buffer
+                                                   (ready-player--goto-button
+                                                    ready-player--last-button-focus)))))))))))
     (ready-player--load-file-metadata
      fpath (lambda (metadata)
              (when (buffer-live-p buffer)
@@ -335,32 +336,33 @@ Note: This function needs to be added to `file-name-handler-alist'."
   (save-excursion
     (let ((fname (file-name-nondirectory fpath))
           (buffer-read-only nil))
-      (with-current-buffer buffer
-        (erase-buffer)
-        (goto-char (point-min))
-        (when (and ready-player-show-thumbnail thumbnail)
-          (let ((inhibit-read-only t))
-            (when thumbnail
-              (insert "\n ")
-              (insert-image (create-image thumbnail nil nil :max-width 400))
-              (insert "\n"))
-            (set-buffer-modified-p nil)))
-        (insert "\n")
-        (insert (format " %s" (propertize fname 'face 'info-title-2)))
-        (insert " ")
-        (insert (propertize "(playing)"
-                            'face `(:foreground ,(face-foreground 'font-lock-comment-face) :inherit info-title-2)
-                            'invisible (not busy)
-                            'playing-status t))
-        (insert "\n")
-        (insert "\n")
-        (insert (ready-player--make-file-button-line busy repeat))
-        (insert "\n")
-        (insert "\n")
-        (when metadata
-          (insert (ready-player--format-metadata-rows
-                   (ready-player--make-metadata-rows metadata))))
-        (set-buffer-modified-p nil)))))
+      (when (buffer-live-p buffer)
+        (with-current-buffer buffer
+          (erase-buffer)
+          (goto-char (point-min))
+          (when (and ready-player-show-thumbnail thumbnail)
+            (let ((inhibit-read-only t))
+              (when thumbnail
+                (insert "\n ")
+                (insert-image (create-image thumbnail nil nil :max-width 400))
+                (insert "\n"))
+              (set-buffer-modified-p nil)))
+          (insert "\n")
+          (insert (format " %s" (propertize fname 'face 'info-title-2)))
+          (insert " ")
+          (insert (propertize "(playing)"
+                              'face `(:foreground ,(face-foreground 'font-lock-comment-face) :inherit info-title-2)
+                              'invisible (not busy)
+                              'playing-status t))
+          (insert "\n")
+          (insert "\n")
+          (insert (ready-player--make-file-button-line busy repeat))
+          (insert "\n")
+          (insert "\n")
+          (when metadata
+            (insert (ready-player--format-metadata-rows
+                     (ready-player--make-metadata-rows metadata))))
+          (set-buffer-modified-p nil))))))
 
 (defun ready-player--make-metadata-rows (metadata)
   "Make METADATA row data."
@@ -591,7 +593,8 @@ Set FROM-TOP to start from top of the Dired buffer instead of at FILE."
     (set-process-sentinel
      ready-player--process
      (lambda (process _)
-       (when (memq (process-status process) '(exit signal))
+       (when (and (memq (process-status process) '(exit signal))
+                  (buffer-live-p buffer))
          (with-current-buffer buffer
            (if (and ready-player-repeat
                     (buffer-live-p buffer)
@@ -814,7 +817,8 @@ Note: This needs the ffmpeg command line utility."
 (defun ready-player--load-file-metadata (fpath on-loaded)
   "Load media metadata at FPATH and invoke ON-LOADED."
   (if (executable-find "ffprobe")
-      (let ((buffer (generate-new-buffer "*ffprobe-output*")))
+      (when-let* ((buffer (generate-new-buffer "*ffprobe-output*"))
+                  (buffer-live (buffer-live-p buffer)))
         (with-current-buffer buffer
           (erase-buffer))
         (make-process
@@ -823,16 +827,20 @@ Note: This needs the ffmpeg command line utility."
          :command (list "ffprobe" "-v" "quiet" "-print_format" "json" "-show_format" "-show_streams" fpath)
          :sentinel
          (lambda (process _)
-           (when (eq (process-exit-status process) 0)
-             (with-current-buffer (process-buffer process)
-               (goto-char (point-min))
-               (funcall on-loaded (json-parse-buffer :object-type 'alist))))
+           (condition-case _
+               (when (and (eq (process-exit-status process) 0)
+                          (buffer-live-p (process-buffer process)))
+                 (with-current-buffer (process-buffer process)
+                   (goto-char (point-min))
+                   (funcall on-loaded (json-parse-buffer :object-type 'alist))))
+             (error nil))
            (kill-buffer (process-buffer process)))))
     (message "Metadata not available (ffprobe not found)")))
 
 (defun ready-player--playback-buffer ()
   "Get the process playback buffer."
-  (let ((buffer (get-buffer-create (format "*%s* (ready-player)" (nth 0 (ready-player--playback-command))))))
+  (when-let* ((buffer (get-buffer-create (format "*%s* (ready-player)" (nth 0 (ready-player--playback-command)))))
+              (buffer-live (buffer-live-p buffer)))
     (with-current-buffer buffer
       (let ((inhibit-read-only t))
         (erase-buffer))
