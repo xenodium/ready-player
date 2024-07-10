@@ -502,7 +502,8 @@ With FEEDBACK, provide user feedback of the interaction."
         (with-current-buffer new-buffer
           (when (get-buffer-window-list old-buffer nil t)
             (set-window-buffer (car (get-buffer-window-list old-buffer nil t)) new-buffer))
-          (kill-buffer old-buffer)
+          (unless (eq new-buffer old-buffer)
+            (kill-buffer old-buffer))
           (when playing
             (ready-player--start-playback-process)))
       (if playing
