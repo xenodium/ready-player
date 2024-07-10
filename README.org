@@ -124,7 +124,7 @@ On macOS:
 | ready-player-major-mode-syntax-table | Syntax table for `ready-player-major-mode'.                  |
 | ready-player-repeat-icon             | Repeat icon string, for example: "⇆".                        |
 
-** macOS SF Symbols
+** Buttons (macOS SF Symbols)
 
 By default, =ready-player-mode= will try to use macOS [[https://developer.apple.com/sf-symbols/][SF Symbols]] (if available) for =ready-player-play-icon= =ready-player-stop-icon= and =ready-player-open-externally-icon=.
 
@@ -134,6 +134,10 @@ You'll need to [[https://lmno.lol/alvaro/emacs-insert-and-render-sf-symbols][ena
   (when (memq system-type '(darwin))
     (set-fontset-font t nil "SF Pro Display" nil 'append))
 #+end_src
+
+** Buttons (Linux)
+
+If macOS SF Symbols aren't available, =<< ⏵ ■ >> ➦ ⇆= are used as a fallback. These can be customized (see all icon variables), though may not be the best alternative. Happy to take suggestions!
 
 * Commands
 
