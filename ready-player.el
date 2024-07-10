@@ -5,7 +5,7 @@
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; Package-Requires: ((emacs "28.1"))
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.42
+;; Version: 0.0.43
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -500,7 +500,8 @@ With FEEDBACK, provide user feedback of the interaction."
   (let* ((playing ready-player--process)
          (old-buffer (current-buffer))
          (new-file (or (ready-player--next-dired-file buffer-file-name n)
-                       (ready-player--next-dired-file buffer-file-name n t)))
+                       (when ready-player-repeat
+                         (ready-player--next-dired-file buffer-file-name n t))))
          (new-buffer (when new-file
                        (find-file-noselect new-file))))
     (ready-player--stop-playback-process)
