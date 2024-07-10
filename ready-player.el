@@ -414,8 +414,7 @@ Note: This function needs to be added to `file-name-handler-alist'."
 (defun ready-player-next-button ()
   "Navigate to next button."
   (interactive)
-  (unless (eq major-mode 'ready-player-major-mode)
-    (user-error "Not in a ready-player-major-mode buffer"))
+  (ready-player--ensure-mode)
   (or
    (let ((result (text-property-search-forward 'button nil nil t)))
      (when result
@@ -428,8 +427,7 @@ Note: This function needs to be added to `file-name-handler-alist'."
 (defun ready-player-previous-button ()
   "Navigate to previous button."
   (interactive)
-  (unless (eq major-mode 'ready-player-major-mode)
-    (user-error "Not in a ready-player-major-mode buffer"))
+  (ready-player--ensure-mode)
   (or
    (text-property-search-backward 'button)
    (progn
@@ -439,8 +437,7 @@ Note: This function needs to be added to `file-name-handler-alist'."
 (defun ready-player-quit ()
   "Quit `ready-player-major-mode' window and kill buffer."
   (interactive)
-  (unless (eq major-mode 'ready-player-major-mode)
-    (user-error "Not in a ready-player-major-mode buffer"))
+  (ready-player--ensure-mode)
   (quit-window t))
 
 ;; Based on `crux-open-with'.
@@ -450,8 +447,7 @@ When in Dired mode, open file under the cursor.
 
 With a prefix ARG always prompt for command to use."
   (interactive "P")
-  (unless (eq major-mode 'ready-player-major-mode)
-    (user-error "Not in a ready-player-major-mode buffer"))
+  (ready-player--ensure-mode)
   (ready-player-toggle-play-stop)
   (let* ((current-file-name
           (if (derived-mode-p 'dired-mode)
@@ -470,8 +466,7 @@ With a prefix ARG always prompt for command to use."
 
 With optional argument N, visit the Nth file before the current one."
   (interactive "p" ready-player)
-  (unless (eq major-mode 'ready-player-major-mode)
-    (user-error "Not in a ready-player-major-mode buffer"))
+  (ready-player--ensure-mode)
   (ready-player--open-file-at-offset (- n) t))
 
 (defun ready-player-open-next-file (&optional n)
@@ -479,8 +474,7 @@ With optional argument N, visit the Nth file before the current one."
 
 With optional argument N, visit the Nth file after the current one."
   (interactive "p" ready-player)
-  (unless (eq major-mode 'ready-player-major-mode)
-    (user-error "Not in a ready-player-major-mode buffer"))
+  (ready-player--ensure-mode)
   (ready-player--open-file-at-offset n t))
 
 (defun ready-player--open-file-at-offset (n feedback)
@@ -491,8 +485,7 @@ one.  Negative values move backwards.
 
 With FEEDBACK, provide user feedback of the interaction."
   (interactive "p" ready-player)
-  (unless (eq major-mode 'ready-player-major-mode)
-    (user-error "Not in a ready-player-major-mode buffer"))
+  (ready-player--ensure-mode)
   (when feedback
     (ready-player--goto-button (if (> n 0) 'next 'previous))
     (setq ready-player--last-button-focus (if (> n 0) 'next 'previous)))
@@ -561,10 +554,15 @@ Set FROM-TOP to start from top of the Dired buffer instead of at FILE."
 (defun ready-player-play ()
   "Start media playback."
   (interactive)
-  (unless (eq major-mode 'ready-player-major-mode)
-    (user-error "Not in a ready-player-major-mode buffer"))
+  (ready-player--ensure-mode)
   (setq ready-player--last-button-focus 'play-stop)
   (ready-player--start-playback-process))
+
+(defun ready-player--ensure-mode ()
+  "Ensure current buffer is running in `ready-player-major-mode'."
+  (unless (eq major-mode 'ready-player-major-mode)
+    (message "%s" (backtrace-to-string))
+    (user-error "Not in a ready-player-major-mode buffer (%s)" major-mode)))
 
 (defun ready-player--stop-playback-process ()
   "Stop playback process."
@@ -576,8 +574,7 @@ Set FROM-TOP to start from top of the Dired buffer instead of at FILE."
 
 (defun ready-player--start-playback-process ()
   "Start playback process."
-  (unless (eq major-mode 'ready-player-major-mode)
-    (user-error "Not in a ready-player-major-mode buffer"))
+  (ready-player--ensure-mode)
   (ready-player--stop-playback-process)
   (when-let* ((fpath (buffer-file-name))
               (command (append
@@ -628,8 +625,7 @@ Set FROM-TOP to start from top of the Dired buffer instead of at FILE."
 (defun ready-player-toggle-repeat ()
   "Toggle repeat setting."
   (interactive)
-  (unless (eq major-mode 'ready-player-major-mode)
-    (user-error "Not in a ready-player-major-mode buffer"))
+  (ready-player--ensure-mode)
   (setq ready-player-repeat (not ready-player-repeat))
   (ready-player--refresh-buffer-status
    (current-buffer)
@@ -646,8 +642,7 @@ Set FROM-TOP to start from top of the Dired buffer instead of at FILE."
 (defun ready-player-toggle-reload-buffer ()
   "Reload media from file."
   (interactive)
-  (unless (eq major-mode 'ready-player-major-mode)
-    (user-error "Not in a ready-player-major-mode buffer"))
+  (ready-player--ensure-mode)
   (when ready-player--thumbnail
     (condition-case nil
         (delete-file ready-player--thumbnail)
