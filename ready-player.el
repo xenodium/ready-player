@@ -5,7 +5,7 @@
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; Package-Requires: ((emacs "28.1"))
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.44
+;; Version: 0.0.45
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -467,7 +467,7 @@ When in Dired mode, open file under the cursor.
 With a prefix ARG always prompt for command to use."
   (interactive "P")
   (ready-player--ensure-mode)
-  (ready-player-toggle-play-stop)
+  (ready-player-stop)
   (let* ((current-file-name
           (if (derived-mode-p 'dired-mode)
               (dired-get-file-for-visit)
