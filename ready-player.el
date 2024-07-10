@@ -78,6 +78,13 @@ Repeats and starts over from the beginning of the directory."
   :type 'boolean
   :group 'ready-player)
 
+(defcustom ready-player-shuffle nil
+  "Next media item is selected at random within current directory.
+
+Repeats and starts over from the beginning of the directory."
+  :type 'boolean
+  :group 'ready-player)
+
 (defcustom ready-player-cache-thumbnails t
   "When non-nil, cache thumbnail."
   :type 'boolean
@@ -145,6 +152,14 @@ Repeats and starts over from the beginning of the directory."
       "􀊞"
     "⇆")
   "Repeat icon string, for example: \"⇆\"."
+  :type 'string
+  :group 'ready-player)
+
+(defcustom ready-player-shuffle-icon
+  (if (ready-player-displays-as-sf-symbol-p "􀊝")
+      "􀊝"
+    "⤮")
+  "Shuffle icon string, for example: \"⤮\"."
   :type 'string
   :group 'ready-player)
 
@@ -288,7 +303,8 @@ Note: This function needs to be added to `file-name-handler-alist'."
     (setq ready-player--active-buffer buffer)
     (ready-player--update-buffer buffer fpath
                                  ready-player--process
-                                 ready-player-repeat)
+                                 ready-player-repeat
+                                 ready-player-shuffle)
     (if cached-thumbnail
         (progn
           (setq ready-player--thumbnail cached-thumbnail)
@@ -296,6 +312,7 @@ Note: This function needs to be added to `file-name-handler-alist'."
            buffer fpath
            ready-player--process
            ready-player-repeat
+           ready-player-shuffle
            cached-thumbnail ready-player--metadata))
       (funcall thumbnailer
                fpath (lambda (thumbnail)
@@ -307,6 +324,7 @@ Note: This function needs to be added to `file-name-handler-alist'."
                               buffer fpath
                               ready-player--process
                               ready-player-repeat
+                              ready-player-shuffle
                               thumbnail ready-player--metadata)
                              ;; Point won't move to button
                              ;; unless delayed ¯\_(ツ)_/¯.
@@ -326,13 +344,14 @@ Note: This function needs to be added to `file-name-handler-alist'."
                     buffer fpath
                     ready-player--process
                     ready-player-repeat
+                    ready-player-shuffle
                     ready-player--thumbnail metadata)
                    (ready-player--goto-button
                     ready-player--last-button-focus)))))))
   (add-hook 'kill-buffer-hook #'ready-player--clean-up nil t))
 
-(defun ready-player--update-buffer (buffer fpath busy repeat &optional thumbnail metadata)
-  "Update entire BUFFER content with FPATH BUSY REPEAT THUMBNAIL and METADATA."
+(defun ready-player--update-buffer (buffer fpath busy repeat shuffle &optional thumbnail metadata)
+  "Update entire BUFFER content with FPATH BUSY REPEAT SHUFFLE THUMBNAIL and METADATA."
   (save-excursion
     (let ((fname (file-name-nondirectory fpath))
           (buffer-read-only nil))
@@ -356,7 +375,7 @@ Note: This function needs to be added to `file-name-handler-alist'."
                               'playing-status t))
           (insert "\n")
           (insert "\n")
-          (insert (ready-player--make-file-button-line busy repeat))
+          (insert (ready-player--make-file-button-line busy repeat shuffle))
           (insert "\n")
           (insert "\n")
           (when metadata
@@ -492,9 +511,9 @@ With FEEDBACK, provide user feedback of the interaction."
 
   (let* ((playing ready-player--process)
          (old-buffer (current-buffer))
-         (new-file (or (ready-player--next-dired-file buffer-file-name n)
+         (new-file (or (ready-player--next-dired-file buffer-file-name n nil ready-player-shuffle)
                        (when ready-player-repeat
-                         (ready-player--next-dired-file buffer-file-name n t))))
+                         (ready-player--next-dired-file buffer-file-name n t ready-player-shuffle))))
          (new-buffer (when new-file
                        (find-file-noselect new-file))))
     (ready-player--stop-playback-process)
@@ -512,10 +531,12 @@ With FEEDBACK, provide user feedback of the interaction."
         (message "No more media")))
     new-file))
 
-(defun ready-player--next-dired-file (file n &optional from-top)
+(defun ready-player--next-dired-file (file n &optional from-top shuffle)
   "Like `image-next-file' but `dired' only.  Same rules for FILE and N.
 
-Set FROM-TOP to start from top of the Dired buffer instead of at FILE."
+Set FROM-TOP to start from top of the Dired buffer instead of at FILE.
+
+Set SHUFFLE to choose next file at random."
   (let ((regexp (regexp-opt (ready-player--supported-media-with-uppercase) t))
         (buffers (progn
                    (find-file-noselect (file-name-directory file))
@@ -524,9 +545,14 @@ Set FROM-TOP to start from top of the Dired buffer instead of at FILE."
     ;; Move point in all relevant dired buffers.
     (dolist (buffer buffers)
       (with-current-buffer buffer
-        (if from-top
-            (goto-char (point-min))
-          (dired-goto-file file))
+        (if shuffle
+            ;; Goto random line.
+            (goto-line (+ (point-min)
+                          (random (count-lines (point-min)
+                                               (point-max)))))
+          (if from-top
+              (goto-char (point-min))
+            (dired-goto-file file)))
         (let (found)
           (while (and (not found)
                       (if (> n 0)
@@ -587,7 +613,8 @@ Set FROM-TOP to start from top of the Dired buffer instead of at FILE."
     (ready-player--refresh-buffer-status
      buffer (file-name-nondirectory fpath)
      ready-player--process
-     ready-player-repeat)
+     ready-player-repeat
+     ready-player-shuffle)
     (set-process-sentinel
      ready-player--process
      (lambda (process _)
@@ -595,18 +622,19 @@ Set FROM-TOP to start from top of the Dired buffer instead of at FILE."
                   (buffer-live-p buffer))
          (with-current-buffer buffer
            (if (and ready-player-repeat
-                    (buffer-live-p buffer)
                     (eq (process-exit-status process) 0))
                (unless (ready-player--open-file-at-offset 1 nil)
                  (ready-player--refresh-buffer-status
                   buffer (file-name-nondirectory fpath)
                   ready-player--process
-                  ready-player-repeat))
+                  ready-player-repeat
+                  ready-player-shuffle))
              (setq ready-player--process nil)
              (ready-player--refresh-buffer-status
               buffer (file-name-nondirectory fpath)
               ready-player--process
-              ready-player-repeat))))))
+              ready-player-repeat
+              ready-player-shuffle))))))
     (set-process-filter ready-player--process #'comint-output-filter)))
 
 (defun ready-player-toggle-play-stop ()
@@ -631,8 +659,27 @@ Set FROM-TOP to start from top of the Dired buffer instead of at FILE."
    (current-buffer)
    (file-name-nondirectory (buffer-file-name))
    ready-player--process
-   ready-player-repeat)
+   ready-player-repeat
+   ready-player-shuffle)
   (message "Repeat: %s" (if ready-player-repeat
+                            "ON"
+                          "OFF"))
+  (run-with-timer 1 nil
+                  (lambda ()
+                    (message ""))))
+
+(defun ready-player-toggle-shuffle ()
+  "Toggle shuffle setting."
+  (interactive)
+  (ready-player--ensure-mode)
+  (setq ready-player-shuffle (not ready-player-shuffle))
+  (ready-player--refresh-buffer-status
+   (current-buffer)
+   (file-name-nondirectory (buffer-file-name))
+   ready-player--process
+   ready-player-repeat
+   ready-player-shuffle)
+  (message "Shuffle: %s" (if ready-player-shuffle
                             "ON"
                           "OFF"))
   (run-with-timer 1 nil
@@ -668,9 +715,9 @@ Set FROM-TOP to start from top of the Dired buffer instead of at FILE."
                 (mapconcat
                  'identity (seq-map #'seq-first ready-player-open-playback-commands) " "))))
 
-(defun ready-player--make-file-button-line (busy repeat)
-  "Create button line with BUSY and REPEAT."
-  (format " %s %s %s %s %s"
+(defun ready-player--make-file-button-line (busy repeat shuffle)
+  "Create button line with BUSY, REPEAT and SHUFFLE."
+  (format " %s %s %s %s %s %s"
           (ready-player--make-button ready-player-previous-icon
                                      'previous
                                      #'ready-player-open-previous-file)
@@ -685,9 +732,12 @@ Set FROM-TOP to start from top of the Dired buffer instead of at FILE."
           (ready-player--make-button ready-player-open-externally-icon
                                      'open-externally
                                      #'ready-player-open-externally)
-          (ready-player--make-checkbox-button ready-player-repeat-icon repeat ;; FIXME
+          (ready-player--make-checkbox-button ready-player-repeat-icon repeat
                                               'repeat
-                                              #'ready-player-toggle-repeat)))
+                                              #'ready-player-toggle-repeat)
+          (ready-player--make-checkbox-button ready-player-shuffle-icon shuffle
+                                              'shuffle
+                                              #'ready-player-toggle-shuffle)))
 
 (defun ready-player--make-checkbox-button (text checked kind action)
   "Make a checkbox button with TEXT, CHECKED state, KIND, and ACTION."
@@ -696,7 +746,7 @@ Set FROM-TOP to start from top of the Dired buffer instead of at FILE."
            text
            (if checked
                "*"
-             " "))
+             ""))
    'pointer 'hand
    'keymap (let ((map (make-sparse-keymap)))
              (define-key map [mouse-1] action)
@@ -718,8 +768,8 @@ Set FROM-TOP to start from top of the Dired buffer instead of at FILE."
              map)
    'button kind))
 
-(defun ready-player--refresh-buffer-status (buffer fname busy repeat)
-  "Refresh and render status in buffer with BUFFER, FNAME, BUSY and REPEAT."
+(defun ready-player--refresh-buffer-status (buffer fname busy repeat shuffle)
+  "Refresh and render status in buffer with BUFFER, FNAME, BUSY, REPEAT and SHUFFLE."
   (when-let ((inhibit-read-only t)
              (saved-point (point))
              (live-buffer (buffer-live-p buffer)))
@@ -739,7 +789,7 @@ Set FROM-TOP to start from top of the Dired buffer instead of at FILE."
 
         (when (text-property-search-forward 'button)
           (delete-region (line-beginning-position) (line-end-position))
-          (insert (ready-player--make-file-button-line busy repeat))))
+          (insert (ready-player--make-file-button-line busy repeat shuffle))))
       (goto-char saved-point)
 
       ;; Toggle (playing) in buffer name.
