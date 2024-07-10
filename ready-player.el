@@ -749,14 +749,7 @@ Set FROM-TOP to start from top of the Dired buffer instead of at FILE."
                            (concat base-name " (playing)")
                          base-name)))
 
-      (set-buffer-modified-p nil)
-      (if busy
-          (progn
-            (message "Playing...")
-            (run-with-timer 3 nil
-                            (lambda ()
-                              (message ""))))
-        (message "")))))
+      (set-buffer-modified-p nil))))
 
 (defun ready-player--thumbnail-path (fpath)
   "Generate thumbnail path for media at FPATH."
