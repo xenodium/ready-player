@@ -5,7 +5,7 @@
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; Package-Requires: ((emacs "28.1"))
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.43
+;; Version: 0.0.44
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -562,7 +562,6 @@ Set FROM-TOP to start from top of the Dired buffer instead of at FILE."
 (defun ready-player--ensure-mode ()
   "Ensure current buffer is running in `ready-player-major-mode'."
   (unless (eq major-mode 'ready-player-major-mode)
-    (message "%s" (backtrace-to-string))
     (user-error "Not in a ready-player-major-mode buffer (%s)" major-mode)))
 
 (defun ready-player--stop-playback-process ()
