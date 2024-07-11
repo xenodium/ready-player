@@ -210,6 +210,9 @@ Omit the file path, as it will be automatically appended."
 
 Used to remember button position across files in continuous playback.")
 
+(defvar ready-player--current-dired-buffer nil
+  "Dired buffer used when determining next/previous file.")
+
 ;;;###autoload
 (define-minor-mode ready-player-mode
   "Toggle Ready Player mode media file recognition.
@@ -308,6 +311,17 @@ Note: This function needs to be added to `file-name-handler-alist'."
          (thumbnailer (if (executable-find "ffmpegthumbnailer")
                           #'ready-player--load-file-thumbnail-via-ffmpegthumbnailer
                         #'ready-player--load-file-thumbnail-via-ffmpeg)))
+    (unless (buffer-live-p (when ready-player--current-dired-buffer
+                             (get-buffer ready-player--current-dired-buffer)))
+      (setq ready-player--current-dired-buffer nil))
+    (when ready-player--current-dired-buffer
+      (with-current-buffer ready-player--current-dired-buffer
+        (save-excursion
+          ;; Opened a file outside of known dired buffer.
+          ;; Use the file's associated dired buffer instead.
+          (unless (dired-goto-file fpath)
+            (setq ready-player--current-dired-buffer
+                  (find-file-noselect (file-name-directory fpath)))))))
     (setq ready-player--active-buffer buffer)
     (ready-player--update-buffer buffer fpath
                                  ready-player--process
@@ -523,9 +537,11 @@ With FEEDBACK, provide user feedback of the interaction."
 
   (let* ((playing ready-player--process)
          (old-buffer (current-buffer))
-         (new-file (or (ready-player--next-dired-file buffer-file-name n nil ready-player-shuffle)
+         (new-file (or (ready-player--next-dired-file-from
+                        buffer-file-name n nil ready-player-shuffle)
                        (when ready-player-repeat
-                         (ready-player--next-dired-file buffer-file-name n t ready-player-shuffle))))
+                         (ready-player--next-dired-file-from
+                          buffer-file-name n t ready-player-shuffle))))
          (new-buffer (when new-file
                        (find-file-noselect new-file))))
     (ready-player--stop-playback-process)
@@ -543,21 +559,28 @@ With FEEDBACK, provide user feedback of the interaction."
         (message "No more media")))
     new-file))
 
-(defun ready-player--next-dired-file (file n &optional from-top shuffle)
-  "Like `image-next-file' but `dired' only.  Same rules for FILE and N.
+;; Based on `image-next-file'.
+(defun ready-player--next-dired-file-from (file offset &optional from-top random)
+  "Get the next available file from a `dired' buffer.
 
-Set FROM-TOP to start from top of the Dired buffer instead of at FILE.
+`dired' buffers are either derived from `file' or
+`ready-player--current-dired-buffer'.
 
-Set SHUFFLE to choose next file at random."
+Start at the FILE's location in buffer and move to OFFSET.
+If FROM-TOP is non-nil, offset is from top of the buffer.
+
+With RANDOM set, choose next file at random."
   (let ((regexp (regexp-opt (ready-player--supported-media-with-uppercase) t))
-        (buffers (progn
-                   (find-file-noselect (file-name-directory file))
-                   (dired-buffers-for-dir (file-name-directory file))))
-        next)
+        (dired-buffers  (if ready-player--current-dired-buffer
+                            (list ready-player--current-dired-buffer)
+                          (when file
+                            (find-file-noselect (file-name-directory file))
+                            (dired-buffers-for-dir (file-name-directory file)))))
+        (next))
     ;; Move point in all relevant dired buffers.
-    (dolist (buffer buffers)
+    (dolist (buffer dired-buffers)
       (with-current-buffer buffer
-        (if shuffle
+        (if random
             (progn
               (goto-char (point-min))
               ;; Goto random line.
@@ -569,12 +592,12 @@ Set SHUFFLE to choose next file at random."
             (dired-goto-file file)))
         (let (found)
           (while (and (not found)
-                      (if (> n 0)
+                      (if (> offset 0)
                           (not (eobp))
                         (not (bobp))))
-            (dired-next-line n)
+            (dired-next-line offset)
             ;; Ensure (eobp) or (bobp) are reached.
-            (if (> n 0)
+            (if (> offset 0)
                 (end-of-line)
               (beginning-of-line))
             (when-let* ((candidate (dired-get-filename nil t))
