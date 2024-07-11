@@ -359,7 +359,9 @@ Note: This function needs to be added to `file-name-handler-alist'."
   (add-hook 'kill-buffer-hook #'ready-player--clean-up nil t))
 
 (defun ready-player--update-buffer (buffer fpath busy repeat shuffle &optional thumbnail metadata)
-  "Update entire BUFFER content with FPATH BUSY REPEAT SHUFFLE THUMBNAIL and METADATA."
+  "Update entire BUFFER content.
+
+Render state from FPATH BUSY REPEAT SHUFFLE THUMBNAIL and METADATA."
   (save-excursion
     (let ((fname (file-name-nondirectory fpath))
           (buffer-read-only nil))
@@ -556,10 +558,12 @@ Set SHUFFLE to choose next file at random."
     (dolist (buffer buffers)
       (with-current-buffer buffer
         (if shuffle
-            ;; Goto random line.
-            (goto-line (+ (point-min)
-                          (random (count-lines (point-min)
-                                               (point-max)))))
+            (progn
+              (goto-char (point-min))
+              ;; Goto random line.
+              (forward-line (+ (point-min)
+                               (random (count-lines (point-min)
+                                                    (point-max))))))
           (if from-top
               (goto-char (point-min))
             (dired-goto-file file)))
@@ -603,9 +607,10 @@ Set SHUFFLE to choose next file at random."
   "Apply Dired FUNCTION to FILE and display MESSAGE."
   (let* ((dir (file-name-directory file))
 	 (buffers (seq-filter (lambda (buffer)
-                                (and (eq major-mode 'dired-mode)
-			             (equal (file-truename dir)
-				            (file-truename default-directory))))
+                                (with-current-buffer buffer
+                                  (and (eq major-mode 'dired-mode)
+                                       (equal (file-truename dir)
+                                              (file-truename default-directory)))))
                               (dired-buffers-for-dir dir)))
          results)
     (unless buffers
@@ -828,7 +833,9 @@ Set SHUFFLE to choose next file at random."
    'button kind))
 
 (defun ready-player--refresh-buffer-status (buffer fname busy repeat shuffle)
-  "Refresh and render status in buffer with BUFFER, FNAME, BUSY, REPEAT and SHUFFLE."
+  "Refresh and render status in buffer in BUFFER.
+
+Render FNAME, BUSY, REPEAT and SHUFFLE."
   (when-let ((inhibit-read-only t)
              (saved-point (point))
              (live-buffer (buffer-live-p buffer)))
