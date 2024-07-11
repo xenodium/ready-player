@@ -311,17 +311,13 @@ Note: This function needs to be added to `file-name-handler-alist'."
          (thumbnailer (if (executable-find "ffmpegthumbnailer")
                           #'ready-player--load-file-thumbnail-via-ffmpegthumbnailer
                         #'ready-player--load-file-thumbnail-via-ffmpeg)))
-    (unless (buffer-live-p (when ready-player--current-dired-buffer
-                             (get-buffer ready-player--current-dired-buffer)))
-      (setq ready-player--current-dired-buffer nil))
-    (when ready-player--current-dired-buffer
-      (with-current-buffer ready-player--current-dired-buffer
-        (save-excursion
-          ;; Opened a file outside of known dired buffer.
-          ;; Use the file's associated dired buffer instead.
-          (unless (dired-goto-file fpath)
-            (setq ready-player--current-dired-buffer
-                  (find-file-noselect (file-name-directory fpath)))))))
+    (with-current-buffer (ready-player--current-dired-buffer)
+      (save-excursion
+        ;; Opened a file outside of known dired buffer.
+        ;; Use the file's associated dired buffer instead.
+        (unless (dired-goto-file fpath)
+          (setq ready-player--current-dired-buffer
+                (find-file-noselect (file-name-directory fpath))))))
     (setq ready-player--active-buffer buffer)
     (ready-player--update-buffer buffer fpath
                                  ready-player--process
@@ -559,11 +555,20 @@ With FEEDBACK, provide user feedback of the interaction."
         (message "No more media")))
     new-file))
 
+
+(defun ready-player--current-dired-buffer ()
+  "Get the associated `dired' buffer, creating it if needed."
+  (when (or (not ready-player--current-dired-buffer)
+            (not (buffer-live-p (get-buffer ready-player--current-dired-buffer))))
+    (setq ready-player--current-dired-buffer
+          (find-file-noselect (buffer-file-name))))
+  ready-player--current-dired-buffer)
+
 ;; Based on `image-next-file'.
 (defun ready-player--next-dired-file-from (file offset &optional from-top random)
   "Get the next available file from a `dired' buffer.
 
-`dired' buffers are either derived from `file' or
+`dired' buffers are either derived from `file' or function
 `ready-player--current-dired-buffer'.
 
 Start at the FILE's location in buffer and move to OFFSET.
