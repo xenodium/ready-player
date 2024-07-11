@@ -5,7 +5,7 @@
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; Package-Requires: ((emacs "28.1"))
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.47
+;; Version: 0.0.48
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -561,7 +561,7 @@ With FEEDBACK, provide user feedback of the interaction."
   (when (or (not ready-player--current-dired-buffer)
             (not (buffer-live-p (get-buffer ready-player--current-dired-buffer))))
     (setq ready-player--current-dired-buffer
-          (find-file-noselect (buffer-file-name))))
+          (find-file-noselect (file-name-directory (buffer-file-name)))))
   ready-player--current-dired-buffer)
 
 ;; Based on `image-next-file'.
@@ -576,8 +576,8 @@ If FROM-TOP is non-nil, offset is from top of the buffer.
 
 With RANDOM set, choose next file at random."
   (let ((regexp (regexp-opt (ready-player--supported-media-with-uppercase) t))
-        (dired-buffers  (if ready-player--current-dired-buffer
-                            (list ready-player--current-dired-buffer)
+        (dired-buffers  (if (ready-player--current-dired-buffer)
+                            (list (ready-player--current-dired-buffer))
                           (when file
                             (find-file-noselect (file-name-directory file))
                             (dired-buffers-for-dir (file-name-directory file)))))
