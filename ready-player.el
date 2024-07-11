@@ -569,6 +569,10 @@ Set SHUFFLE to choose next file at random."
                           (not (eobp))
                         (not (bobp))))
             (dired-next-line n)
+            ;; Ensure (eobp) or (bobp) are reached.
+            (if (> n 0)
+                (end-of-line)
+              (beginning-of-line))
             (when-let* ((candidate (dired-get-filename nil t))
                         (match-p (string-match-p regexp (file-name-extension candidate))))
               (setq found candidate)))
