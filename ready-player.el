@@ -165,6 +165,12 @@ Repeats and starts over from the beginning of the directory."
   :type 'string
   :group 'ready-player)
 
+(defcustom ready-player-thumbnail-max-pixel-height
+  400
+  "Maximum thumbnail pixel height."
+  :type 'integer
+  :group 'ready-player)
+
 (defcustom ready-player-open-playback-commands
   '(("mpv" "--audio-display=no")
     ("vlc")
@@ -365,7 +371,9 @@ Note: This function needs to be added to `file-name-handler-alist'."
             (let ((inhibit-read-only t))
               (when thumbnail
                 (insert "\n ")
-                (insert-image (create-image thumbnail nil nil :max-height 400))
+                (insert-image (create-image
+                               thumbnail nil nil
+                               :max-height ready-player-thumbnail-max-pixel-height))
                 (insert "\n"))
               (set-buffer-modified-p nil)))
           (insert "\n")
