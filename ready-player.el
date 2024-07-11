@@ -600,6 +600,7 @@ Set SHUFFLE to choose next file at random."
 
 ;; Based on `image-mode--mark-file'.
 (defun ready-player--apply-dired-function (function file message)
+  "Apply Dired FUNCTION to FILE and display MESSAGE."
   (let* ((dir (file-name-directory file))
 	 (buffers (seq-filter (lambda (buffer)
                                 (and (eq major-mode 'dired-mode)
