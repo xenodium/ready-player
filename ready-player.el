@@ -620,7 +620,11 @@ With RANDOM set, choose next file at random."
   (interactive nil ready-player-major-mode)
   (unless buffer-file-name
     (user-error "No media file in this buffer"))
-  (ready-player--apply-dired-function #'dired-mark buffer-file-name "marked"))
+  (if-let ((marked-buffer
+         (ready-player--apply-dired-function
+          #'dired-mark buffer-file-name)))
+      (switch-to-buffer-other-window marked-buffer)
+    (message "Couldn't find file to mark")))
 
 ;; Based on `image-mode-unmark-file'.
 (defun ready-player-unmark-dired-file ()
@@ -628,37 +632,34 @@ With RANDOM set, choose next file at random."
   (interactive nil ready-player-major-mode)
   (unless buffer-file-name
     (user-error "No media file in this buffer"))
-  (ready-player--apply-dired-function #'dired-unmark buffer-file-name "unmarked"))
+  (if-let ((marked-buffer
+            (ready-player--apply-dired-function
+             #'dired-unmark buffer-file-name)))
+      (switch-to-buffer-other-window marked-buffer)
+    (message "Couldn't find file to unmark")))
 
-;; Based on `image-mode--mark-file'.
-(defun ready-player--apply-dired-function (function file message)
+(defun ready-player--apply-dired-function (function file)
   "Apply Dired FUNCTION to FILE and display MESSAGE."
   (let* ((dir (file-name-directory file))
+         (found)
 	 (buffers (append
                    (seq-filter (lambda (buffer)
-                                (with-current-buffer buffer
-                                  (and (eq major-mode 'dired-mode)
-                                       (equal (file-truename dir)
-                                              (file-truename default-directory)))))
+                                 (with-current-buffer buffer
+                                   (and (eq major-mode 'dired-mode)
+                                        (equal (file-truename dir)
+                                               (file-truename default-directory)))))
                                (dired-buffers-for-dir dir))
-                   (list (ready-player--current-dired-buffer))))
-         results)
+                   (list (ready-player--current-dired-buffer)))))
     (unless buffers
       (save-excursion
         (setq buffers (list (find-file-noselect dir)))))
-    ;; TODO: Simplify message logic.
-    (dolist (buffer buffers)
-      (with-current-buffer buffer
-	(if (not (dired-goto-file file))
-            (push (format "couldn't find in %s" (directory-file-name dir))
-                  results)
-	  (funcall function 1)
-          (push (format "%s in %s" message (directory-file-name dir))
-                results))))
-    ;; Capitalize first character.
-    (let ((string (mapconcat #'identity results "; ")))
-      (message "%s%s" (capitalize (substring string 0 1))
-               (substring string 1)))))
+    (mapc
+     (lambda (buffer)
+       (with-current-buffer buffer
+	 (when (dired-goto-file file)
+	   (funcall function 1)
+           (setq found buffer)))) buffers)
+    found))
 
 (defun ready-player-stop ()
   "Stop media playback."
