@@ -634,12 +634,14 @@ With RANDOM set, choose next file at random."
 (defun ready-player--apply-dired-function (function file message)
   "Apply Dired FUNCTION to FILE and display MESSAGE."
   (let* ((dir (file-name-directory file))
-	 (buffers (seq-filter (lambda (buffer)
+	 (buffers (append
+                   (seq-filter (lambda (buffer)
                                 (with-current-buffer buffer
                                   (and (eq major-mode 'dired-mode)
                                        (equal (file-truename dir)
                                               (file-truename default-directory)))))
-                              (dired-buffers-for-dir dir)))
+                               (dired-buffers-for-dir dir))
+                   (list (ready-player--current-dired-buffer))))
          results)
     (unless buffers
       (save-excursion
