@@ -651,7 +651,9 @@ Set SHUFFLE to choose next file at random."
   ;; Only kill the process.
   ;; The process sentinel updates the buffer status.
   (when ready-player--process
-    (delete-process ready-player--process)
+    (let ((buffer (process-buffer ready-player--process)))
+      (delete-process ready-player--process)
+      (kill-buffer buffer))
     (setq ready-player--process nil)))
 
 (defun ready-player--start-playback-process ()
@@ -660,7 +662,7 @@ Set SHUFFLE to choose next file at random."
   (ready-player--stop-playback-process)
   (when-let* ((fpath (buffer-file-name))
               (command (append
-                        (list "*ready player mode*" (ready-player--playback-buffer))
+                        (list "*ready player mode*" (ready-player--playback-process-buffer))
                         (ready-player--playback-command) (list fpath)))
               (buffer (current-buffer)))
     (setq ready-player--process (apply 'start-process
@@ -932,9 +934,10 @@ Note: This needs the ffmpeg command line utility."
            (kill-buffer (process-buffer process)))))
     (message "Metadata not available (ffprobe not found)")))
 
-(defun ready-player--playback-buffer ()
+(defun ready-player--playback-process-buffer ()
   "Get the process playback buffer."
-  (when-let* ((buffer (get-buffer-create (format "*%s* (ready-player)" (nth 0 (ready-player--playback-command)))))
+  (when-let* ((buffer (get-buffer-create
+                       (format "*%s* (ready-player)" (nth 0 (ready-player--playback-command)))))
               (buffer-live (buffer-live-p buffer)))
     (with-current-buffer buffer
       (let ((inhibit-read-only t))
