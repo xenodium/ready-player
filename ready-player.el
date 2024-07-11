@@ -365,7 +365,7 @@ Note: This function needs to be added to `file-name-handler-alist'."
             (let ((inhibit-read-only t))
               (when thumbnail
                 (insert "\n ")
-                (insert-image (create-image thumbnail nil nil :max-width 400))
+                (insert-image (create-image thumbnail nil nil :max-height 400))
                 (insert "\n"))
               (set-buffer-modified-p nil)))
           (insert "\n")
