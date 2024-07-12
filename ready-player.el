@@ -518,6 +518,21 @@ With optional argument N, visit the Nth file after the current one."
   (ready-player--ensure-mode)
   (ready-player--open-file-at-offset n t))
 
+(defun ready-player--open-file (fpath buffer start-playing)
+  "Open file at FPATH in BUFFER.
+
+If START-PLAYING is non-nil, start playing the media file."
+  (let ((old-buffer buffer)
+        (new-buffer (find-file-noselect fpath)))
+    (ready-player--stop-playback-process)
+    (with-current-buffer new-buffer
+      (when (get-buffer-window-list old-buffer nil t)
+        (set-window-buffer (car (get-buffer-window-list old-buffer nil t)) new-buffer))
+      (unless (eq new-buffer old-buffer)
+        (kill-buffer old-buffer))
+      (when start-playing
+        (ready-player--start-playback-process)))))
+
 (defun ready-player--open-file-at-offset (n feedback)
   "Open the next media file in the same directory.
 
@@ -532,23 +547,13 @@ With FEEDBACK, provide user feedback of the interaction."
     (setq ready-player--last-button-focus (if (> n 0) 'next 'previous)))
 
   (let* ((playing ready-player--process)
-         (old-buffer (current-buffer))
          (new-file (or (ready-player--next-dired-file-from
                         buffer-file-name n nil ready-player-shuffle)
                        (when ready-player-repeat
                          (ready-player--next-dired-file-from
-                          buffer-file-name n t ready-player-shuffle))))
-         (new-buffer (when new-file
-                       (find-file-noselect new-file))))
-    (ready-player--stop-playback-process)
-    (if new-buffer
-        (with-current-buffer new-buffer
-          (when (get-buffer-window-list old-buffer nil t)
-            (set-window-buffer (car (get-buffer-window-list old-buffer nil t)) new-buffer))
-          (unless (eq new-buffer old-buffer)
-            (kill-buffer old-buffer))
-          (when playing
-            (ready-player--start-playback-process)))
+                          buffer-file-name n t ready-player-shuffle)))))
+    (if new-file
+        (ready-player--open-file new-file (current-buffer) playing)
       (if playing
           (progn
             (message "No more media to play"))
@@ -592,7 +597,7 @@ With RANDOM set, choose next file at random."
               (forward-line (+ (point-min)
                                (random (count-lines (point-min)
                                                     (point-max))))))
-          (if from-top
+          (if (or from-top (not file))
               (goto-char (point-min))
             (dired-goto-file file)))
         (let (found)
@@ -606,12 +611,14 @@ With RANDOM set, choose next file at random."
                 (end-of-line)
               (beginning-of-line))
             (when-let* ((candidate (dired-get-filename nil t))
-                        (match-p (string-match-p regexp (file-name-extension candidate))))
+                        (extension (file-name-extension candidate))
+                        (match-p (string-match-p regexp extension)))
               (setq found candidate)))
           (if found
               (setq next found)
             ;; No next match. Restore point.
-            (dired-goto-file file)))))
+            (when file
+              (dired-goto-file file))))))
     next))
 
 ;; Based on `image-mode-mark-file'.
@@ -735,15 +742,13 @@ With RANDOM set, choose next file at random."
 (defun ready-player-toggle-play-stop ()
   "Toggle play/stop of media."
   (interactive)
-  (if (and ready-player--active-buffer
-           (buffer-live-p ready-player--active-buffer))
-      (with-current-buffer ready-player--active-buffer
-        (ready-player--goto-button 'play-stop)
-        (if-let ((fpath (buffer-file-name)))
-            (if ready-player--process
-                (ready-player-stop)
-              (ready-player-play))
-          (error "No file to play/stop")))))
+  (with-current-buffer (ready-player--active-buffer)
+    (ready-player--goto-button 'play-stop)
+    (if-let ((fpath (buffer-file-name)))
+        (if ready-player--process
+            (ready-player-stop)
+          (ready-player-play))
+      (error "No file to play/stop"))))
 
 (defun ready-player-toggle-repeat ()
   "Toggle repeat setting."
@@ -899,9 +904,13 @@ Render FNAME, BUSY, REPEAT and SHUFFLE."
 
 (defun ready-player--thumbnail-path (fpath)
   "Generate thumbnail path for media at FPATH."
+  (ready-player--cached-item-path-for fpath ".png"))
+
+(defun ready-player--cached-item-path-for (fpath suffix)
+  "Generate thumbnail path for media at FPATH, appending SUFFIX."
   (let* ((temp-dir (concat (file-name-as-directory temporary-file-directory) "ready-player"))
          (temp-fpath (concat (file-name-as-directory temp-dir)
-                             (md5 fpath) ".png")))
+                             (md5 fpath) suffix)))
     (make-directory temp-dir t)
     temp-fpath))
 
@@ -1031,6 +1040,16 @@ Note: This needs the ffmpeg command line utility."
   (when ready-player--process
     (delete-process ready-player--process)
     (setq ready-player--process nil)))
+
+(defun ready-player--active-buffer (&optional no-error)
+  "Get the active buffer.
+
+Fails if none available unless NO-ERROR is non-nil."
+  (if (and ready-player--active-buffer
+           (buffer-live-p ready-player--active-buffer))
+      ready-player--active-buffer
+    (unless no-error
+      (error "No ready-player buffer available"))))
 
 (provide 'ready-player)
 
