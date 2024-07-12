@@ -211,7 +211,7 @@ Omit the file path, as it will be automatically appended."
 Used to remember button position across files in continuous playback.")
 
 (defvar ready-player--current-dired-buffer nil
-  "Dired buffer used when determining next/previous file.")
+  "`dired' buffer used when determining next/previous file.")
 
 ;;;###autoload
 (define-minor-mode ready-player-mode
@@ -484,7 +484,7 @@ Render state from FPATH BUSY REPEAT SHUFFLE THUMBNAIL and METADATA."
 ;; Based on `crux-open-with'.
 (defun ready-player-open-externally (arg)
   "Open visited file in default external program.
-When in Dired mode, open file under the cursor.
+When in `dired' mode, open file under the cursor.
 
 With a prefix ARG always prompt for command to use."
   (interactive "P")
@@ -627,7 +627,7 @@ With RANDOM set, choose next file at random."
 
 ;; Based on `image-mode-mark-file'.
 (defun ready-player-mark-dired-file ()
-  "Mark the current file in the appropriate Dired buffer(s)."
+  "Mark the current file in the appropriate `dired' buffer(s)."
   (interactive nil ready-player-major-mode)
   (unless buffer-file-name
     (user-error "No media file in this buffer"))
@@ -639,7 +639,7 @@ With RANDOM set, choose next file at random."
 
 ;; Based on `image-mode-unmark-file'.
 (defun ready-player-unmark-dired-file ()
-  "Unmark the current file in the appropriate Dired buffer(s)."
+  "Unmark the current file in the appropriate `dired' buffer(s)."
   (interactive nil ready-player-major-mode)
   (unless buffer-file-name
     (user-error "No media file in this buffer"))
@@ -650,7 +650,7 @@ With RANDOM set, choose next file at random."
     (message "Couldn't find file to unmark")))
 
 (defun ready-player--apply-dired-function (function file)
-  "Apply Dired FUNCTION to FILE and display MESSAGE."
+  "Apply `dired' FUNCTION to FILE."
   (let* ((dir (file-name-directory file))
          (found)
 	 (buffers (append
