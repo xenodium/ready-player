@@ -523,7 +523,9 @@ With optional argument N, visit the Nth file after the current one."
 
 If START-PLAYING is non-nil, start playing the media file."
   (let ((old-buffer buffer)
-        (new-buffer (find-file-noselect fpath)))
+        ;; Auto-played files should not be added to recentf.
+        (new-buffer (let ((recentf-exclude (list (concat (regexp-quote (file-name-nondirectory fpath)) "\\'"))))
+                      (find-file-noselect fpath))))
     (ready-player--stop-playback-process)
     (with-current-buffer new-buffer
       (when (get-buffer-window-list old-buffer nil t)
@@ -583,7 +585,9 @@ With RANDOM set, choose next file at random."
   (let ((regexp (regexp-opt (ready-player--supported-media-with-uppercase) t))
         (dired-buffers  (if (ready-player--current-dired-buffer)
                             (list (ready-player--current-dired-buffer))
-                          (when file
+                          (when-let ((non-nil file)
+                                     ;; Auto-played files should not be added to recentf.
+                                     (recentf-exclude (list (concat (regexp-quote (file-name-nondirectory file)) "\\'"))))
                             (find-file-noselect (file-name-directory file))
                             (dired-buffers-for-dir (file-name-directory file)))))
         (next))
