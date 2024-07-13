@@ -503,16 +503,16 @@ With a prefix ARG always prompt for command to use."
 
 With optional argument N, visit the Nth file before the current one."
   (interactive "p" ready-player)
-  (ready-player--ensure-mode)
-  (ready-player--open-file-at-offset (- n) t))
+  (with-current-buffer (ready-player--active-buffer)
+    (ready-player--open-file-at-offset (- n) t)))
 
 (defun ready-player-open-next-file (&optional n)
   "Open the next media file in the same directory.
 
 With optional argument N, visit the Nth file after the current one."
   (interactive "p" ready-player)
-  (ready-player--ensure-mode)
-  (ready-player--open-file-at-offset n t))
+  (with-current-buffer (ready-player--active-buffer)
+    (ready-player--open-file-at-offset n t)))
 
 (defun ready-player--open-file (fpath buffer start-playing)
   "Open file at FPATH in BUFFER.
@@ -695,19 +695,20 @@ Override DIRED-BUFFER, otherwise resolve internally."
 (defun ready-player-stop ()
   "Stop media playback."
   (interactive)
-  (ready-player--stop-playback-process)
+  (with-current-buffer (ready-player--active-buffer)
+    (setq ready-player--last-button-focus 'play-stop)
+    (ready-player--stop-playback-process))
   (message "Stopped")
-  (progn
-    (run-with-timer 3 nil
-                    (lambda ()
-                      (message "")))))
+  (run-with-timer 3 nil
+                  (lambda ()
+                    (message ""))))
 
 (defun ready-player-play ()
   "Start media playback."
   (interactive)
-  (ready-player--ensure-mode)
-  (setq ready-player--last-button-focus 'play-stop)
-  (ready-player--start-playback-process))
+  (with-current-buffer (ready-player--active-buffer)
+    (setq ready-player--last-button-focus 'play-stop)
+    (ready-player--start-playback-process)))
 
 (defun ready-player--ensure-mode ()
   "Ensure current buffer is running in `ready-player-major-mode'."
