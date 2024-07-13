@@ -210,7 +210,7 @@ Omit the file path, as it will be automatically appended."
 
 Used to remember button position across files in continuous playback.")
 
-(defvar ready-player--current-dired-buffer nil
+(defvar-local ready-player--related-dired-buffer nil
   "`dired' buffer used when determining next/previous file.")
 
 ;;;###autoload
@@ -311,13 +311,9 @@ Note: This function needs to be added to `file-name-handler-alist'."
          (thumbnailer (if (executable-find "ffmpegthumbnailer")
                           #'ready-player--load-file-thumbnail-via-ffmpegthumbnailer
                         #'ready-player--load-file-thumbnail-via-ffmpeg)))
-    (with-current-buffer (ready-player--current-dired-buffer)
-      (save-excursion
-        ;; Opened a file outside of known dired buffer.
-        ;; Use the file's associated dired buffer instead.
-        (unless (dired-goto-file fpath)
-          (setq ready-player--current-dired-buffer
-                (find-file-noselect (file-name-directory fpath))))))
+    ;; Sets default related dired buffer.
+    (setq ready-player--related-dired-buffer
+          (find-file-noselect default-directory))
     (setq ready-player--active-buffer buffer)
     (ready-player--update-buffer buffer fpath
                                  ready-player--process
@@ -533,7 +529,8 @@ If START-PLAYING is non-nil, start playing the media file."
       (unless (eq new-buffer old-buffer)
         (kill-buffer old-buffer))
       (when start-playing
-        (ready-player--start-playback-process)))))
+        (ready-player--start-playback-process)))
+    new-buffer))
 
 (defun ready-player--open-file-at-offset (n feedback)
   "Open the next media file in the same directory.
@@ -548,14 +545,19 @@ With FEEDBACK, provide user feedback of the interaction."
     (ready-player--goto-button (if (> n 0) 'next 'previous))
     (setq ready-player--last-button-focus (if (> n 0) 'next 'previous)))
 
-  (let* ((playing ready-player--process)
+  (let* ((sticky-dired-buffer (ready-player--related-dired-buffer))
+         (playing ready-player--process)
          (new-file (or (ready-player--next-dired-file-from
-                        buffer-file-name n nil ready-player-shuffle)
+                        buffer-file-name n nil ready-player-shuffle sticky-dired-buffer)
                        (when ready-player-repeat
                          (ready-player--next-dired-file-from
-                          buffer-file-name n t ready-player-shuffle)))))
+                          buffer-file-name n t ready-player-shuffle sticky-dired-buffer))))
+         (new-buffer))
     (if new-file
-        (ready-player--open-file new-file (current-buffer) playing)
+        (progn
+          (setq new-buffer (ready-player--open-file new-file (current-buffer) playing))
+          (with-current-buffer new-buffer
+            (setq ready-player--related-dired-buffer sticky-dired-buffer)))
       (if playing
           (progn
             (message "No more media to play"))
@@ -563,34 +565,52 @@ With FEEDBACK, provide user feedback of the interaction."
     new-file))
 
 
-(defun ready-player--current-dired-buffer ()
-  "Get the associated `dired' buffer, creating it if needed."
-  (when (or (not ready-player--current-dired-buffer)
-            (not (buffer-live-p (get-buffer ready-player--current-dired-buffer))))
-    (setq ready-player--current-dired-buffer
-          (find-file-noselect (file-name-directory (buffer-file-name)))))
-  ready-player--current-dired-buffer)
+(defun ready-player--related-dired-buffer ()
+  "Resolve the associated `dired' buffer, creating it if needed."
+  (ready-player--ensure-mode)
+  (cond ((and ready-player--related-dired-buffer
+              (buffer-live-p ready-player--related-dired-buffer))
+         ;; Dired set in buffer?
+         ready-player--related-dired-buffer)
+        ((and ready-player--active-buffer
+              (buffer-live-p ready-player--active-buffer)
+              (buffer-local-value 'ready-player--related-dired-buffer
+                                  ready-player--active-buffer)
+              (buffer-live-p (buffer-local-value 'ready-player--related-dired-buffer
+                                                 ready-player--active-buffer)))
+         ;; Dired set in active buffer?
+         (setq ready-player--related-dired-buffer
+               (buffer-local-value 'ready-player--related-dired-buffer
+                                   ready-player--active-buffer))
+         ready-player--related-dired-buffer)
+        (t
+         ;; Fall back to dired in current directory.
+         (setq ready-player--related-dired-buffer
+               (find-file-noselect (file-name-directory (buffer-file-name))))
+         ready-player--related-dired-buffer)))
 
 ;; Based on `image-next-file'.
-(defun ready-player--next-dired-file-from (file offset &optional from-top random)
+(defun ready-player--next-dired-file-from (file offset &optional from-top random dired-buffer)
   "Get the next available file from a `dired' buffer.
 
 `dired' buffers are either derived from `file' or function
-`ready-player--current-dired-buffer'.
+`ready-player--related-dired-buffer'.
 
 Start at the FILE's location in buffer and move to OFFSET.
 If FROM-TOP is non-nil, offset is from top of the buffer.
 
-With RANDOM set, choose next file at random."
-  (let ((regexp (regexp-opt (ready-player--supported-media-with-uppercase) t))
-        (dired-buffers  (if (ready-player--current-dired-buffer)
-                            (list (ready-player--current-dired-buffer))
-                          (when-let ((non-nil file)
-                                     ;; Auto-played files should not be added to recentf.
-                                     (recentf-exclude (list (concat (regexp-quote (file-name-nondirectory file)) "\\'"))))
-                            (find-file-noselect (file-name-directory file))
-                            (dired-buffers-for-dir (file-name-directory file)))))
-        (next))
+With RANDOM set, choose next file at random.
+
+Override DIRED-BUFFER, otherwise resolve internally."
+  (let* ((regexp (regexp-opt (ready-player--supported-media-with-uppercase) t))
+         (dired-buffers  (if (or dired-buffer (ready-player--related-dired-buffer))
+                             (list (or dired-buffer (ready-player--related-dired-buffer)))
+                           (when-let ((non-nil file)
+                                      ;; Auto-played files should not be added to recentf.
+                                      (recentf-exclude (list (concat (regexp-quote (file-name-nondirectory file)) "\\'"))))
+                             (find-file-noselect (file-name-directory file))
+                             (dired-buffers-for-dir (file-name-directory file)))))
+         (next))
     ;; Move point in all relevant dired buffers.
     (dolist (buffer dired-buffers)
       (with-current-buffer buffer
@@ -660,7 +680,7 @@ With RANDOM set, choose next file at random."
                                         (equal (file-truename dir)
                                                (file-truename default-directory)))))
                                (dired-buffers-for-dir dir))
-                   (list (ready-player--current-dired-buffer)))))
+                   (list (ready-player--related-dired-buffer)))))
     (unless buffers
       (save-excursion
         (setq buffers (list (find-file-noselect dir)))))
