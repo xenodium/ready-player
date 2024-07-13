@@ -1069,6 +1069,14 @@ Note: This needs the ffmpeg command line utility."
   "Get the active buffer.
 
 Fails if none available unless NO-ERROR is non-nil."
+  (cond ((eq major-mode 'ready-player-major-mode)
+         (setq ready-player--active-buffer (current-buffer))
+         ready-player--active-buffer)
+        ((and ready-player--active-buffer
+              (buffer-live-p ready-player--active-buffer))
+         ready-player--active-buffer)
+        (t
+         (error "No ready-player buffer available")))
   (if (and ready-player--active-buffer
            (buffer-live-p ready-player--active-buffer))
       ready-player--active-buffer
