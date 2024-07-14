@@ -520,7 +520,9 @@ With optional argument N, visit the Nth file after the current one."
 If START-PLAYING is non-nil, start playing the media file."
   (let ((old-buffer buffer)
         ;; Auto-played files should not be added to recentf.
+        ;; Temporarily override `recentf-exclude'.
         (new-buffer (let ((recentf-exclude (list (concat (regexp-quote (file-name-nondirectory fpath)) "\\'"))))
+                      (ignore recentf-exclude)
                       (find-file-noselect fpath))))
     (ready-player--stop-playback-process)
     (with-current-buffer new-buffer
@@ -607,7 +609,9 @@ Override DIRED-BUFFER, otherwise resolve internally."
                              (list (or dired-buffer (ready-player--related-dired-buffer)))
                            (when-let ((non-nil file)
                                       ;; Auto-played files should not be added to recentf.
+                                      ;; Temporarily override `recentf-exclude'.
                                       (recentf-exclude (list (concat (regexp-quote (file-name-nondirectory file)) "\\'"))))
+                             (ignore recentf-exclude)
                              (find-file-noselect (file-name-directory file))
                              (dired-buffers-for-dir (file-name-directory file)))))
          (next))
