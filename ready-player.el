@@ -5,7 +5,7 @@
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; Package-Requires: ((emacs "28.1"))
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.48
+;; Version: 0.0.49
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -1058,6 +1058,40 @@ Note: This needs the ffmpeg command line utility."
     (format "%.2f KB" (/ (float size) 1024)))
    (t
     (format "%d bytes" size))))
+
+(defun ready-player-open-dired-buffer ()
+  "Open a `dired' buffer.
+
+`dired' buffers typically show a directory's content, but they can
+also show the output of a shell command.  For example, `find-dired'.
+
+`ready-player-open-dired-buffer' can open any `dired' buffer for
+playback."
+  (interactive)
+  (let* ((candidates (seq-map
+                      (lambda (buffer)
+                        (buffer-name buffer))
+                      (seq-filter (lambda (buffer)
+                                    (with-current-buffer buffer
+                                      (derived-mode-p 'dired-mode)))
+                                  (buffer-list))))
+         (dired-buffer (if (seq-empty-p candidates)
+                           (error "No `dired' buffers available")
+                         (completing-read "Open 'dired' buffer: " candidates nil t)))
+         (media-file (if (buffer-live-p (get-buffer dired-buffer))
+                         (ready-player--next-dired-file-from
+                          nil 1 t ready-player-shuffle (get-buffer dired-buffer))
+                       (error "dired buffer not found")))
+         (media-buffer (if media-file
+                           (find-file-noselect media-file)
+                         (error "No media found"))))
+    (unless media-buffer
+      (error "No media found"))
+    (with-current-buffer media-buffer
+      ;; Override buffer-local dired buffer's to use chosen one.
+      (setq ready-player--related-dired-buffer (get-buffer dired-buffer)))
+    (unless (eq (current-buffer) media-buffer)
+      (switch-to-buffer media-buffer))))
 
 (defun ready-player--clean-up ()
   "Kill playback process."
