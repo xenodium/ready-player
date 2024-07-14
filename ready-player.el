@@ -44,6 +44,7 @@
 (require 'dired)
 (require 'seq)
 (require 'shell)
+(require 'text-property-search)
 
 ;;; Code:
 
@@ -219,7 +220,7 @@ Used to remember button position across files in continuous playback.")
 
 See `ready-player-supported-media' for recognized types."
   :global t
-  (let ((called-interactively (called-interactively-p 'interactive)))
+  (let ((called-interactively (called-interactively-p #'interactive)))
     (if ready-player-mode
         (progn
           (ready-player-add-to-auto-mode-alist)
@@ -237,20 +238,20 @@ See `ready-player-supported-media' for recognized types."
   "Add media recognized by `ready-player-mode'."
   (add-to-list 'auto-mode-alist
                (cons (concat "\\." (regexp-opt ready-player-supported-media t) "\\'")
-                     'ready-player-major-mode))
+                     #'ready-player-major-mode))
   ;; Suppress unnecessary buffer loading via file-name-handler-alist.
   (add-to-list
    'file-name-handler-alist
    (cons
     (concat "\\." (regexp-opt (ready-player--supported-media-with-uppercase) t) "\\'")
-    'ready-player-file-name-handler)))
+    #'ready-player-file-name-handler)))
 
 (defun ready-player--supported-media-with-uppercase ()
   "Duplicate `ready-player-supported-media' with uppercase equivalents."
   (append ready-player-supported-media
           ;; Also include uppercase extensions.
           ;; APFS (Apple File System) is case-insensitive.
-          (mapcar 'upcase ready-player-supported-media)))
+          (mapcar #'upcase ready-player-supported-media)))
 
 (defun ready-player-remove-from-auto-mode-alist ()
   "Remove media recognized by `ready-player-mode'."
@@ -261,7 +262,7 @@ See `ready-player-supported-media' for recognized types."
                     auto-mode-alist))
   (setq file-name-handler-alist
         (seq-remove (lambda (entry)
-                      (equal 'ready-player-file-name-handler (cdr entry)))
+                      (equal #'ready-player-file-name-handler (cdr entry)))
                     file-name-handler-alist)))
 
 (defun ready-player-file-name-handler (operation &rest args)
@@ -278,14 +279,14 @@ Note: This function needs to be added to `file-name-handler-alist'."
        (list buffer-file-name (point-max))))
     ('file-attributes
      (let* ((file-name-handler-alist nil)
-	    (attributes (apply 'file-name-non-special
+	    (attributes (apply #'file-name-non-special
                                (append (list operation) args))))
        ;; 7 is file size location
        ;; as per `file-attributes'.
        (setf (nth 7 attributes) 0)
        attributes))
     (_ (let ((inhibit-file-name-handlers
-              (cons 'ready-player-file-name-handler
+              (cons #'ready-player-file-name-handler
                     (and (eq inhibit-file-name-operation operation)
                          inhibit-file-name-handlers)))
              (inhibit-file-name-operation operation))
@@ -738,7 +739,7 @@ Override DIRED-BUFFER, otherwise resolve internally."
                         (list "*ready player mode*" (ready-player--playback-process-buffer))
                         (ready-player--playback-command) (list fpath)))
               (buffer (current-buffer)))
-    (setq ready-player--process (apply 'start-process
+    (setq ready-player--process (apply #'start-process
                                        command))
     (set-process-query-on-exit-flag ready-player--process nil)
     (ready-player--refresh-buffer-status
@@ -842,7 +843,7 @@ Override DIRED-BUFFER, otherwise resolve internally."
       command
     (user-error "No player found: %s"
                 (mapconcat
-                 'identity (seq-map #'seq-first ready-player-open-playback-commands) " "))))
+                 #'identity (seq-map #'seq-first ready-player-open-playback-commands) " "))))
 
 (defun ready-player--make-file-button-line (busy repeat shuffle)
   "Create button line with BUSY, REPEAT and SHUFFLE."
@@ -1108,7 +1109,7 @@ playback."
   "Get the active buffer.
 
 Fails if none available unless NO-ERROR is non-nil."
-  (cond ((eq major-mode 'ready-player-major-mode)
+  (cond ((eq major-mode #'ready-player-major-mode)
          (setq ready-player--active-buffer (current-buffer))
          ready-player--active-buffer)
         ((and ready-player--active-buffer
