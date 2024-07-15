@@ -54,8 +54,8 @@
     (define-key map (kbd "SPC") #'ready-player-toggle-play-stop)
     (define-key map (kbd "TAB") #'ready-player-next-button)
     (define-key map (kbd "<backtab>") #'ready-player-previous-button)
-    (define-key map (kbd "n") #'ready-player-open-next-file)
-    (define-key map (kbd "p") #'ready-player-open-previous-file)
+    (define-key map (kbd "n") #'ready-player-next)
+    (define-key map (kbd "p") #'ready-player-previous)
     (define-key map (kbd "e") #'ready-player-open-externally)
     (define-key map (kbd "o") #'ready-player-open-externally)
     (define-key map (kbd "q") #'ready-player-quit)
@@ -499,7 +499,7 @@ With a prefix ARG always prompt for command to use."
                     open)))
     (call-process program nil 0 nil current-file-name)))
 
-(defun ready-player-open-previous-file (&optional n)
+(defun ready-player-previous (&optional n)
   "Open the previous media file in the same directory.
 
 With optional argument N, visit the Nth file before the current one."
@@ -507,7 +507,7 @@ With optional argument N, visit the Nth file before the current one."
   (with-current-buffer (ready-player--active-buffer)
     (ready-player--open-file-at-offset (- n) t)))
 
-(defun ready-player-open-next-file (&optional n)
+(defun ready-player-next (&optional n)
   "Open the next media file in the same directory.
 
 With optional argument N, visit the Nth file after the current one."
@@ -858,7 +858,7 @@ Override DIRED-BUFFER, otherwise resolve internally."
                                      #'ready-player-toggle-play-stop)
           (ready-player--make-button ready-player-next-icon
                                      'next
-                                     #'ready-player-open-next-file)
+                                     #'ready-player-next)
           (ready-player--make-button ready-player-open-externally-icon
                                      'open-externally
                                      #'ready-player-open-externally)
