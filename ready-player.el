@@ -312,6 +312,7 @@ Note: This function needs to be added to `file-name-handler-alist'."
          (thumbnailer (if (executable-find "ffmpegthumbnailer")
                           #'ready-player--load-file-thumbnail-via-ffmpegthumbnailer
                         #'ready-player--load-file-thumbnail-via-ffmpeg)))
+    (ready-player--update-buffer-name buffer nil)
     ;; Sets default related dired buffer.
     (setq ready-player--related-dired-buffer
           (find-file-noselect default-directory))
@@ -743,7 +744,7 @@ Override DIRED-BUFFER, otherwise resolve internally."
                                        command))
     (set-process-query-on-exit-flag ready-player--process nil)
     (ready-player--refresh-buffer-status
-     buffer (file-name-nondirectory fpath)
+     buffer
      ready-player--process
      ready-player-repeat
      ready-player-shuffle)
@@ -757,13 +758,13 @@ Override DIRED-BUFFER, otherwise resolve internally."
                     (eq (process-exit-status process) 0))
                (unless (ready-player--open-file-at-offset 1 nil)
                  (ready-player--refresh-buffer-status
-                  buffer (file-name-nondirectory fpath)
+                  buffer
                   ready-player--process
                   ready-player-repeat
                   ready-player-shuffle))
              (setq ready-player--process nil)
              (ready-player--refresh-buffer-status
-              buffer (file-name-nondirectory fpath)
+              buffer
               ready-player--process
               ready-player-repeat
               ready-player-shuffle))))))
@@ -787,7 +788,6 @@ Override DIRED-BUFFER, otherwise resolve internally."
   (setq ready-player-repeat (not ready-player-repeat))
   (ready-player--refresh-buffer-status
    (current-buffer)
-   (file-name-nondirectory (buffer-file-name))
    ready-player--process
    ready-player-repeat
    ready-player-shuffle)
@@ -805,7 +805,6 @@ Override DIRED-BUFFER, otherwise resolve internally."
   (setq ready-player-shuffle (not ready-player-shuffle))
   (ready-player--refresh-buffer-status
    (current-buffer)
-   (file-name-nondirectory (buffer-file-name))
    ready-player--process
    ready-player-repeat
    ready-player-shuffle)
@@ -850,7 +849,7 @@ Override DIRED-BUFFER, otherwise resolve internally."
   (format " %s %s %s %s %s %s"
           (ready-player--make-button ready-player-previous-icon
                                      'previous
-                                     #'ready-player-open-previous-file)
+                                     #'ready-player-previous)
           (ready-player--make-button (if busy
                                          ready-player-stop-icon
                                        ready-player-play-icon)
@@ -898,7 +897,16 @@ Override DIRED-BUFFER, otherwise resolve internally."
              map)
    'button kind))
 
-(defun ready-player--refresh-buffer-status (buffer fname busy repeat shuffle)
+(defun ready-player--update-buffer-name (buffer busy)
+  "Rename BUFFER reflecting if BUSY playing."
+  (with-current-buffer buffer
+    (let ((base-name (string-remove-prefix "ready-player: "
+                                           (string-remove-suffix " (playing)" (string-trim (buffer-name))))))
+      (rename-buffer (if busy
+                         (concat "ready-player: " base-name " (playing)")
+                       (concat "ready-player: " base-name))))))
+
+(defun ready-player--refresh-buffer-status (buffer busy repeat shuffle)
   "Refresh and render status in buffer in BUFFER.
 
 Render FNAME, BUSY, REPEAT and SHUFFLE."
@@ -924,11 +932,7 @@ Render FNAME, BUSY, REPEAT and SHUFFLE."
           (insert (ready-player--make-file-button-line busy repeat shuffle))))
       (goto-char saved-point)
 
-      ;; Toggle (playing) in buffer name.
-      (let ((base-name (replace-regexp-in-string " (playing)$" "" fname)))
-        (rename-buffer (if busy
-                           (concat base-name " (playing)")
-                         base-name)))
+      (ready-player--update-buffer-name buffer busy)
 
       (set-buffer-modified-p nil))))
 
