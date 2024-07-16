@@ -81,6 +81,11 @@ Repeats and starts over from the beginning of the directory."
   :type 'boolean
   :group 'ready-player)
 
+(defcustom ready-player-autoplay nil
+  "When non-nil, automatically start playing when media file opens."
+  :type 'boolean
+  :group 'ready-player)
+
 (defcustom ready-player-shuffle nil
   "Next media item is selected at random within current directory.
 
@@ -163,6 +168,14 @@ Repeats and starts over from the beginning of the directory."
       "􀊝"
     "⤮")
   "Shuffle icon string, for example: \"⤮\"."
+  :type 'string
+  :group 'ready-player)
+
+(defcustom ready-player-autoplay-icon
+  (if (ready-player-displays-as-sf-symbol-p "􀋦")
+      "􀋦"
+    "⚡")
+  "Autoplay icon string, for example: \"⚡\"."
   :type 'string
   :group 'ready-player)
 
@@ -296,6 +309,9 @@ Note: This function needs to be added to `file-name-handler-alist'."
   "Major mode to preview and play media files."
   :after-hook (progn
                 (ready-player--goto-button ready-player--last-button-focus))
+                (if ready-player-autoplay
+                    (ready-player-play)
+                  (ready-player--goto-button ready-player--last-button-focus))
   :keymap ready-player-major-mode-map
   (set-buffer-multibyte t)
   (setq buffer-read-only t)
@@ -320,7 +336,8 @@ Note: This function needs to be added to `file-name-handler-alist'."
     (ready-player--update-buffer buffer fpath
                                  ready-player--process
                                  ready-player-repeat
-                                 ready-player-shuffle)
+                                 ready-player-shuffle
+                                 ready-player-autoplay)
     (if cached-thumbnail
         (progn
           (setq ready-player--thumbnail cached-thumbnail)
@@ -329,6 +346,7 @@ Note: This function needs to be added to `file-name-handler-alist'."
            ready-player--process
            ready-player-repeat
            ready-player-shuffle
+           ready-player-autoplay
            cached-thumbnail ready-player--metadata))
       (funcall thumbnailer
                fpath (lambda (thumbnail)
@@ -341,6 +359,7 @@ Note: This function needs to be added to `file-name-handler-alist'."
                               ready-player--process
                               ready-player-repeat
                               ready-player-shuffle
+                              ready-player-autoplay
                               thumbnail ready-player--metadata)
                              ;; Point won't move to button
                              ;; unless delayed ¯\_(ツ)_/¯.
@@ -361,12 +380,13 @@ Note: This function needs to be added to `file-name-handler-alist'."
                     ready-player--process
                     ready-player-repeat
                     ready-player-shuffle
+                    ready-player-autoplay
                     ready-player--thumbnail metadata)
                    (ready-player--goto-button
                     ready-player--last-button-focus)))))))
   (add-hook 'kill-buffer-hook #'ready-player--clean-up nil t))
 
-(defun ready-player--update-buffer (buffer fpath busy repeat shuffle &optional thumbnail metadata)
+(defun ready-player--update-buffer (buffer fpath busy repeat shuffle autoplay &optional thumbnail metadata)
   "Update entire BUFFER content.
 
 Render state from FPATH BUSY REPEAT SHUFFLE THUMBNAIL and METADATA."
@@ -395,7 +415,8 @@ Render state from FPATH BUSY REPEAT SHUFFLE THUMBNAIL and METADATA."
                               'playing-status t))
           (insert "\n")
           (insert "\n")
-          (insert (ready-player--make-file-button-line busy repeat shuffle))
+          (insert (ready-player--make-file-button-line busy repeat
+                                                       shuffle autoplay))
           (insert "\n")
           (insert "\n")
           (when metadata
@@ -747,7 +768,8 @@ Override DIRED-BUFFER, otherwise resolve internally."
      buffer
      ready-player--process
      ready-player-repeat
-     ready-player-shuffle)
+     ready-player-shuffle
+     ready-player-autoplay)
     (set-process-sentinel
      ready-player--process
      (lambda (process _)
@@ -761,13 +783,15 @@ Override DIRED-BUFFER, otherwise resolve internally."
                   buffer
                   ready-player--process
                   ready-player-repeat
-                  ready-player-shuffle))
+                  ready-player-shuffle
+                  ready-player-autoplay))
              (setq ready-player--process nil)
              (ready-player--refresh-buffer-status
               buffer
               ready-player--process
               ready-player-repeat
-              ready-player-shuffle))))))
+              ready-player-shuffle
+              ready-player-autoplay))))))
     (set-process-filter ready-player--process #'comint-output-filter)))
 
 (defun ready-player-toggle-play-stop ()
@@ -790,7 +814,8 @@ Override DIRED-BUFFER, otherwise resolve internally."
    (current-buffer)
    ready-player--process
    ready-player-repeat
-   ready-player-shuffle)
+   ready-player-shuffle
+   ready-player-autoplay)
   (message "Repeat: %s" (if ready-player-repeat
                             "ON"
                           "OFF"))
@@ -807,8 +832,27 @@ Override DIRED-BUFFER, otherwise resolve internally."
    (current-buffer)
    ready-player--process
    ready-player-repeat
-   ready-player-shuffle)
+   ready-player-shuffle
+   ready-player-autoplay)
   (message "Shuffle: %s" (if ready-player-shuffle
+                            "ON"
+                          "OFF"))
+  (run-with-timer 1 nil
+                  (lambda ()
+                    (message ""))))
+
+(defun ready-player-toggle-autoplay ()
+  "Toggle autoplay setting."
+  (interactive)
+  (ready-player--ensure-mode)
+  (setq ready-player-autoplay (not ready-player-autoplay))
+  (ready-player--refresh-buffer-status
+   (current-buffer)
+   ready-player--process
+   ready-player-repeat
+   ready-player-shuffle
+   ready-player-autoplay)
+  (message "Autoplay: %s" (if ready-player-autoplay
                             "ON"
                           "OFF"))
   (run-with-timer 1 nil
@@ -844,9 +888,9 @@ Override DIRED-BUFFER, otherwise resolve internally."
                 (mapconcat
                  #'identity (seq-map #'seq-first ready-player-open-playback-commands) " "))))
 
-(defun ready-player--make-file-button-line (busy repeat shuffle)
-  "Create button line with BUSY, REPEAT and SHUFFLE."
-  (format " %s %s %s %s %s %s"
+(defun ready-player--make-file-button-line (busy repeat shuffle autoplay)
+  "Create button line with BUSY, REPEAT, AUTOPLAY, and SHUFFLE."
+  (format " %s %s %s %s %s %s %s"
           (ready-player--make-button ready-player-previous-icon
                                      'previous
                                      #'ready-player-previous)
@@ -866,7 +910,10 @@ Override DIRED-BUFFER, otherwise resolve internally."
                                               #'ready-player-toggle-repeat)
           (ready-player--make-checkbox-button ready-player-shuffle-icon shuffle
                                               'shuffle
-                                              #'ready-player-toggle-shuffle)))
+                                              #'ready-player-toggle-shuffle)
+          (ready-player--make-checkbox-button ready-player-autoplay-icon autoplay
+                                              'autoplay
+                                              #'ready-player-toggle-autoplay)))
 
 (defun ready-player--make-checkbox-button (text checked kind action)
   "Make a checkbox button with TEXT, CHECKED state, KIND, and ACTION."
@@ -906,10 +953,10 @@ Override DIRED-BUFFER, otherwise resolve internally."
                          (concat "ready-player: " base-name " (playing)")
                        (concat "ready-player: " base-name))))))
 
-(defun ready-player--refresh-buffer-status (buffer busy repeat shuffle)
+(defun ready-player--refresh-buffer-status (buffer busy repeat shuffle autoplay)
   "Refresh and render status in buffer in BUFFER.
 
-Render FNAME, BUSY, REPEAT and SHUFFLE."
+Render FNAME, BUSY, REPEAT, SHUFFLE, and AUTOPLAY."
   (when-let ((inhibit-read-only t)
              (saved-point (point))
              (live-buffer (buffer-live-p buffer)))
@@ -929,7 +976,7 @@ Render FNAME, BUSY, REPEAT and SHUFFLE."
 
         (when (text-property-search-forward 'button)
           (delete-region (line-beginning-position) (line-end-position))
-          (insert (ready-player--make-file-button-line busy repeat shuffle))))
+          (insert (ready-player--make-file-button-line busy repeat shuffle autoplay))))
       (goto-char saved-point)
 
       (ready-player--update-buffer-name buffer busy)
