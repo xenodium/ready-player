@@ -44,6 +44,7 @@
 (require 'comint)
 (require 'dired)
 (require 'seq)
+(require 'subr-x)
 (require 'text-property-search)
 
 ;;; Code:
