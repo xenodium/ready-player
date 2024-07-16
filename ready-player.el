@@ -313,16 +313,15 @@ Note: This function needs to be added to `file-name-handler-alist'."
 (define-derived-mode ready-player-major-mode special-mode "Ready Player"
   "Major mode to preview and play media files."
   :after-hook (progn
-                (ready-player--goto-button ready-player--last-button-focus)
                 (unless ready-player-multi-buffer
                   (let ((buffer (current-buffer)))
-                    ;; Run after current runloop to allow `find-file' completion.
+                    ;; Execute after current run loop to allow `find-file' completion.
                     (run-at-time 0 nil
                                  (lambda ()
                                    (ready-player--keep-only-this-buffer buffer)))))
-                (if ready-player-autoplay
-                    (ready-player-play)
-                  (ready-player--goto-button ready-player--last-button-focus)))
+               (when ready-player-autoplay
+                  (ready-player--start-playback-process))
+                (ready-player--goto-button ready-player--last-button-focus))
   :keymap ready-player-major-mode-map
   (set-buffer-multibyte t)
   (setq buffer-read-only t)
@@ -367,14 +366,8 @@ Note: This function needs to be added to `file-name-handler-alist'."
                               ready-player-shuffle
                               ready-player-autoplay
                               thumbnail ready-player--metadata)
-                             ;; Point won't move to button
-                             ;; unless delayed ¯\_(ツ)_/¯.
-                             (run-with-timer 0.1 nil
-                                             (lambda ()
-                                               (when (buffer-live-p buffer)
-                                                 (with-current-buffer buffer
-                                                   (ready-player--goto-button
-                                                    ready-player--last-button-focus)))))))))))
+                             (ready-player--goto-button
+                              ready-player--last-button-focus)))))))
     (ready-player--load-file-metadata
      fpath (lambda (metadata)
              (when (buffer-live-p buffer)
@@ -474,31 +467,40 @@ Render state from FPATH BUSY REPEAT SHUFFLE AUTOPLAY THUMBNAIL and METADATA."
 
 (defun ready-player--goto-button (button)
   "Goto BUTTON (see \=`ready-player--last-button-focus'\= for values)."
-  (goto-char (point-min))
-  (text-property-search-forward 'button button))
+  (ready-player--ensure-mode)
+  (when-let* ((match (save-excursion
+                       (goto-char (point-min))
+                       (text-property-search-forward 'button button)))
+              (button-pos (prop-match-end match)))
+    (if-let ((window (get-buffer-window (current-buffer))))
+        ;; Attempt to focus unfocused window so point actually moves.
+        (with-selected-window window
+          (goto-char button-pos))
+      (goto-char button-pos))))
 
 (defun ready-player-next-button ()
   "Navigate to next button."
   (interactive)
   (ready-player--ensure-mode)
-  (or
-   (let ((result (text-property-search-forward 'button nil nil t)))
-     (when result
-       (goto-char (prop-match-beginning result))
-       result))
-   (progn
-     (goto-char (point-min))
-     (ready-player-next-button))))
+  (if-let ((result (text-property-search-forward 'button nil nil t)))
+      (progn
+        (goto-char (prop-match-beginning result))
+        (setq ready-player--last-button-focus
+              (or (get-text-property (point) 'button)
+                  ready-player--last-button-focus)))
+    (goto-char (point-min))
+    (ready-player-next-button)))
 
 (defun ready-player-previous-button ()
   "Navigate to previous button."
   (interactive)
   (ready-player--ensure-mode)
-  (or
-   (text-property-search-backward 'button)
-   (progn
-     (goto-char (point-max))
-     (ready-player-previous-button))))
+  (if-let ((result (text-property-search-backward 'button)))
+      (setq ready-player--last-button-focus
+            (or (get-text-property (point) 'button)
+                ready-player--last-button-focus))
+    (goto-char (point-max))
+    (ready-player-previous-button)))
 
 (defun ready-player-quit ()
   "Quit `ready-player-major-mode' window and kill buffer."
