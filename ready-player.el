@@ -1079,9 +1079,7 @@ Note: This needs the ffmpeg command line utility."
     (with-current-buffer buffer
       (let ((inhibit-read-only t))
         (erase-buffer))
-      (let ((inhibit-message t))
-        ;; Silence noise of entering shell-mode.
-        (shell-mode)))
+      (comint-mode))
     buffer))
 
 (defun ready-player--format-metadata-rows (rows)
