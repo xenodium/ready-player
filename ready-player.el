@@ -1,4 +1,4 @@
-;;; ready-player.el --- Open media files in ready-player-mode major mode -*- lexical-binding: t; -*-
+;;; ready-player.el --- Open media files in ready-player major mode -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2024 Alvaro Ramirez
 
