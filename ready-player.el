@@ -816,14 +816,14 @@ Override DIRED-BUFFER, otherwise resolve internally."
 (defun ready-player-toggle-repeat ()
   "Toggle repeat setting."
   (interactive)
-  (ready-player--ensure-mode)
   (setq ready-player-repeat (not ready-player-repeat))
-  (ready-player--refresh-buffer-status
-   (current-buffer)
-   ready-player--process
-   ready-player-repeat
-   ready-player-shuffle
-   ready-player-autoplay)
+  (when-let ((buffer (ready-player--active-buffer)))
+    (ready-player--refresh-buffer-status
+     buffer
+     ready-player--process
+     ready-player-repeat
+     ready-player-shuffle
+     ready-player-autoplay))
   (message "Repeat: %s" (if ready-player-repeat
                             "ON"
                           "OFF"))
@@ -834,14 +834,14 @@ Override DIRED-BUFFER, otherwise resolve internally."
 (defun ready-player-toggle-shuffle ()
   "Toggle shuffle setting."
   (interactive)
-  (ready-player--ensure-mode)
   (setq ready-player-shuffle (not ready-player-shuffle))
-  (ready-player--refresh-buffer-status
-   (current-buffer)
-   ready-player--process
-   ready-player-repeat
-   ready-player-shuffle
-   ready-player-autoplay)
+  (when-let ((buffer (ready-player--active-buffer)))
+    (ready-player--refresh-buffer-status
+     buffer
+     ready-player--process
+     ready-player-repeat
+     ready-player-shuffle
+     ready-player-autoplay))
   (message "Shuffle: %s" (if ready-player-shuffle
                             "ON"
                           "OFF"))
@@ -852,14 +852,14 @@ Override DIRED-BUFFER, otherwise resolve internally."
 (defun ready-player-toggle-autoplay ()
   "Toggle autoplay setting."
   (interactive)
-  (ready-player--ensure-mode)
   (setq ready-player-autoplay (not ready-player-autoplay))
-  (ready-player--refresh-buffer-status
-   (current-buffer)
-   ready-player--process
-   ready-player-repeat
-   ready-player-shuffle
-   ready-player-autoplay)
+  (when-let ((buffer (ready-player--active-buffer)))
+    (ready-player--refresh-buffer-status
+     buffer
+     ready-player--process
+     ready-player-repeat
+     ready-player-shuffle
+     ready-player-autoplay))
   (message "Autoplay: %s" (if ready-player-autoplay
                             "ON"
                           "OFF"))
