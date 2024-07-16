@@ -104,6 +104,11 @@ Repeats and starts over from the beginning of the directory."
   :type 'boolean
   :group 'ready-player)
 
+(defcustom ready-player-cache-metadata t
+  "When non-nil, cache metadata."
+  :type 'boolean
+  :group 'ready-player)
+
 ;; TODO: Find a better way of checking for SF rendeing.
 (defun ready-player-displays-as-sf-symbol-p (text)
   "Return t if TEXT can be displayed as macoOS SF symbols.  nil otherwise."
@@ -330,6 +335,7 @@ Note: This function needs to be added to `file-name-handler-alist'."
 
   (let* ((buffer (current-buffer))
          (fpath (buffer-file-name))
+         (cached-metadata (ready-player--cached-metadata fpath))
          (cached-thumbnail (ready-player--cached-thumbnail fpath))
          (thumbnailer (if (executable-find "ffmpegthumbnailer")
                           #'ready-player--load-file-thumbnail-via-ffmpegthumbnailer
@@ -369,21 +375,32 @@ Note: This function needs to be added to `file-name-handler-alist'."
                               thumbnail ready-player--metadata)
                              (ready-player--goto-button
                               ready-player--last-button-focus)))))))
-    (ready-player--load-file-metadata
-     fpath (lambda (metadata)
-             (when (buffer-live-p buffer)
-               (with-current-buffer buffer
-                 (when metadata
-                   (setq ready-player--metadata metadata)
-                   (ready-player--update-buffer
-                    buffer fpath
-                    ready-player--process
-                    ready-player-repeat
-                    ready-player-shuffle
-                    ready-player-autoplay
-                    ready-player--thumbnail metadata)
-                   (ready-player--goto-button
-                    ready-player--last-button-focus)))))))
+
+    (if cached-metadata
+        (progn
+          (setq ready-player--metadata cached-metadata)
+          (ready-player--update-buffer
+           buffer fpath
+           ready-player--process
+           ready-player-repeat
+           ready-player-shuffle
+           ready-player-autoplay
+           cached-thumbnail ready-player--metadata))
+      (ready-player--load-file-metadata
+       fpath (lambda (metadata)
+               (when (buffer-live-p buffer)
+                 (with-current-buffer buffer
+                   (when metadata
+                     (setq ready-player--metadata metadata)
+                     (ready-player--update-buffer
+                      buffer fpath
+                      ready-player--process
+                      ready-player-repeat
+                      ready-player-shuffle
+                      ready-player-autoplay
+                      ready-player--thumbnail metadata)
+                     (ready-player--goto-button
+                      ready-player--last-button-focus))))))))
   (add-hook 'kill-buffer-hook #'ready-player--clean-up nil t))
 
 (defun ready-player--update-buffer (buffer fpath busy repeat shuffle autoplay &optional thumbnail metadata)
@@ -996,8 +1013,12 @@ Render FNAME, BUSY, REPEAT, SHUFFLE, and AUTOPLAY."
   "Generate thumbnail path for media at FPATH."
   (ready-player--cached-item-path-for fpath ".png"))
 
+(defun ready-player--metadata-path (fpath)
+  "Generate thumbnail path for media at FPATH."
+  (ready-player--cached-item-path-for fpath ".json"))
+
 (defun ready-player--cached-item-path-for (fpath suffix)
-  "Generate thumbnail path for media at FPATH, appending SUFFIX."
+  "Generate cached item path for media at FPATH, appending SUFFIX."
   (let* ((temp-dir (concat (file-name-as-directory temporary-file-directory) "ready-player"))
          (temp-fpath (concat (file-name-as-directory temp-dir)
                              (md5 fpath) suffix)))
@@ -1030,6 +1051,16 @@ Note: This needs the ffmpegthumbnailer command line utility."
                (> (file-attribute-size (file-attributes cache-fpath)) 0))
       cache-fpath)))
 
+(defun ready-player--cached-metadata (fpath)
+  "Get cached thumbnail for media at FPATH."
+  (let ((cache-fpath (ready-player--metadata-path fpath)))
+    (when (and (file-exists-p cache-fpath)
+               (> (file-attribute-size (file-attributes cache-fpath)) 0))
+      (with-temp-buffer
+        (insert-file-contents cache-fpath)
+        (goto-char (point-min))
+        (json-parse-buffer :object-type 'alist)))))
+
 (defun ready-player--load-file-thumbnail-via-ffmpeg (media-fpath on-loaded)
   "Load media thumbnail at MEDIA-FPATH and invoke ON-LOADED.
 
@@ -1053,7 +1084,8 @@ Note: This needs the ffmpeg command line utility."
   "Load media metadata at FPATH and invoke ON-LOADED."
   (if (executable-find "ffprobe")
       (when-let* ((buffer (generate-new-buffer "*ffprobe-output*"))
-                  (buffer-live (buffer-live-p buffer)))
+                  (buffer-live (buffer-live-p buffer))
+                  (metadata-fpath (ready-player--metadata-path fpath)))
         (with-current-buffer buffer
           (erase-buffer))
         (make-process
@@ -1066,6 +1098,7 @@ Note: This needs the ffmpeg command line utility."
                (when (and (eq (process-exit-status process) 0)
                           (buffer-live-p (process-buffer process)))
                  (with-current-buffer (process-buffer process)
+                   (write-file metadata-fpath)
                    (goto-char (point-min))
                    (funcall on-loaded (json-parse-buffer :object-type 'alist))))
              (error nil))
@@ -1157,10 +1190,14 @@ playback."
 (defun ready-player--clean-up ()
   "Kill playback process."
   (ready-player--ensure-mode)
-  (when (and (not ready-player-cache-thumbnails)
-             ready-player--thumbnail)
+  (when-let ((delete-cached-file (not ready-player-cache-thumbnails)))
     (condition-case nil
         (delete-file ready-player--thumbnail)
+      (file-error nil)))
+  (when-let* ((delete-cached-file (not ready-player-cache-metadata))
+              (metadata-path (ready-player--metadata-path (buffer-file-name))))
+    (condition-case nil
+        (delete-file metadata-path)
       (file-error nil)))
   (kill-buffer (ready-player--playback-process-buffer (buffer-file-name)))
   (when ready-player--process
