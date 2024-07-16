@@ -41,9 +41,9 @@
 ;; patches to https://github.com/xenodium/ready-player
 
 (require 'cl-lib)
+(require 'comint)
 (require 'dired)
 (require 'seq)
-(require 'shell)
 (require 'text-property-search)
 
 ;;; Code:
@@ -68,6 +68,11 @@
 (defgroup ready-player nil
   "Settings for Ready Player mode."
   :group 'media)
+
+(defcustom ready-player-multi-buffer nil
+  "When non-nil, enable opening multiple buffers with parallel playback."
+  :type 'boolean
+  :group 'ready-player)
 
 (defcustom ready-player-show-thumbnail t
   "When non-nil, display file's thumbnail if available."
@@ -211,7 +216,7 @@ Omit the file path, as it will be automatically appended."
   :group 'play-mode
   :type '(repeat string))
 
-(defvar ready-player--process nil "Media-playing process.")
+(defvar-local ready-player--process nil "Media-playing process.")
 
 (defvar ready-player--active-buffer nil "Buffer to interact with.")
 
@@ -308,19 +313,20 @@ Note: This function needs to be added to `file-name-handler-alist'."
 (define-derived-mode ready-player-major-mode special-mode "Ready Player"
   "Major mode to preview and play media files."
   :after-hook (progn
-                (ready-player--goto-button ready-player--last-button-focus))
+                (ready-player--goto-button ready-player--last-button-focus)
+                (unless ready-player-multi-buffer
+                  (let ((buffer (current-buffer)))
+                    ;; Run after current runloop to allow `find-file' completion.
+                    (run-at-time 0 nil
+                                 (lambda ()
+                                   (ready-player--keep-only-this-buffer buffer)))))
                 (if ready-player-autoplay
                     (ready-player-play)
-                  (ready-player--goto-button ready-player--last-button-focus))
+                  (ready-player--goto-button ready-player--last-button-focus)))
   :keymap ready-player-major-mode-map
   (set-buffer-multibyte t)
   (setq buffer-read-only t)
   (setq buffer-undo-list t)
-
-  ;; Never play more than one process. Stop existing.
-  (when ready-player--process
-    (delete-process ready-player--process)
-    (setq ready-player--process nil))
 
   (let* ((buffer (current-buffer))
          (fpath (buffer-file-name))
@@ -389,7 +395,7 @@ Note: This function needs to be added to `file-name-handler-alist'."
 (defun ready-player--update-buffer (buffer fpath busy repeat shuffle autoplay &optional thumbnail metadata)
   "Update entire BUFFER content.
 
-Render state from FPATH BUSY REPEAT SHUFFLE THUMBNAIL and METADATA."
+Render state from FPATH BUSY REPEAT SHUFFLE AUTOPLAY THUMBNAIL and METADATA."
   (save-excursion
     (let ((fname (file-name-nondirectory fpath))
           (buffer-read-only nil))
@@ -547,7 +553,6 @@ If START-PLAYING is non-nil, start playing the media file."
         (new-buffer (let ((recentf-exclude (list (concat (regexp-quote (file-name-nondirectory fpath)) "\\'"))))
                       (ignore recentf-exclude)
                       (find-file-noselect fpath))))
-    (ready-player--stop-playback-process)
     (with-current-buffer new-buffer
       (when (get-buffer-window-list old-buffer nil t)
         (set-window-buffer (car (get-buffer-window-list old-buffer nil t)) new-buffer))
@@ -758,7 +763,8 @@ Override DIRED-BUFFER, otherwise resolve internally."
   (ready-player--stop-playback-process)
   (when-let* ((fpath (buffer-file-name))
               (command (append
-                        (list "*ready player mode*" (ready-player--playback-process-buffer))
+                        (list (format "*ready player mode '%s'*" (file-name-nondirectory fpath))
+                              (ready-player--playback-process-buffer fpath))
                         (ready-player--playback-command) (list fpath)))
               (buffer (current-buffer)))
     (setq ready-player--process (apply #'start-process
@@ -1063,10 +1069,12 @@ Note: This needs the ffmpeg command line utility."
            (kill-buffer (process-buffer process)))))
     (message "Metadata not available (ffprobe not found)")))
 
-(defun ready-player--playback-process-buffer ()
-  "Get the process playback buffer."
+(defun ready-player--playback-process-buffer (fpath)
+  "Get the process playback buffer for FPATH."
   (when-let* ((buffer (get-buffer-create
-                       (format "*%s* (ready-player)" (nth 0 (ready-player--playback-command)))))
+                       (format "*%s %s* (ready-player)"
+                               (nth 0 (ready-player--playback-command))
+                               (file-name-nondirectory fpath))))
               (buffer-live (buffer-live-p buffer)))
     (with-current-buffer buffer
       (let ((inhibit-read-only t))
@@ -1147,14 +1155,29 @@ playback."
 
 (defun ready-player--clean-up ()
   "Kill playback process."
+  (ready-player--ensure-mode)
   (when (and (not ready-player-cache-thumbnails)
              ready-player--thumbnail)
     (condition-case nil
         (delete-file ready-player--thumbnail)
       (file-error nil)))
+  (kill-buffer (ready-player--playback-process-buffer (buffer-file-name)))
   (when ready-player--process
     (delete-process ready-player--process)
     (setq ready-player--process nil)))
+
+(defun ready-player--keep-only-this-buffer (buffer)
+  "Keep this BUFFER and kill all other `ready-player-mode' buffers."
+  (mapc (lambda (other-buffer)
+          (when (and (eq (buffer-local-value 'major-mode other-buffer)
+                         'ready-player-major-mode)
+                     (not (eq buffer other-buffer)))
+            (when (get-buffer-window-list other-buffer nil t)
+              (set-window-buffer
+               (car (get-buffer-window-list other-buffer nil t))
+               buffer))
+            (kill-buffer other-buffer)))
+        (buffer-list)))
 
 (defun ready-player--active-buffer (&optional no-error)
   "Get the active buffer.
