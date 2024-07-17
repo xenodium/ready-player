@@ -109,6 +109,14 @@ Repeats and starts over from the beginning of the directory."
   :type 'boolean
   :group 'ready-player)
 
+(defcustom ready-player-hidden-modeline t
+  "If non-nil, hides mode line in buffer.
+
+File information is already displayed in the buffer,
+so users can opt to hide the mode line."
+  :type 'boolean
+  :group 'ready-player)
+
 ;; TODO: Find a better way of checking for SF rendeing.
 (defun ready-player-displays-as-sf-symbol-p (text)
   "Return t if TEXT can be displayed as macoOS SF symbols.  nil otherwise."
@@ -332,6 +340,8 @@ Note: This function needs to be added to `file-name-handler-alist'."
   (set-buffer-multibyte t)
   (setq buffer-read-only t)
   (setq buffer-undo-list t)
+  (when ready-player-hidden-modeline
+    (setq mode-line-format nil))
 
   (let* ((buffer (current-buffer))
          (fpath (buffer-file-name))
@@ -830,6 +840,17 @@ Override DIRED-BUFFER, otherwise resolve internally."
             (ready-player-stop)
           (ready-player-play))
       (error "No file to play/stop"))))
+
+(defun ready-player-toggle-modeline ()
+  "Toggle displaying the mode line."
+  (interactive)
+  (ready-player--ensure-mode)
+  (if mode-line-format
+      (progn
+        (setq mode-line-format nil)
+        (setq ready-player-hidden-modeline t))
+    (setq mode-line-format (default-value 'mode-line-format))
+    (setq ready-player-hidden-modeline nil)))
 
 (defun ready-player-toggle-repeat ()
   "Toggle repeat setting."
