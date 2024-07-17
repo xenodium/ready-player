@@ -5,7 +5,7 @@
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; Package-Requires: ((emacs "28.1"))
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.51
+;; Version: 0.0.52
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -1098,7 +1098,8 @@ Note: This needs the ffmpeg command line utility."
                (when (and (eq (process-exit-status process) 0)
                           (buffer-live-p (process-buffer process)))
                  (with-current-buffer (process-buffer process)
-                   (write-file metadata-fpath)
+                   ;; Using write-region to avoid "Wrote" echo message.
+                   (write-region (point-min) (point-max) metadata-fpath nil 'noprint)
                    (goto-char (point-min))
                    (funcall on-loaded (json-parse-buffer :object-type 'alist))))
              (error nil))
