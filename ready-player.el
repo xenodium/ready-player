@@ -5,7 +5,7 @@
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; Package-Requires: ((emacs "28.1"))
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.52
+;; Version: 0.0.53
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -519,6 +519,14 @@ Render state from FPATH BUSY REPEAT SHUFFLE AUTOPLAY THUMBNAIL and METADATA."
     (goto-char (point-min))
     (ready-player-next-button)))
 
+(defmacro ready-player--with-buffer-focused (buffer &rest body)
+  "Like `with-current-buffer' executing BODY with BUFFER and WINDOW focused."
+  `(with-current-buffer ,buffer
+     (if-let ((win (get-buffer-window ,buffer)))
+         (with-selected-window win
+           ,@body)
+       ,@body)))
+
 (defun ready-player-previous-button ()
   "Navigate to previous button."
   (interactive)
@@ -675,36 +683,39 @@ Override DIRED-BUFFER, otherwise resolve internally."
          (next))
     ;; Move point in all relevant dired buffers.
     (dolist (buffer dired-buffers)
-      (with-current-buffer buffer
-        (if random
-            (progn
-              (goto-char (point-min))
-              ;; Goto random line.
-              (forward-line (+ (point-min)
-                               (random (count-lines (point-min)
-                                                    (point-max))))))
-          (if (or from-top (not file))
-              (goto-char (point-min))
-            (dired-goto-file file)))
-        (let (found)
-          (while (and (not found)
-                      (if (> offset 0)
-                          (not (eobp))
-                        (not (bobp))))
-            (dired-next-line offset)
-            ;; Ensure (eobp) or (bobp) are reached.
-            (if (> offset 0)
-                (end-of-line)
-              (beginning-of-line))
-            (when-let* ((candidate (dired-get-filename nil t))
-                        (extension (file-name-extension candidate))
-                        (match-p (string-match-p regexp extension)))
-              (setq found candidate)))
-          (if found
-              (setq next found)
-            ;; No next match. Restore point.
-            (when file
-              (dired-goto-file file))))))
+      (ready-player--with-buffer-focused
+       buffer
+       (if random
+           (progn
+             (goto-char (point-min))
+             ;; Goto random line.
+             (forward-line (+ (point-min)
+                              (random (count-lines (point-min)
+                                                   (point-max))))))
+         (if (or from-top (not file))
+             (goto-char (point-min))
+           (dired-goto-file file)))
+       (let (found)
+         (while (and (not found)
+                     (if (> offset 0)
+                         (not (eobp))
+                       (not (bobp))))
+           (dired-next-line offset)
+           ;; Ensure (eobp) or (bobp) are reached.
+           (if (> offset 0)
+               (end-of-line)
+             (beginning-of-line))
+           (when-let* ((candidate (dired-get-filename nil t))
+                       (extension (file-name-extension candidate))
+                       (match-p (string-match-p regexp extension)))
+             (setq found candidate)))
+         (if found
+             (progn
+               (setq next found)
+               (forward-line 0))
+           ;; No next match. Restore point.
+           (when file
+             (dired-goto-file file))))))
     next))
 
 ;; Based on `image-mode-mark-file'.
