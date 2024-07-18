@@ -109,7 +109,7 @@ Repeats and starts over from the beginning of the directory."
   :type 'boolean
   :group 'ready-player)
 
-(defcustom ready-player-hidden-modeline t
+(defcustom ready-player-hide-modeline nil
   "If non-nil, hides mode line in buffer.
 
 File information is already displayed in the buffer,
@@ -340,7 +340,7 @@ Note: This function needs to be added to `file-name-handler-alist'."
   (set-buffer-multibyte t)
   (setq buffer-read-only t)
   (setq buffer-undo-list t)
-  (when ready-player-hidden-modeline
+  (when ready-player-hide-modeline
     (setq mode-line-format nil))
 
   (let* ((buffer (current-buffer))
@@ -848,9 +848,9 @@ Override DIRED-BUFFER, otherwise resolve internally."
   (if mode-line-format
       (progn
         (setq mode-line-format nil)
-        (setq ready-player-hidden-modeline t))
+        (setq ready-player-hide-modeline t))
     (setq mode-line-format (default-value 'mode-line-format))
-    (setq ready-player-hidden-modeline nil)))
+    (setq ready-player-hide-modeline nil)))
 
 (defun ready-player-toggle-repeat ()
   "Toggle repeat setting."
