@@ -218,7 +218,7 @@ Omit the file path, as it will be automatically appended."
   :type '(repeat (list string))
   :group 'ready-player)
 
-(defcustom ready-player-display-dired-buffer-alist-entry-action
+(defcustom ready-player-display-dired-playback-buffer-display-action
   '((display-buffer-reuse-window
      display-buffer-in-direction)
     (reusable-frames . visible)
@@ -1204,7 +1204,7 @@ Note: This needs the ffmpeg command line utility."
   (interactive)
   (ready-player--ensure-mode)
   (display-buffer (ready-player--dired-playback-buffer)
-                  ready-player-display-dired-buffer-alist-entry-action))
+                  ready-player-display-dired-playback-buffer-display-action))
 
 (defun ready-player-load-dired-playback-buffer ()
   "Open a `dired' buffer.
