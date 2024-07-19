@@ -360,13 +360,17 @@ Note: This function needs to be added to `file-name-handler-alist'."
          (fpath (buffer-file-name))
          (cached-metadata (ready-player--cached-metadata fpath))
          (cached-thumbnail (ready-player--cached-thumbnail fpath))
+         (cached-dired-buffer (ready-player--resolve-file-dired-buffer fpath))
          (thumbnailer (if (executable-find "ffmpegthumbnailer")
                           #'ready-player--load-file-thumbnail-via-ffmpegthumbnailer
                         #'ready-player--load-file-thumbnail-via-ffmpeg)))
     (ready-player--update-buffer-name buffer nil)
     ;; Sets default related dired buffer.
-    (setq ready-player--dired-playback-buffer
-          (find-file-noselect default-directory))
+    (if cached-dired-buffer
+        (setq ready-player--dired-playback-buffer
+              cached-dired-buffer)
+      (setq ready-player--dired-playback-buffer
+            (find-file-noselect default-directory)))
     (setq ready-player--active-buffer buffer)
     (ready-player--update-buffer buffer fpath
                                  ready-player--process
@@ -1263,18 +1267,40 @@ playback."
     (delete-process ready-player--process)
     (setq ready-player--process nil)))
 
+(defun ready-player--buffers ()
+  "Get all `ready-player-major-mode' buffers."
+  (seq-filter (lambda (buffer)
+                (eq (buffer-local-value 'major-mode buffer)
+                    'ready-player-major-mode))
+              (buffer-list)))
+
+(defun ready-player--dired-buffers ()
+  "Get all `ready-player-major-mode' buffers."
+  (seq-mapcat
+   (lambda (buffer)
+     (with-current-buffer buffer
+       (when (buffer-live-p ready-player--dired-playback-buffer)
+         (list ready-player--dired-playback-buffer))))
+   (ready-player--buffers)))
+
+(defun ready-player--resolve-file-dired-buffer (file)
+  "Return a known `dired' buffer containing FILE or nil otherwise."
+  (seq-find
+   (lambda (buffer)
+     (with-current-buffer buffer
+       (dired-goto-file file)))
+   (ready-player--dired-buffers)))
+
 (defun ready-player--keep-only-this-buffer (buffer)
   "Keep this BUFFER and kill all other `ready-player-mode' buffers."
   (mapc (lambda (other-buffer)
-          (when (and (eq (buffer-local-value 'major-mode other-buffer)
-                         'ready-player-major-mode)
-                     (not (eq buffer other-buffer)))
+          (when (not (eq buffer other-buffer))
             (when (get-buffer-window-list other-buffer nil t)
               (set-window-buffer
                (car (get-buffer-window-list other-buffer nil t))
                buffer))
             (kill-buffer other-buffer)))
-        (buffer-list)))
+        (ready-player--buffers)))
 
 (defun ready-player--active-buffer (&optional no-error)
   "Get the active buffer.
