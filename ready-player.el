@@ -737,10 +737,13 @@ Override DIRED-BUFFER, otherwise resolve internally."
   (interactive nil ready-player-major-mode)
   (unless buffer-file-name
     (user-error "No media file in this buffer"))
-  (if-let ((marked-buffer
-         (ready-player--apply-dired-function
-          #'dired-mark buffer-file-name)))
-      (switch-to-buffer-other-window marked-buffer)
+  (if-let* ((file buffer-file-name)
+            (marked-buffer
+             (ready-player--apply-dired-function
+              #'dired-mark file)))
+      (progn
+        (switch-to-buffer-other-window marked-buffer)
+        (dired-goto-file file))
     (message "Couldn't find file to mark")))
 
 ;; Based on `image-mode-unmark-file'.
@@ -749,10 +752,13 @@ Override DIRED-BUFFER, otherwise resolve internally."
   (interactive nil ready-player-major-mode)
   (unless buffer-file-name
     (user-error "No media file in this buffer"))
-  (if-let ((marked-buffer
-            (ready-player--apply-dired-function
-             #'dired-unmark buffer-file-name)))
-      (switch-to-buffer-other-window marked-buffer)
+  (if-let* ((file buffer-file-name)
+            (marked-buffer
+             (ready-player--apply-dired-function
+              #'dired-unmark file)))
+      (progn
+        (switch-to-buffer-other-window marked-buffer)
+        (dired-goto-file file))
     (message "Couldn't find file to unmark")))
 
 (defun ready-player--apply-dired-function (function file)
