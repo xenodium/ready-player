@@ -1016,7 +1016,8 @@ Override DIRED-BUFFER, otherwise resolve internally."
   "Make button with TEXT, KIND, and ACTION."
   (propertize
    (format " %s " text)
-   'face '(:box t)
+   ;; TODO: Investigate why 'face is not enough.
+   'font-lock-face '(:box t)
    'pointer 'hand
    'keymap (let ((map (make-sparse-keymap)))
              (define-key map [mouse-1] action)
