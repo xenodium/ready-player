@@ -1214,7 +1214,8 @@ Note: This needs the ffmpeg command line utility."
   (interactive)
   (ready-player--ensure-mode)
   (display-buffer (ready-player--dired-playback-buffer)
-                  ready-player-display-dired-playback-buffer-display-action))
+                  ready-player-display-dired-playback-buffer-display-action)
+  (switch-to-buffer-other-window (ready-player--dired-playback-buffer)))
 
 (defun ready-player-load-dired-playback-buffer ()
   "Open a `dired' buffer.
