@@ -5,7 +5,7 @@
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; Package-Requires: ((emacs "28.1"))
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.55
+;; Version: 0.0.56
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -252,7 +252,12 @@ Same format as a the action in a `display-buffer-alist' entry."
 (defvar-local ready-player--thumbnail nil "Thumbnail as per ffmpeg.")
 
 (defvar ready-player--last-button-focus 'play-stop
-  "Last button focused (\=next\= or \=previous\= \=play-stop\=).
+  "Last button focused.
+
+Could be one of:
+
+=next= =previous= =play-stop= =open-externally= =repeat= =shuffle= or
+=autoplay.=
 
 Used to remember button position across files in continuous playback.")
 
@@ -275,7 +280,7 @@ See `ready-player-supported-media' for recognized types."
             (revert-buffer nil t)))
       (ready-player-remove-from-auto-mode-alist)
       (when (and called-interactively
-                 (eq major-mode 'ready-player-major-mode))
+                 (derived-mode-p 'ready-player-major-mode))
         (revert-buffer nil t)))))
 
 ;;;###autoload
@@ -343,7 +348,7 @@ Note: This function needs to be added to `file-name-handler-alist'."
                 (unless ready-player-multi-buffer
                   (let ((buffer (current-buffer)))
                     ;; Execute after current run loop to allow `find-file' completion.
-                    (run-at-time 0 nil
+                    (run-at-time 0.1 nil
                                  (lambda ()
                                    (ready-player--keep-only-this-buffer buffer)))))
                (when ready-player-autoplay
@@ -772,7 +777,7 @@ Override DIRED-BUFFER, otherwise resolve internally."
 	 (buffers (append
                    (seq-filter (lambda (buffer)
                                  (with-current-buffer buffer
-                                   (and (eq major-mode 'dired-mode)
+                                   (and (derived-mode-p 'dired-mode)
                                         (equal (file-truename dir)
                                                (file-truename default-directory)))))
                                (dired-buffers-for-dir dir))
@@ -808,7 +813,7 @@ Override DIRED-BUFFER, otherwise resolve internally."
 
 (defun ready-player--ensure-mode ()
   "Ensure current buffer is running in `ready-player-major-mode'."
-  (unless (eq major-mode 'ready-player-major-mode)
+  (unless (derived-mode-p 'ready-player-major-mode)
     (user-error "Not in a ready-player-major-mode buffer (%s)" major-mode)))
 
 (defun ready-player--stop-playback-process ()
