@@ -5,7 +5,7 @@
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; Package-Requires: ((emacs "28.1"))
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.56
+;; Version: 0.0.57
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -473,8 +473,8 @@ Render state from FPATH BUSY REPEAT SHUFFLE AUTOPLAY THUMBNAIL and METADATA."
                      (ready-player--make-metadata-rows metadata))))
           (set-buffer-modified-p nil))))))
 
-(defun ready-player--make-metadata-rows (metadata)
-  "Make METADATA row data."
+(defun ready-player--make-metadata-mp3-rows (metadata)
+  "Make METADATA row data from an mp3 file."
   (let ((metadata-rows))
     (let-alist metadata
       (when .format.tags.title
@@ -494,7 +494,13 @@ Render state from FPATH BUSY REPEAT SHUFFLE AUTOPLAY THUMBNAIL and METADATA."
               (append metadata-rows
                       (list
                        (list (cons 'label "Album:")
-                             (cons 'value .format.tags.album))))))
+                             (cons 'value .format.tags.album)))))))
+    metadata-rows))
+
+(defun ready-player--make-metadata-core-rows (metadata)
+  "Make core METADATA row data."
+  (let ((metadata-rows))
+    (let-alist metadata
       (when .format.format_long_name
         (setq metadata-rows
               (append metadata-rows
@@ -512,7 +518,46 @@ Render state from FPATH BUSY REPEAT SHUFFLE AUTOPLAY THUMBNAIL and METADATA."
               (append metadata-rows
                       (list
                        (list (cons 'label "Size:")
-                             (cons 'value (ready-player--readable-size .format.size))))))))
+                             (cons 'value (ready-player--readable-size .format.size))))))))))
+
+(defun ready-player--make-metadata-ogg-rows (metadata)
+  "Make METADATA row data from an ogg file."
+  (let ((metadata-rows)
+        (stream))
+    (let-alist metadata
+      (setq stream (seq-first .streams))
+      (let-alist stream
+        (when (or .tags.title .tags.TITLE)
+          (setq metadata-rows
+                (append metadata-rows
+                        (list
+                         (list (cons 'label "Title:")
+                               (cons 'value (or .tags.title .tags.TITLE)))))))
+        (when (or .tags.artist .tags.ARTIST)
+          (setq metadata-rows
+                (append metadata-rows
+                        (list
+                         (list (cons 'label "Artist:")
+                               (cons 'value (or .tags.artist .tags.ARTIST)))))))
+        (when (or .tags.album .tags.ALBUM)
+          (setq metadata-rows
+                (append metadata-rows
+                        (list
+                         (list (cons 'label "Album:")
+                               (cons 'value (or .tags.album .tags.ALBUM)))))))))))
+
+(defun ready-player--make-metadata-rows (metadata)
+  "Make METADATA row data."
+  (let ((metadata-rows))
+    (setq metadata-rows
+          (append metadata-rows
+                  (ready-player--make-metadata-mp3-rows metadata)))
+    (setq metadata-rows
+          (append metadata-rows
+                  (ready-player--make-metadata-ogg-rows metadata)))
+    (setq metadata-rows
+          (append metadata-rows
+                  (ready-player--make-metadata-core-rows metadata)))
     metadata-rows))
 
 (defun ready-player--goto-button (button)
