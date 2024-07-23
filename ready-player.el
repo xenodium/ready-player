@@ -5,7 +5,7 @@
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; Package-Requires: ((emacs "28.1"))
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.0.57
+;; Version: 0.0.58
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -364,7 +364,9 @@ Note: This function needs to be added to `file-name-handler-alist'."
   (let* ((buffer (current-buffer))
          (fpath (buffer-file-name))
          (cached-metadata (ready-player--cached-metadata fpath))
-         (cached-thumbnail (ready-player--cached-thumbnail fpath))
+         (local-thumbnail (ready-player--local-thumbnail-in-directory default-directory))
+         (cached-thumbnail (or (ready-player--cached-thumbnail fpath)
+                               local-thumbnail))
          (cached-dired-buffer (ready-player--resolve-file-dired-buffer fpath))
          (thumbnailer (if (executable-find "ffmpegthumbnailer")
                           #'ready-player--load-file-thumbnail-via-ffmpegthumbnailer
@@ -392,6 +394,24 @@ Note: This function needs to be added to `file-name-handler-alist'."
            ready-player-shuffle
            ready-player-autoplay
            cached-thumbnail ready-player--metadata))
+      (funcall thumbnailer
+               fpath (lambda (thumbnail)
+                       (when (buffer-live-p buffer)
+                         (with-current-buffer buffer
+                           (when thumbnail
+                             (setq ready-player--thumbnail thumbnail)
+                             (ready-player--update-buffer
+                              buffer fpath
+                              ready-player--process
+                              ready-player-repeat
+                              ready-player-shuffle
+                              ready-player-autoplay
+                              thumbnail ready-player--metadata)
+                             (ready-player--goto-button
+                              ready-player--last-button-focus)))))))
+
+    ;; Also attempt to extract embedded thumbnail to give it preference if found.
+    (when local-thumbnail
       (funcall thumbnailer
                fpath (lambda (thumbnail)
                        (when (buffer-live-p buffer)
@@ -1115,11 +1135,11 @@ Render FNAME, BUSY, REPEAT, SHUFFLE, and AUTOPLAY."
 
       (set-buffer-modified-p nil))))
 
-(defun ready-player--thumbnail-path (fpath)
+(defun ready-player--cached-thumbnail-path (fpath)
   "Generate thumbnail path for media at FPATH."
   (ready-player--cached-item-path-for fpath ".png"))
 
-(defun ready-player--metadata-path (fpath)
+(defun ready-player--cached-metadata-path (fpath)
   "Generate thumbnail path for media at FPATH."
   (ready-player--cached-item-path-for fpath ".json"))
 
@@ -1136,7 +1156,7 @@ Render FNAME, BUSY, REPEAT, SHUFFLE, and AUTOPLAY."
 
 Note: This needs the ffmpegthumbnailer command line utility."
   (if (executable-find "ffmpegthumbnailer")
-      (let* ((thumbnail-fpath (ready-player--thumbnail-path media-fpath)))
+      (let* ((thumbnail-fpath (ready-player--cached-thumbnail-path media-fpath)))
         (make-process
          :name "ffmpegthumbnailer-process"
          :buffer (get-buffer-create "*ffmpegthumbnailer-output*")
@@ -1152,14 +1172,31 @@ Note: This needs the ffmpegthumbnailer command line utility."
 
 (defun ready-player--cached-thumbnail (fpath)
   "Get cached thumbnail for media at FPATH."
-  (let ((cache-fpath (ready-player--thumbnail-path fpath)))
+  (let ((cache-fpath (ready-player--cached-thumbnail-path fpath)))
     (when (and (file-exists-p cache-fpath)
                (> (file-attribute-size (file-attributes cache-fpath)) 0))
       cache-fpath)))
 
+(defun ready-player--local-thumbnail-in-directory (dir)
+  "Return local thumbnail if found in DIR."
+  (let ((candidates '("cover.jpg" "cover.png"
+                      "front.jpg" "front.png"
+                      "folder.jpg" "folder.png"
+                      "album.jpg" "album.png"
+                      "artwork.jpg" "artwork.png"))
+        thumbnail)
+    (catch 'found
+      (dolist (candidate candidates)
+        (setq candidate (expand-file-name candidate dir))
+        (when (and (file-exists-p candidate)
+                   (> (file-attribute-size (file-attributes candidate)) 0))
+          (setq thumbnail candidate)
+          (throw 'found thumbnail))))
+    thumbnail))
+
 (defun ready-player--cached-metadata (fpath)
   "Get cached thumbnail for media at FPATH."
-  (let ((cache-fpath (ready-player--metadata-path fpath)))
+  (let ((cache-fpath (ready-player--cached-metadata-path fpath)))
     (when (and (file-exists-p cache-fpath)
                (> (file-attribute-size (file-attributes cache-fpath)) 0))
       (with-temp-buffer
@@ -1172,7 +1209,7 @@ Note: This needs the ffmpegthumbnailer command line utility."
 
 Note: This needs the ffmpeg command line utility."
   (if (executable-find "ffmpeg")
-      (let* ((thumbnail-fpath (ready-player--thumbnail-path media-fpath)))
+      (let* ((thumbnail-fpath (ready-player--cached-thumbnail-path media-fpath)))
         (make-process
          :name "ffmpeg-process"
          :buffer (get-buffer-create "*ffmpeg-output*")
@@ -1191,7 +1228,7 @@ Note: This needs the ffmpeg command line utility."
   (if (executable-find "ffprobe")
       (when-let* ((buffer (generate-new-buffer "*ffprobe-output*"))
                   (buffer-live (buffer-live-p buffer))
-                  (metadata-fpath (ready-player--metadata-path fpath)))
+                  (metadata-fpath (ready-player--cached-metadata-path fpath)))
         (with-current-buffer buffer
           (erase-buffer))
         (make-process
@@ -1310,7 +1347,7 @@ playback."
         (delete-file ready-player--thumbnail)
       (file-error nil)))
   (when-let* ((delete-cached-file (not ready-player-cache-metadata))
-              (metadata-path (ready-player--metadata-path (buffer-file-name))))
+              (metadata-path (ready-player--cached-metadata-path (buffer-file-name))))
     (condition-case nil
         (delete-file metadata-path)
       (file-error nil)))
