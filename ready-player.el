@@ -1014,9 +1014,15 @@ Override DIRED-BUFFER, otherwise resolve internally."
   "Reload media from file."
   (interactive)
   (ready-player--ensure-mode)
-  (when ready-player--thumbnail
+  (when (equal ready-player--thumbnail
+               (ready-player--cached-thumbnail-path buffer-file-name))
     (condition-case nil
         (delete-file ready-player--thumbnail)
+      (file-error nil)))
+  (when (equal ready-player--metadata
+               (ready-player--cached-metadata-path buffer-file-name))
+    (condition-case nil
+        (delete-file ready-player--metadata)
       (file-error nil)))
   (let ((playing ready-player--process))
     (ready-player--stop-playback-process)
