@@ -1310,8 +1310,8 @@ Note: This needs the ffmpeg command line utility."
                   ready-player-display-dired-playback-buffer-display-action)
   (switch-to-buffer-other-window (ready-player--dired-playback-buffer)))
 
-(defun ready-player-load-dired-playback-buffer ()
-  "Open a `dired' buffer.
+(defun ready-player-load-dired-playback-buffer (&optional dired-buffer)
+  "Open a `dired' buffer  If DIRED-BUFFER is nil, offer to pick on.
 
 `dired' buffers typically show a directory's content, but they can
 also show the output of a shell command.  For example, `find-dired'.
@@ -1319,16 +1319,16 @@ also show the output of a shell command.  For example, `find-dired'.
 `ready-player-load-dired-playback-buffer' can open any `dired' buffer for
 playback."
   (interactive)
-  (let* ((candidates (seq-map
-                      (lambda (buffer)
-                        (buffer-name buffer))
-                      (seq-filter (lambda (buffer)
-                                    (with-current-buffer buffer
-                                      (derived-mode-p 'dired-mode)))
-                                  (buffer-list))))
-         (dired-buffer (if (seq-empty-p candidates)
-                           (error "No `dired' buffers available")
-                         (completing-read "Open 'dired' buffer: " candidates nil t)))
+  (let* ((dired-buffer (or dired-buffer
+                           (completing-read "Open 'dired' buffer: "
+                                            (or (seq-map
+                                                 (lambda (buffer)
+                                                   (buffer-name buffer))
+                                                 (seq-filter (lambda (buffer)
+                                                               (with-current-buffer buffer
+                                                                 (derived-mode-p 'dired-mode)))
+                                                             (buffer-list)))
+                                                (error "No `dired' buffers available")) nil t)))
          (media-file (if (buffer-live-p (get-buffer dired-buffer))
                          (ready-player--next-dired-file-from
                           nil 1 t ready-player-shuffle (get-buffer dired-buffer))
