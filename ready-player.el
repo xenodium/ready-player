@@ -362,7 +362,7 @@ Note: This function needs to be added to `file-name-handler-alist'."
     (setq mode-line-format nil))
 
   (let* ((buffer (current-buffer))
-         (fpath (buffer-file-name))
+         (fpath (file-name-unquote (buffer-file-name)))
          (cached-metadata (ready-player--cached-metadata fpath))
          (local-thumbnail (ready-player--local-thumbnail-in-directory default-directory))
          (cached-thumbnail (or (ready-player--cached-thumbnail fpath)
@@ -895,7 +895,7 @@ Override DIRED-BUFFER, otherwise resolve internally."
   "Start playback process."
   (ready-player--ensure-mode)
   (ready-player--stop-playback-process)
-  (when-let* ((fpath (buffer-file-name))
+  (when-let* ((fpath (file-name-unquote (buffer-file-name)))
               (command (append
                         (list (format "*ready player mode '%s'*" (file-name-nondirectory fpath))
                               (ready-player--playback-process-buffer fpath))
