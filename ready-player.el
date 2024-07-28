@@ -382,7 +382,8 @@ Note: This function needs to be added to `file-name-handler-alist'."
                                  ready-player--process
                                  ready-player-repeat
                                  ready-player-shuffle
-                                 ready-player-autoplay)
+                                 ready-player-autoplay
+                                 nil nil (ready-player--dired-playback-buffer))
     (if cached-thumbnail
         (progn
           (setq ready-player--thumbnail cached-thumbnail)
@@ -392,7 +393,8 @@ Note: This function needs to be added to `file-name-handler-alist'."
            ready-player-repeat
            ready-player-shuffle
            ready-player-autoplay
-           cached-thumbnail ready-player--metadata))
+           cached-thumbnail ready-player--metadata
+           (ready-player--dired-playback-buffer)))
       (funcall thumbnailer
                fpath (lambda (thumbnail)
                        (when (buffer-live-p buffer)
@@ -405,7 +407,8 @@ Note: This function needs to be added to `file-name-handler-alist'."
                               ready-player-repeat
                               ready-player-shuffle
                               ready-player-autoplay
-                              thumbnail ready-player--metadata)
+                              thumbnail ready-player--metadata
+                              (ready-player--dired-playback-buffer))
                              (ready-player--goto-button
                               ready-player--last-button-focus)))))))
 
@@ -423,7 +426,8 @@ Note: This function needs to be added to `file-name-handler-alist'."
                               ready-player-repeat
                               ready-player-shuffle
                               ready-player-autoplay
-                              thumbnail ready-player--metadata)
+                              thumbnail ready-player--metadata
+                              (ready-player--dired-playback-buffer))
                              (ready-player--goto-button
                               ready-player--last-button-focus)))))))
 
@@ -436,7 +440,8 @@ Note: This function needs to be added to `file-name-handler-alist'."
            ready-player-repeat
            ready-player-shuffle
            ready-player-autoplay
-           cached-thumbnail ready-player--metadata))
+           cached-thumbnail ready-player--metadata
+           (ready-player--dired-playback-buffer)))
       (ready-player--load-file-metadata
        fpath (lambda (metadata)
                (when (buffer-live-p buffer)
@@ -449,15 +454,17 @@ Note: This function needs to be added to `file-name-handler-alist'."
                       ready-player-repeat
                       ready-player-shuffle
                       ready-player-autoplay
-                      ready-player--thumbnail metadata)
+                      ready-player--thumbnail metadata
+                      (ready-player--dired-playback-buffer))
                      (ready-player--goto-button
                       ready-player--last-button-focus))))))))
   (add-hook 'kill-buffer-hook #'ready-player--clean-up nil t))
 
-(defun ready-player--update-buffer (buffer fpath busy repeat shuffle autoplay &optional thumbnail metadata)
+(defun ready-player--update-buffer (buffer fpath busy repeat shuffle autoplay &optional thumbnail metadata dired-buffer)
   "Update entire BUFFER content.
 
-Render state from FPATH BUSY REPEAT SHUFFLE AUTOPLAY THUMBNAIL and METADATA."
+Render state from FPATH BUSY REPEAT SHUFFLE AUTOPLAY THUMBNAIL METADATA
+and DIRED-BUFFER."
   (save-excursion
     (let ((fname (file-name-nondirectory fpath))
           (buffer-read-only nil))
@@ -489,7 +496,7 @@ Render state from FPATH BUSY REPEAT SHUFFLE AUTOPLAY THUMBNAIL and METADATA."
           (insert "\n")
           (when metadata
             (insert (ready-player--format-metadata-rows
-                     (ready-player--make-metadata-rows metadata))))
+                     (ready-player--make-metadata-rows metadata dired-buffer))))
           (set-buffer-modified-p nil))))))
 
 (defun ready-player--make-metadata-mp3-rows (metadata)
@@ -565,8 +572,8 @@ Render state from FPATH BUSY REPEAT SHUFFLE AUTOPLAY THUMBNAIL and METADATA."
                          (list (cons 'label "Album:")
                                (cons 'value (or .tags.album .tags.ALBUM)))))))))))
 
-(defun ready-player--make-metadata-rows (metadata)
-  "Make METADATA row data."
+(defun ready-player--make-metadata-rows (metadata &optional dired-buffer)
+  "Make METADATA row data with DIRED-BUFFER."
   (let ((metadata-rows))
     (setq metadata-rows
           (append metadata-rows
@@ -577,6 +584,16 @@ Render state from FPATH BUSY REPEAT SHUFFLE AUTOPLAY THUMBNAIL and METADATA."
     (setq metadata-rows
           (append metadata-rows
                   (ready-player--make-metadata-core-rows metadata)))
+    (when dired-buffer
+      (setq metadata-rows
+            (append metadata-rows
+                    (list
+                     (list (cons 'label "Dired:")
+                           (cons 'value
+                                 (ready-player--make-button
+                                  (buffer-name dired-buffer)
+                                  'dired
+                                  #'ready-player-view-dired-playback-buffer)))))))
     metadata-rows))
 
 (defun ready-player--goto-button (button)
@@ -1345,7 +1362,17 @@ playback."
       (error "No media found"))
     (with-current-buffer media-buffer
       ;; Override buffer-local dired buffer's to use chosen one.
-      (setq ready-player--dired-playback-buffer (get-buffer dired-buffer)))
+      (setq ready-player--dired-playback-buffer (get-buffer dired-buffer))
+      ;; Refresh to ensure new dired buffer is displayed.
+      (ready-player--update-buffer
+       media-buffer media-file
+       ready-player--process
+       ready-player-repeat
+       ready-player-shuffle
+       ready-player-autoplay
+       ready-player--thumbnail
+       ready-player--metadata
+       (ready-player--dired-playback-buffer)))
     (unless (eq (current-buffer) media-buffer)
       (switch-to-buffer media-buffer))))
 
