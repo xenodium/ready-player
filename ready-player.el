@@ -361,7 +361,7 @@ Note: This function needs to be added to `file-name-handler-alist'."
     (setq mode-line-format nil))
 
   (let* ((buffer (current-buffer))
-         (fpath (file-name-unquote (buffer-file-name)))
+         (fpath (buffer-file-name))
          (cached-metadata (ready-player--cached-metadata fpath))
          (local-thumbnail (ready-player--local-thumbnail-in-directory default-directory))
          (cached-thumbnail (or (ready-player--cached-thumbnail fpath)
@@ -1160,6 +1160,7 @@ Render FNAME, BUSY, REPEAT, SHUFFLE, and AUTOPLAY."
   "Load media thumbnail at MEDIA-FPATH and invoke ON-LOADED.
 
 Note: This needs the ffmpegthumbnailer command line utility."
+  (setq media-fpath (file-name-unquote media-fpath))
   (if (executable-find "ffmpegthumbnailer")
       (let* ((thumbnail-fpath (ready-player--cached-thumbnail-path media-fpath)))
         (make-process
@@ -1177,6 +1178,7 @@ Note: This needs the ffmpegthumbnailer command line utility."
 
 (defun ready-player--cached-thumbnail (fpath)
   "Get cached thumbnail for media at FPATH."
+  (setq fpath (file-name-unquote fpath))
   (let ((cache-fpath (ready-player--cached-thumbnail-path fpath)))
     (when (and (file-exists-p cache-fpath)
                (> (file-attribute-size (file-attributes cache-fpath)) 0))
@@ -1201,6 +1203,7 @@ Note: This needs the ffmpegthumbnailer command line utility."
 
 (defun ready-player--cached-metadata (fpath)
   "Get cached thumbnail for media at FPATH."
+  (setq fpath (file-name-unquote fpath))
   (let ((cache-fpath (ready-player--cached-metadata-path fpath)))
     (when (and (file-exists-p cache-fpath)
                (> (file-attribute-size (file-attributes cache-fpath)) 0))
@@ -1213,6 +1216,7 @@ Note: This needs the ffmpegthumbnailer command line utility."
   "Load media thumbnail at MEDIA-FPATH and invoke ON-LOADED.
 
 Note: This needs the ffmpeg command line utility."
+  (setq media-fpath (file-name-unquote media-fpath))
   (if (executable-find "ffmpeg")
       (let* ((thumbnail-fpath (ready-player--cached-thumbnail-path media-fpath)))
         (make-process
@@ -1230,6 +1234,7 @@ Note: This needs the ffmpeg command line utility."
 
 (defun ready-player--load-file-metadata (fpath on-loaded)
   "Load media metadata at FPATH and invoke ON-LOADED."
+  (setq fpath (file-name-unquote fpath))
   (if (executable-find "ffprobe")
       (when-let* ((buffer (generate-new-buffer "*ffprobe-output*"))
                   (buffer-live (buffer-live-p buffer))
