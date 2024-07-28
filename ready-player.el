@@ -1328,9 +1328,11 @@ Note: This needs the ffmpeg command line utility."
   "View associated `dired' playback buffer."
   (interactive)
   (ready-player--ensure-mode)
-  (display-buffer (ready-player--dired-playback-buffer)
-                  ready-player-display-dired-playback-buffer-display-action)
-  (switch-to-buffer-other-window (ready-player--dired-playback-buffer)))
+  (let ((media-file (buffer-file-name)))
+    (display-buffer (ready-player--dired-playback-buffer)
+                    ready-player-display-dired-playback-buffer-display-action)
+    (switch-to-buffer-other-window (ready-player--dired-playback-buffer))
+    (dired-goto-file media-file)))
 
 (defun ready-player-load-dired-playback-buffer (&optional dired-buffer)
   "Open a `dired' buffer  If DIRED-BUFFER is nil, offer to pick on.
