@@ -232,13 +232,12 @@ Same format as a the action in a `display-buffer-alist' entry."
 
 (defcustom ready-player-supported-media
   '("3g2" "3gp" "aac" "ac3" "aiff" "amr" "ape" "asf" "asx" "avi"
-    "cue" "divx" "drc" "dts" "dvb" "evo" "f4a" "f4b" "f4p" "f4v"
-    "flac" "flv" "gif" "gsm" "h264" "h265" "hevc" "isma" "ismv"
-    "jspf" "m2ts" "m2v" "m3u" "m3u8" "m4a" "midi" "mjpeg" "mlp"
-    "mka" "mkv" "mlp" "mov" "mp2" "mp3" "mp4" "mpg" "mpeg" "mts"
-    "mxf" "oga" "ogg" "ogm" "ogv" "opus" "pls" "pva" "qt" "ra"
-    "ram" "raw" "rf64" "rm" "rmvb" "sami" "spx" "tta" "vob" "wav"
-    "wavpack" "webm" "wma" "wmv" "wpl" "wv" "xspf")
+    "divx" "drc" "dts" "dvb" "evo" "f4a" "f4b" "f4p" "f4v" "flac"
+    "flv" "gif" "gsm" "h264" "h265" "hevc" "m2ts" "m2v" "m4a" "midi"
+    "mjpeg" "mlp" "mka" "mkv" "mlp" "mov" "mp2" "mp3" "mp4" "mpg"
+    "mpeg" "mts" "mxf" "oga" "ogg" "ogm" "ogv" "opus" "pva" "qt"
+    "ra" "ram" "raw" "rf64" "rm" "rmvb" "spx" "tta" "vob" "wav"
+    "wavpack" "webm" "wma" "wmv" "wv")
   "Supported media types."
   :group 'play-mode
   :type '(repeat string))
