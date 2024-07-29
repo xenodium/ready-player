@@ -574,26 +574,20 @@ and DIRED-BUFFER."
 
 (defun ready-player--make-metadata-rows (metadata &optional dired-buffer)
   "Make METADATA row data with DIRED-BUFFER."
-  (let ((metadata-rows))
-    (setq metadata-rows
-          (append metadata-rows
-                  (ready-player--make-metadata-mp3-rows metadata)))
-    (setq metadata-rows
-          (append metadata-rows
-                  (ready-player--make-metadata-ogg-rows metadata)))
-    (setq metadata-rows
-          (append metadata-rows
-                  (ready-player--make-metadata-core-rows metadata)))
-    (when dired-buffer
-      (setq metadata-rows
-            (append metadata-rows
-                    (list
-                     (list (cons 'label "Dired:")
-                           (cons 'value
-                                 (ready-player--make-button
-                                  (buffer-name dired-buffer)
-                                  'dired
-                                  #'ready-player-view-dired-playback-buffer)))))))
+  (let ((metadata-rows)
+        (new-rows))
+    (setq new-rows (ready-player--make-metadata-mp3-rows metadata))
+    (setq metadata-rows (append metadata-rows new-rows))
+    (when new-rows
+      (setq metadata-rows (append metadata-rows
+                                  (ready-player--make-dired-playlist-row dired-buffer))))
+    (setq new-rows (ready-player--make-metadata-ogg-rows metadata))
+    (setq metadata-rows (append metadata-rows new-rows))
+    (when new-rows
+      (setq metadata-rows (append metadata-rows
+                                  (ready-player--make-dired-playlist-row dired-buffer))))
+    (setq new-rows (ready-player--make-metadata-core-rows metadata))
+    (setq metadata-rows (append metadata-rows new-rows))
     metadata-rows))
 
 (defun ready-player--goto-button (button)
@@ -1104,12 +1098,14 @@ Override DIRED-BUFFER, otherwise resolve internally."
              map)
    'button kind))
 
-(defun ready-player--make-button (text kind action)
-  "Make button with TEXT, KIND, and ACTION."
+(defun ready-player--make-button (text kind action &optional no-box)
+  "Make button with TEXT, KIND, ACTION and NO-BOX."
   (propertize
-   (format " %s " text)
+   (if no-box
+       (format "%s" text)
+     (format " %s " text))
    ;; TODO: Investigate why 'face is not enough.
-   'font-lock-face '(:box t)
+   'font-lock-face (if no-box '() '(:box t))
    'pointer 'hand
    'keymap (let ((map (make-sparse-keymap)))
              (define-key map [mouse-1] action)
