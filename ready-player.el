@@ -590,6 +590,18 @@ and DIRED-BUFFER."
     (setq metadata-rows (append metadata-rows new-rows))
     metadata-rows))
 
+(defun ready-player--make-dired-playlist-row (dired-buffer)
+  "Make DIRED-BUFFER playlist row."
+  (when dired-buffer
+    (list
+     (list (cons 'label "Playlist:")
+           (cons 'value
+                 (ready-player--make-button
+                  (buffer-name dired-buffer)
+                  'dired
+                  #'ready-player-view-dired-playback-buffer
+                  t))))))
+
 (defun ready-player--goto-button (button)
   "Goto BUTTON (see \=`ready-player--last-button-focus'\= for values)."
   (ready-player--ensure-mode)
