@@ -1034,9 +1034,22 @@ Override DIRED-BUFFER, otherwise resolve internally."
     (condition-case nil
         (delete-file ready-player--metadata)
       (file-error nil)))
-  (let ((playing ready-player--process))
+  (let ((playing ready-player--process)
+        (dired-buffer (ready-player--dired-playback-buffer)))
     (ready-player--stop-playback-process)
     (revert-buffer nil t)
+    ;; Override buffer-local dired buffer's to use existing one.
+    (setq ready-player--dired-playback-buffer dired-buffer)
+    ;; Refresh to ensure new dired buffer is displayed.
+    (ready-player--update-buffer
+     (current-buffer) (buffer-file-name)
+     ready-player--process
+     ready-player-repeat
+     ready-player-shuffle
+     ready-player-autoplay
+     ready-player--thumbnail
+     ready-player--metadata
+     (ready-player--dired-playback-buffer))
     (when playing
       (ready-player-play)))
   (message "Reloaded")
