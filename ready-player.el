@@ -1442,14 +1442,15 @@ playback."
 
 (defun ready-player--keep-only-this-buffer (buffer)
   "Keep this BUFFER and kill all other `ready-player-mode' buffers."
-  (mapc (lambda (other-buffer)
-          (when (not (eq buffer other-buffer))
-            (when (get-buffer-window-list other-buffer nil t)
-              (set-window-buffer
-               (car (get-buffer-window-list other-buffer nil t))
-               buffer))
-            (kill-buffer other-buffer)))
-        (ready-player--buffers)))
+  (when (buffer-live-p buffer)
+    (mapc (lambda (other-buffer)
+            (when (not (eq buffer other-buffer))
+              (when (get-buffer-window-list other-buffer nil t)
+                (set-window-buffer
+                 (car (get-buffer-window-list other-buffer nil t))
+                 buffer))
+              (kill-buffer other-buffer)))
+          (ready-player--buffers))))
 
 (defun ready-player--active-buffer (&optional no-error)
   "Get the active buffer.
