@@ -5,7 +5,7 @@
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; Package-Requires: ((emacs "28.1"))
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.1.2
+;; Version: 0.3.1
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -60,7 +60,7 @@
     (define-key map (kbd "e") #'ready-player-open-externally)
     (define-key map (kbd "o") #'ready-player-open-externally)
     (define-key map (kbd "q") #'ready-player-quit)
-    (define-key map (kbd "g") #'ready-player-toggle-reload-buffer)
+    (define-key map (kbd "g") #'ready-player-reload-buffer)
     (define-key map (kbd "m") #'ready-player-mark-dired-file)
     (define-key map (kbd "u") #'ready-player-unmark-dired-file)
     (define-key map (kbd "d") #'ready-player-view-dired-playback-buffer)
@@ -1032,14 +1032,18 @@ Override DIRED-BUFFER, otherwise resolve internally."
                   (lambda ()
                     (message ""))))
 
-(defun ready-player-toggle-reload-buffer ()
+(defun ready-player-reload-buffer ()
   "Reload media from file."
   (interactive)
   (ready-player--ensure-mode)
   (when (equal ready-player--thumbnail
                (ready-player--cached-thumbnail-path buffer-file-name))
     (condition-case nil
-        (delete-file ready-player--thumbnail)
+        (progn
+          (delete-file ready-player--thumbnail)
+          (image-flush (create-image
+                        ready-player--thumbnail nil nil
+                        :max-height ready-player-thumbnail-max-pixel-height)))
       (file-error nil)))
   (when (equal ready-player--metadata
                (ready-player--cached-metadata-path buffer-file-name))
@@ -1354,6 +1358,201 @@ Note: This needs the ffmpeg command line utility."
                     ready-player-display-dired-playback-buffer-display-action)
     (switch-to-buffer-other-window (ready-player--dired-playback-buffer))
     (dired-goto-file media-file)))
+
+(defun ready-player--row-value (rows label)
+  "Resolve LABEL in ROWS to row value."
+  (map-elt (seq-find (lambda (item)
+                       (string= (cdr (assoc 'label item)) label))
+                     rows)
+           'value))
+
+(defun ready-player-lookup-song ()
+  "Look up current song on Discogs."
+  (interactive)
+  (with-current-buffer (ready-player--active-buffer)
+    (let ((url "https://www.discogs.com/search/?type=all")
+          (title (ready-player--row-value
+                  (ready-player--make-metadata-rows ready-player--metadata)
+                  "Title:"))
+          (artist (ready-player--row-value
+                   (ready-player--make-metadata-rows ready-player--metadata)
+                   "Artist:")))
+      (unless (or title artist)
+        (error "No metadata available"))
+      (when title
+        (setq url (concat url "&title=" title)))
+      (when artist
+        (setq url (concat url "&artist=" artist)))
+      (browse-url url))))
+
+(defun ready-player--download-musicbrainz-album-artwork (artist album &optional to)
+  "Download album artwork for ARTIST ALBUM from Internet Archive/MusicBrainz.
+
+If TO is non-nil, save to that location.  Otherwise generate location."
+  (when-let* ((musicbrainz-id-url
+               (concat "https://musicbrainz.org/ws/2/release-group/?query=artist:"
+                       (url-hexify-string artist)
+                       "%20release:"
+                       (url-hexify-string album)
+                       "&fmt=json"))
+              (json (with-current-buffer (url-retrieve-synchronously musicbrainz-id-url)
+                      (goto-char (point-min))
+                      (re-search-forward "^$")
+                      (json-read)))
+              (release-groups (cdr (assq 'release-groups json)))
+              (found (> (length release-groups) 0))
+              (musicbrainz-id (cdr (assq 'id (aref release-groups 0))))
+              (cover-url (concat "https://coverartarchive.org/release-group/"
+                                 (url-hexify-string musicbrainz-id) "/front"))
+              (destination (or to (make-temp-file (concat artist "-" album) nil ".jpg")))
+              (downloaded (progn
+                            (when (and to (file-exists-p to))
+                              (unless (y-or-n-p (format "Override \"%s\"? " to))
+                                (keyboard-quit)))
+                            (ready-player--url-copy-file cover-url destination))))
+    destination))
+
+(defun ready-player--download-itunes-album-artwork (artist album &optional to)
+  "Download album artwork for ARTIST ALBUM from iTunes.
+
+If TO is non-nil, save to that location.  Otherwise generate location."
+  (when-let* ((search-url
+               (concat "https://itunes.apple.com/search?term="
+                       (url-hexify-string (concat artist " " album))
+                       "&entity=album&limit=1"))
+              (json (with-current-buffer (url-retrieve-synchronously search-url)
+                      (goto-char (point-min))
+                      (re-search-forward "^$")
+                      (let ((json-object-type 'alist))
+                        (json-read))))
+              (results (cdr (assq 'results json)))
+              (cover-url (replace-regexp-in-string
+                          "100x100bb" "600x600bb"
+                          (cdr (assq 'artworkUrl100 (aref results 0)))))
+              (destination (or to (make-temp-file (concat artist "-" album) nil ".jpg")))
+              (downloaded (progn
+                            (when (and to (file-exists-p to))
+                              (unless (y-or-n-p (format "Override \"%s\"? " to))
+                                (keyboard-quit)))
+                            (ready-player--url-copy-file cover-url destination))))
+    destination))
+
+(defun ready-player--set-media-file-artwork (media-file artwork-file)
+  "Set MEDIA-FILE's artwork to ARTWORK-FILE."
+  (setq artwork-file (file-name-unquote artwork-file))
+  (setq media-file (file-name-unquote media-file))
+  (unless (executable-find "ffmpeg")
+    (user-error "Ffmpeg not available (please install)"))
+  (let* ((buffer (get-buffer-create "*ffmpeg output*"))
+         (temp-extension (concat ".tmp." ;; eg. .tmp.mp3
+                                 (file-name-extension media-file)))
+         (temp-file (ready-player--unique-new-file-path
+                     (concat media-file temp-extension)))
+         (backup-file (ready-player--unique-new-file-path (concat media-file ".bak")))
+         (status))
+    (with-current-buffer buffer
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (setq status
+              (call-process "ffmpeg" nil buffer nil
+                            "-i" media-file "-i" artwork-file
+                            "-map_metadata" "0" "-map" "0:a" "-map" "1" "-c" "copy"
+                            "-disposition:v:0" "attached_pic" temp-file))
+        (read-only-mode +1)))
+    (if (eq status 0)
+        (progn
+          (rename-file media-file backup-file)
+          (rename-file temp-file media-file))
+      (display-buffer buffer)
+      (switch-to-buffer-other-window buffer))))
+
+(defun ready-player--unique-new-file-path (file-path)
+  "Return a unique FILE-PATH alternative if it already exists.
+\"/tmp/blah.txt\" -> \"/tmp/blah(1).txt\"
+\"/tmp/blah\" -> \"/tmp/blah(1)\""
+  (let ((counter 1)
+        (name (file-name-sans-extension file-path))
+        (extension (file-name-extension file-path)))
+    (while (file-exists-p file-path)
+      (if extension
+          (setq file-path (format "%s(%d).%s" name counter extension))
+        (setq file-path (format "%s(%d)" name counter)))
+      (setq counter (1+ counter)))
+    (expand-file-name file-path)))
+
+(defun ready-player-set-album-artwork ()
+  "Select image and set as album artwork."
+  (interactive)
+  (let ((artwork-path (read-file-name "Select artwork image: "
+                                      nil nil t)))
+    (unless (file-regular-p artwork-path)
+      (user-error "Not a file"))
+    (cond ((eq major-mode 'ready-player-major-mode)
+           (ready-player--set-media-file-artwork buffer-file-name artwork-path)
+           (ready-player-reload-buffer))
+          ((eq major-mode 'dired-mode)
+           (mapc (lambda (file)
+                   (ready-player--set-media-file-artwork file artwork-path))
+                 (dired-get-marked-files))
+           (revert-buffer)))))
+
+(defun ready-player--url-copy-file (url newname)
+  "Like `url-copy-file', using URL and NEWNAME but with status check."
+  (defvar url-http-end-of-headers) ;; Silence warning.
+  (let* ((buffer (url-retrieve-synchronously url))
+         (written))
+    (with-current-buffer buffer
+      (goto-char url-http-end-of-headers)
+      (when (equal (url-http-parse-response) 200)
+        (goto-char (1+ url-http-end-of-headers))
+        (write-region (point) (point-max) newname)
+        (setq written newname)))
+    (kill-buffer buffer)
+    written))
+
+(defun ready-player-download-album-artwork ()
+  "Download album artwork."
+  (interactive)
+  (let* ((fetcher (if (equal "Apple iTunes"
+                             (completing-read "Download from: "
+                                              '("Apple iTunes"
+                                                "Internet Archive / MusicBrainz") nil t))
+                      #'ready-player--download-itunes-album-artwork
+                    #'ready-player--download-musicbrainz-album-artwork))
+         (image-path (funcall fetcher
+                              (or (ready-player--row-value
+                                   (ready-player--make-metadata-rows ready-player--metadata)
+                                   "Artist:")
+                                  (error "No artist available"))
+                              (or (ready-player--row-value
+                                   (ready-player--make-metadata-rows ready-player--metadata)
+                                   "Album:")
+                                  (error "No album available"))
+                              (file-name-concat default-directory
+                                                "artwork.jpg")))
+         (buffer (if image-path
+                     (display-image-in-temp-buffer image-path)
+                   (error "No artwork found"))))
+    (unless buffer
+      (error "Couldn't display image"))
+    (quit-window t)
+    (dired-jump nil image-path)))
+
+(defun display-image-in-temp-buffer (image-path)
+  "Display the image at IMAGE-PATH in a temporary, read-only buffer."
+  (let ((buffer (get-buffer-create "*album cover*")))
+    (with-current-buffer buffer
+      (let ((inhibit-read-only t)
+            (img (create-image
+                  image-path nil nil
+                  :max-height ready-player-thumbnail-max-pixel-height)))
+        (erase-buffer)
+        (insert-image img)
+        (goto-char (point-min))
+        (read-only-mode 1)))
+    (display-buffer buffer ready-player-display-dired-playback-buffer-display-action)
+    (switch-to-buffer-other-window buffer)
+    buffer))
 
 (defun ready-player-load-dired-playback-buffer (&optional dired-buffer)
   "Open a `dired' buffer  If DIRED-BUFFER is nil, offer to pick on.
