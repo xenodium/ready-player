@@ -45,6 +45,7 @@
 (require 'dired)
 (require 'seq)
 (require 'subr-x)
+(require 'svg)
 (require 'text-property-search)
 
 ;;; Code:
@@ -460,6 +461,20 @@ Note: This function needs to be added to `file-name-handler-alist'."
                       ready-player--last-button-focus))))))))
   (add-hook 'kill-buffer-hook #'ready-player--clean-up nil t))
 
+(defun ready-player--make-thumbnail-placeholder (width height)
+  "Make a thumbnail placeholder with WIDTH and HEIGHT dimensions."
+  (let* ((icon-size 96)
+         ;; TODO: Choose colors.
+         (background-color (face-attribute 'default :background))
+         (foreground-color (face-attribute 'default :foreground))
+         (svg (svg-create width height)))
+    (svg-rectangle svg 0 0 width height :fill background-color)
+    (svg-text svg "♫"
+              :x (/ width 2) :y (+ (/ height 2) (/ icon-size 3))
+              :fill foreground-color :font-size icon-size
+              :text-anchor "middle" :dominant-baseline "central")
+    (svg-image svg)))
+
 (defun ready-player--update-buffer (buffer fpath busy repeat shuffle autoplay &optional thumbnail metadata dired-buffer)
   "Update entire BUFFER content.
 
@@ -472,14 +487,18 @@ and DIRED-BUFFER."
         (with-current-buffer buffer
           (erase-buffer)
           (goto-char (point-min))
-          (when (and ready-player-show-thumbnail thumbnail)
+          (when ready-player-show-thumbnail
             (let ((inhibit-read-only t))
-              (when thumbnail
-                (insert "\n ")
-                (insert-image (create-image
-                               thumbnail nil nil
-                               :max-height ready-player-thumbnail-max-pixel-height))
-                (insert "\n"))
+              (insert "\n ")
+              (insert-image
+               (if thumbnail
+                   (create-image
+                    thumbnail nil nil
+                    :max-height ready-player-thumbnail-max-pixel-height)
+                 (ready-player--make-thumbnail-placeholder
+                  ready-player-thumbnail-max-pixel-height
+                  ready-player-thumbnail-max-pixel-height)))
+              (insert "\n")
               (set-buffer-modified-p nil)))
           (insert "\n")
           (insert (format " %s" (propertize fname 'face 'info-title-2)))
