@@ -1578,20 +1578,27 @@ If TO is non-nil, save to that location.  Otherwise generate location."
                                     (ready-player--make-metadata-rows metadata)
                                     "Album:")
                                    (error "No album available")))))
-         (destination)
+         (destination (ready-player--unique-new-file-path
+                       (concat (file-name-sans-extension media-file) ".jpg")))
          (buffer (if temp-file
                      (display-image-in-temp-buffer temp-file)
-                   (error "No artwork found"))))
+                   (error "No artwork found")))
+         (override)
+         (saved))
     (unless buffer
       (error "Couldn't display image"))
-    (when (y-or-n-p "Save album artwork? ")
-      (setq destination
-            (ready-player--unique-new-file-path
-             (concat (file-name-sans-extension media-file) ".jpg")))
-      (rename-file temp-file destination))
+    (when (y-or-n-p (format "Override \"%s\" artwork? " (file-name-nondirectory media-file)))
+      (ready-player--set-media-file-artwork media-file temp-file)
+      (setq override t))
+    (when (or override (y-or-n-p (format "Keep \"%s\"? " (file-name-nondirectory destination))))
+      (rename-file temp-file destination)
+      (setq saved t))
+    ;; Image buffer is already focused
     (quit-window t)
-    (when destination
-      (dired-jump nil destination))))
+    (cond ((and saved (eq major-mode 'dired-mode))
+           (dired-jump nil destination))
+          ((and override (eq major-mode 'ready-player-major-mode))
+           (ready-player-reload-buffer)))))
 
 (defun display-image-in-temp-buffer (image-path)
   "Display the image at IMAGE-PATH in a temporary, read-only buffer."
