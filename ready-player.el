@@ -716,7 +716,6 @@ With optional argument N offset, visit the Nth file after the current
 one.  Negative values move backwards.
 
 With FEEDBACK, provide user feedback of the interaction."
-  (interactive "p" ready-player)
   (ready-player--ensure-mode)
   (when feedback
     (ready-player--goto-button (if (> n 0) 'next 'previous))
@@ -1202,13 +1201,12 @@ Render FNAME, BUSY, REPEAT, SHUFFLE, and AUTOPLAY."
   "Load media thumbnail at MEDIA-FPATH and invoke ON-LOADED.
 
 Note: This needs the ffmpegthumbnailer command line utility."
-  (setq media-fpath (file-name-unquote media-fpath))
   (if (executable-find "ffmpegthumbnailer")
       (let* ((thumbnail-fpath (ready-player--cached-thumbnail-path media-fpath)))
         (make-process
          :name "ffmpegthumbnailer-process"
          :buffer (get-buffer-create "*ffmpegthumbnailer-output*")
-         :command (list "ffmpegthumbnailer" "-i" media-fpath "-s" "0" "-m" "-o" thumbnail-fpath)
+         :command (list "ffmpegthumbnailer" "-i" (file-name-unquote media-fpath) "-s" "0" "-m" "-o" thumbnail-fpath)
          :sentinel
          (lambda (process _)
            (if (eq (process-exit-status process) 0)
@@ -1220,7 +1218,6 @@ Note: This needs the ffmpegthumbnailer command line utility."
 
 (defun ready-player--cached-thumbnail (fpath)
   "Get cached thumbnail for media at FPATH."
-  (setq fpath (file-name-unquote fpath))
   (let ((cache-fpath (ready-player--cached-thumbnail-path fpath)))
     (when (and (file-exists-p cache-fpath)
                (> (file-attribute-size (file-attributes cache-fpath)) 0))
@@ -1274,31 +1271,44 @@ Note: This needs the ffmpeg command line utility."
                (file-error nil))))))
     (message "Metadata not available (ffmpeg not found)")))
 
-(defun ready-player--load-file-metadata (fpath on-loaded)
-  "Load media metadata at FPATH and invoke ON-LOADED."
+(defun ready-player--load-file-metadata (fpath &optional on-loaded)
+  "Load media metadata at FPATH synchronously.
+
+If ON-LOADED is non-nil, load and invoke asynchronously."
   (setq fpath (file-name-unquote fpath))
   (if (executable-find "ffprobe")
-      (when-let* ((buffer (generate-new-buffer "*ffprobe-output*"))
-                  (buffer-live (buffer-live-p buffer))
-                  (metadata-fpath (ready-player--cached-metadata-path fpath)))
-        (with-current-buffer buffer
-          (erase-buffer))
-        (make-process
-         :name "ffprobe-process"
-         :buffer buffer
-         :command (list "ffprobe" "-v" "quiet" "-print_format" "json" "-show_format" "-show_streams" fpath)
-         :sentinel
-         (lambda (process _)
-           (condition-case _
-               (when (and (eq (process-exit-status process) 0)
-                          (buffer-live-p (process-buffer process)))
-                 (with-current-buffer (process-buffer process)
-                   ;; Using write-region to avoid "Wrote" echo message.
-                   (write-region (point-min) (point-max) metadata-fpath nil 'noprint)
-                   (goto-char (point-min))
-                   (funcall on-loaded (json-parse-buffer :object-type 'alist))))
-             (error nil))
-           (kill-buffer (process-buffer process)))))
+      (if on-loaded
+          (when-let* ((buffer (generate-new-buffer "*ffprobe-output*"))
+                      (buffer-live (buffer-live-p buffer))
+                      (metadata-fpath (ready-player--cached-metadata-path fpath)))
+            (with-current-buffer buffer
+              (erase-buffer))
+            (make-process
+             :name "ffprobe-process"
+             :buffer buffer
+             :command (list "ffprobe" "-v" "quiet" "-print_format" "json" "-show_format" "-show_streams" fpath)
+             :sentinel
+             (lambda (process _)
+               (condition-case _
+                   (when (and (eq (process-exit-status process) 0)
+                              (buffer-live-p (process-buffer process)))
+                     (with-current-buffer (process-buffer process)
+                       ;; Using write-region to avoid "Wrote" echo message.
+                       (write-region (point-min) (point-max) metadata-fpath nil 'noprint)
+                       (goto-char (point-min))
+                       (funcall on-loaded (json-parse-buffer :object-type 'alist))))
+                 (error nil))
+               (kill-buffer (process-buffer process)))))
+        (with-temp-buffer
+            (let ((inhibit-read-only t)
+                  (metadata))
+              (erase-buffer)
+              (if (eq 0 (call-process "ffprobe" nil (current-buffer) nil "-v" "quiet" "-print_format" "json" "-show_format" "-show_streams" fpath))
+                  (progn
+                    (goto-char (point-min))
+                    (setq metadata (json-parse-buffer :object-type 'alist)))
+                (message "%s" (buffer-string)))
+              metadata)))
     (message "Metadata not available (ffprobe not found)")))
 
 (defun ready-player--playback-process-buffer (fpath)
@@ -1426,9 +1436,12 @@ If TO is non-nil, save to that location.  Otherwise generate location."
                       (let ((json-object-type 'alist))
                         (json-read))))
               (results (cdr (assq 'results json)))
-              (cover-url (replace-regexp-in-string
-                          "100x100bb" "600x600bb"
-                          (cdr (assq 'artworkUrl100 (aref results 0)))))
+              (cover-url (progn
+                           (when (seq-empty-p results)
+                             (error "No album art found"))
+                           (replace-regexp-in-string
+                            "100x100bb" "600x600bb"
+                            (cdr (assq 'artworkUrl100 (aref results 0))))))
               (destination (or to (make-temp-file (concat artist "-" album) nil ".jpg")))
               (downloaded (progn
                             (when (and to (file-exists-p to))
@@ -1513,30 +1526,47 @@ If TO is non-nil, save to that location.  Otherwise generate location."
 (defun ready-player-download-album-artwork ()
   "Download album artwork."
   (interactive)
-  (let* ((fetcher (if (equal "Apple iTunes"
+  (let* ((media-file (cond ((eq major-mode 'ready-player-major-mode)
+                            buffer-file-name)
+                           ((eq major-mode 'dired-mode)
+                            (if-let ((files (dired-get-marked-files))
+                                     (is-single (eq 1 (seq-length files))))
+                                (seq-first files)
+                              (error "Select a single file only")))
+                           (t
+                            (error "This buffer is not supported"))))
+         (metadata (ready-player--load-file-metadata media-file))
+         (fetcher (if (equal "Apple iTunes"
                              (completing-read "Download from: "
                                               '("Apple iTunes"
                                                 "Internet Archive / MusicBrainz") nil t))
                       #'ready-player--download-itunes-album-artwork
                     #'ready-player--download-musicbrainz-album-artwork))
-         (image-path (funcall fetcher
-                              (or (ready-player--row-value
-                                   (ready-player--make-metadata-rows ready-player--metadata)
-                                   "Artist:")
-                                  (error "No artist available"))
-                              (or (ready-player--row-value
-                                   (ready-player--make-metadata-rows ready-player--metadata)
-                                   "Album:")
-                                  (error "No album available"))
-                              (file-name-concat default-directory
-                                                "artwork.jpg")))
-         (buffer (if image-path
-                     (display-image-in-temp-buffer image-path)
+         (temp-file (progn
+                      (redisplay) ;; Hides completing-read before blocking call.
+                      (funcall fetcher
+                               (or (ready-player--row-value
+                                    (ready-player--make-metadata-rows metadata)
+                                    "Artist:")
+                                   (error "No artist available"))
+                               (or (ready-player--row-value
+                                    (ready-player--make-metadata-rows metadata)
+                                    "Album:")
+                                   (error "No album available")))))
+         (destination)
+         (buffer (if temp-file
+                     (display-image-in-temp-buffer temp-file)
                    (error "No artwork found"))))
     (unless buffer
       (error "Couldn't display image"))
+    (when (y-or-n-p "Save album artwork? ")
+      (setq destination
+            (ready-player--unique-new-file-path
+             (concat (file-name-sans-extension media-file) ".jpg")))
+      (rename-file temp-file destination))
     (quit-window t)
-    (dired-jump nil image-path)))
+    (when destination
+      (dired-jump nil destination))))
 
 (defun display-image-in-temp-buffer (image-path)
   "Display the image at IMAGE-PATH in a temporary, read-only buffer."
