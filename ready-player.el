@@ -5,7 +5,8 @@
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; Package-Requires: ((emacs "28.1"))
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.3.1
+;; Version: 0.3.2
+(defconst ready-player--version "0.3.2")
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -460,6 +461,11 @@ Note: This function needs to be added to `file-name-handler-alist'."
                      (ready-player--goto-button
                       ready-player--last-button-focus))))))))
   (add-hook 'kill-buffer-hook #'ready-player--clean-up nil t))
+
+(defun ready-player-version ()
+  "Show Ready Player Mode version."
+  (interactive)
+  (message "Ready Player Mode v%s" ready-player--version))
 
 (defun ready-player--make-thumbnail-placeholder (width height)
   "Make a thumbnail placeholder with WIDTH and HEIGHT dimensions."
