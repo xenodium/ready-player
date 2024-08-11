@@ -214,9 +214,16 @@ so users can opt to hide the mode line."
     ("mplayer"))
   "Command line utilities to try for playback.
 
-Note each entry is a list, in case additional flags are needed.
+Each command entry is a list to cater for additional command flags.
 
-Omit the file path, as it will be automatically appended."
+Omit file path parameter, as it will be automatically appended.
+
+Prepend each command with a function to apply additional logic.
+
+For example, to use different utilities for video and audio:
+
+  ((ready-player-is-audio-p \"ffplay\" \"--audio-display=no\")
+   (ready-player-is-video-p \"mpv\"))"
   :type '(repeat (list string))
   :group 'ready-player)
 
@@ -233,14 +240,26 @@ Same format as a the action in a `display-buffer-alist' entry."
   :group 'ready-player)
 
 (defcustom ready-player-supported-media
-  '("3g2" "3gp" "aac" "ac3" "aiff" "amr" "ape" "asf" "asx" "avi"
-    "divx" "drc" "dts" "dvb" "evo" "f4a" "f4b" "f4p" "f4v" "flac"
-    "flv" "gif" "gsm" "h264" "h265" "hevc" "m2ts" "m2v" "m4a" "midi"
-    "mjpeg" "mlp" "mka" "mkv" "mlp" "mov" "mp2" "mp3" "mp4" "mpg"
-    "mpeg" "mts" "mxf" "oga" "ogg" "ogm" "ogv" "opus" "pva" "qt"
-    "ra" "ram" "raw" "rf64" "rm" "rmvb" "spx" "tta" "vob" "wav"
-    "wavpack" "webm" "wma" "wmv" "wv")
+  #'ready-player-supported-audio-and-video
   "Supported media types."
+  :group 'play-mode
+  :type '(choice (function :tag "Function")
+                 (repeat (string :tag "String"))))
+
+(defcustom ready-player-supported-video
+  '("3g2" "3gp" "asf" "asx" "avi" "divx" "drc" "dvb" "evo" "f4p"
+    "f4v" "flv" "gif" "h264" "h265" "hevc" "m2ts" "m2v" "mkv" "mov"
+    "mp4" "mpg" "mpeg" "mts" "mxf" "ogm" "ogv" "qt" "rm" "rmvb" "vob"
+    "webm" "wmv")
+  "Supported video media."
+  :group 'play-mode
+  :type '(repeat string))
+
+(defcustom ready-player-supported-audio
+  '("aac" "ac3" "aiff" "amr" "ape" "dts" "f4a" "f4b" "flac" "gsm"
+    "m4a" "midi" "mlp" "mka" "mp2" "mp3" "oga" "ogg" "opus" "pva"
+    "ra" "ram" "raw" "rf64" "spx" "tta" "wav" "wavpack" "wma" "wv")
+  "Supported audiomedia."
   :group 'play-mode
   :type '(repeat string))
 
@@ -269,7 +288,7 @@ Used to remember button position across files in continuous playback.")
 (define-minor-mode ready-player-mode
   "Toggle Ready Player mode media file recognition.
 
-See `ready-player-supported-media' for recognized types."
+See variable `ready-player-supported-media' for recognized types."
   :global t
   (let ((called-interactively (called-interactively-p #'interactive)))
     (if ready-player-mode
@@ -288,7 +307,7 @@ See `ready-player-supported-media' for recognized types."
 (defun ready-player-add-to-auto-mode-alist ()
   "Add media recognized by `ready-player-mode'."
   (add-to-list 'auto-mode-alist
-               (cons (concat "\\." (regexp-opt ready-player-supported-media t) "\\'")
+               (cons (concat "\\." (regexp-opt (ready-player-supported-media) t) "\\'")
                      #'ready-player-major-mode))
   ;; Suppress unnecessary buffer loading via file-name-handler-alist.
   (add-to-list
@@ -298,11 +317,11 @@ See `ready-player-supported-media' for recognized types."
     #'ready-player-file-name-handler)))
 
 (defun ready-player--supported-media-with-uppercase ()
-  "Duplicate `ready-player-supported-media' with uppercase equivalents."
-  (append ready-player-supported-media
+  "Duplicate variable `ready-player-supported-media' with uppercase equivalents."
+  (append (ready-player-supported-media)
           ;; Also include uppercase extensions.
           ;; APFS (Apple File System) is case-insensitive.
-          (mapcar #'upcase ready-player-supported-media)))
+          (mapcar #'upcase (ready-player-supported-media))))
 
 (defun ready-player-remove-from-auto-mode-alist ()
   "Remove media recognized by `ready-player-mode'."
@@ -315,6 +334,36 @@ See `ready-player-supported-media' for recognized types."
         (seq-remove (lambda (entry)
                       (equal #'ready-player-file-name-handler (cdr entry)))
                     file-name-handler-alist)))
+
+(defun ready-player-supported-media ()
+  "Get a list of all supported media.
+
+See variable `ready-player-supported-media' for configuration."
+  (if (listp ready-player-supported-media)
+      ready-player-supported-media
+    (funcall ready-player-supported-media)))
+
+(defun ready-player-supported-audio-and-video ()
+  "Get a list of supported audio and video.
+
+See `ready-player-supported-audio' and `ready-player-supported-video'
+for configuration."
+  (append ready-player-supported-audio
+          ready-player-supported-video))
+
+(defun ready-player-is-audio-p (file)
+  "Return non-nil if FILE extension is found in `ready-player-supported-audio'."
+  (seq-contains-p ready-player-supported-audio
+                  (file-name-extension file)
+                  (lambda (a b)
+                    (string-equal (downcase a) (downcase b)))))
+
+(defun ready-player-is-video-p (file)
+  "Return non-nil if FILE extension is found in `ready-player-supported-video'."
+  (seq-contains-p ready-player-supported-video
+                  (file-name-extension file)
+                  (lambda (a b)
+                    (string-equal (downcase a) (downcase b)))))
 
 (defun ready-player-file-name-handler (operation &rest args)
   "Suppress `insert-file-contents' OPERATION with ARGS.
@@ -945,7 +994,7 @@ Override DIRED-BUFFER, otherwise resolve internally."
               (command (append
                         (list (format "*ready player mode '%s'*" (file-name-nondirectory fpath))
                               (ready-player--playback-process-buffer fpath))
-                        (ready-player--playback-command) (list fpath)))
+                        (ready-player--playback-command fpath) (list fpath)))
               (buffer (current-buffer)))
     (setq ready-player--process (apply #'start-process
                                        command))
@@ -1097,13 +1146,23 @@ Override DIRED-BUFFER, otherwise resolve internally."
                   (lambda ()
                     (message ""))))
 
-(defun ready-player--playback-command ()
-  "Craft a playback command from the first utility found on system."
+(defun ready-player--playback-command (media-file)
+  "Craft a playback command for MEDIA-FILE with first appropriate utility.
+
+See `ready-player-open-playback-commands' for available commands."
   (if-let ((command (seq-find (lambda (command)
-                                (when (seq-first command)
-                                  (executable-find (seq-first command))))
+                                (cond
+                                 ((and (functionp (seq-first command))
+                                       (funcall (seq-first command) media-file)
+                                       (seq-elt command 1)
+                                       (executable-find (seq-elt command 1)))
+                                  (executable-find (seq-elt command 1)))
+                                 ((stringp (seq-first command))
+                                  (executable-find (seq-first command)))))
                               ready-player-open-playback-commands)))
-      command
+      (if (functionp (car command))
+          (cdr command)
+        command)
     (user-error "No player found: %s"
                 (mapconcat
                  #'identity (seq-map #'seq-first ready-player-open-playback-commands) " "))))
@@ -1340,7 +1399,7 @@ If ON-LOADED is non-nil, load and invoke asynchronously."
   "Get the process playback buffer for FPATH."
   (when-let* ((buffer (get-buffer-create
                        (format "*%s %s* (ready-player)"
-                               (nth 0 (ready-player--playback-command))
+                               (nth 0 (ready-player--playback-command fpath))
                                (file-name-nondirectory fpath))))
               (buffer-live (buffer-live-p buffer)))
     (with-current-buffer buffer
