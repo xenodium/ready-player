@@ -852,7 +852,7 @@ If FROM-TOP is non-nil, offset is from top of the buffer.
 With RANDOM set, choose next file at random.
 
 Override DIRED-BUFFER, otherwise resolve internally."
-  (let* ((regexp (regexp-opt (ready-player--supported-media-with-uppercase) t))
+  (let* ((regexp (concat "\\b" (regexp-opt (ready-player--supported-media-with-uppercase) t) "\\b"))
          (dired-buffers  (if (or dired-buffer (ready-player--dired-playback-buffer))
                              (list (or dired-buffer (ready-player--dired-playback-buffer)))
                            (when-let ((non-nil file)
