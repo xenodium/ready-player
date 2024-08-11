@@ -67,6 +67,16 @@ On macOS:
 
 * Customizations
 
+** Video vs audio
+
+If you'd like to use different utilities to play video and audio, you can use =ready-player-open-playback-commands= for this with something like:
+
+#+begin_src emacs-lisp :lexical no
+  (setq ready-player-open-playback-commands
+        '((ready-player-is-audio-p "mpg123")
+          (ready-player-is-video-p "mpv")))
+#+end_src
+
 #+BEGIN_SRC emacs-lisp :results table :colnames '("Custom variable" "Description") :exports results
   (let ((rows))
     (mapatoms
