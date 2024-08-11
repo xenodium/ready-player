@@ -248,8 +248,8 @@ Same format as a the action in a `display-buffer-alist' entry."
 
 (defcustom ready-player-supported-video
   '("3g2" "3gp" "asf" "asx" "avi" "divx" "drc" "dvb" "evo" "f4p"
-    "f4v" "flv" "gif" "h264" "h265" "hevc" "m2ts" "m2v" "mkv" "mov"
-    "mp4" "mpg" "mpeg" "mts" "mxf" "ogm" "ogv" "qt" "rm" "rmvb" "vob"
+    "f4v" "flv" "h264" "h265" "hevc" "m2ts" "m2v" "mkv" "mov" "mp4"
+    "mpg" "mpeg" "mts" "mxf" "ogm" "ogv" "qt" "rm" "rmvb" "vob"
     "webm" "wmv")
   "Supported video media."
   :group 'play-mode
