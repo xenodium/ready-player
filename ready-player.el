@@ -83,14 +83,14 @@
   :type 'boolean
   :group 'ready-player)
 
-(defcustom ready-player-repeat nil
+(defcustom ready-player-repeat t
   "Continue playing if there's more media in current directory.
 
 Repeats and starts over from the beginning of the directory."
   :type 'boolean
   :group 'ready-player)
 
-(defcustom ready-player-autoplay nil
+(defcustom ready-player-autoplay t
   "When non-nil, automatically start playing when media file opens."
   :type 'boolean
   :group 'ready-player)
