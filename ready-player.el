@@ -223,6 +223,12 @@ Prepend each command with a function to apply additional logic.
 For example, to use different utilities for video and audio:
 
   ((ready-player-is-audio-p \"ffplay\" \"--audio-display=no\")
+   (ready-player-is-video-p \"mpv\"))
+
+You can further extend with additional logic like:
+
+  ((ready-player-use-ogg123-p \"ogg123\")
+   (ready-player-is-audio-p \"ffplay\" \"--audio-display=no\")
    (ready-player-is-video-p \"mpv\"))"
   :type '(repeat (list string))
   :group 'ready-player)
@@ -357,6 +363,13 @@ for configuration."
                   (file-name-extension file)
                   (lambda (a b)
                     (string-equal (downcase a) (downcase b)))))
+
+(defun ready-player-use-ogg123-p (file)
+  "Return non-nil if FILE can be handled by ogg123 utility.
+
+Note: You may need to install vorbis-tools."
+  (and (equal (downcase (file-name-extension file)) "ogg")
+       (executable-find "ogg123")))
 
 (defun ready-player-is-video-p (file)
   "Return non-nil if FILE extension is found in `ready-player-supported-video'."
