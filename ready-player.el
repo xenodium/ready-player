@@ -229,7 +229,16 @@ You can further extend with additional logic like:
 
   ((ready-player-is-ogg123-p \"ogg123\")
    (ready-player-is-audio-p \"ffplay\" \"--audio-display=no\")
-   (ready-player-is-video-p \"mpv\"))"
+   (ready-player-is-video-p \"mpv\"))
+
+To cater for different extensions, use a list of extensions as
+first item in command list:
+
+  (((\"mp3\" \"ogg\") \"audacious\")
+   (\"mpv\" \"--audio-display=no\")
+   (\"vlc\")
+   (\"ffplay\")
+   (\"mplayer\"))"
   :type '(repeat (list string))
   :group 'ready-player)
 
@@ -1167,10 +1176,17 @@ See `ready-player-open-playback-commands' for available commands."
                                        (seq-elt command 1)
                                        (executable-find (seq-elt command 1)))
                                   (executable-find (seq-elt command 1)))
+                                 ((and (listp (seq-first command))
+                                       (seq-contains-p
+                                        (seq-map #'downcase (seq-first command))
+                                        (downcase (file-name-extension media-file)))
+                                       (seq-elt command 1)
+                                       (executable-find (seq-elt command 1)))
+                                  (executable-find (seq-elt command 1)))
                                  ((stringp (seq-first command))
                                   (executable-find (seq-first command)))))
                               ready-player-open-playback-commands)))
-      (if (functionp (car command))
+      (if (or (functionp (car command)) (listp (car command)))
           (cdr command)
         command)
     (user-error "No player found: %s"
