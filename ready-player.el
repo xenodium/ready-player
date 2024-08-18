@@ -227,7 +227,7 @@ For example, to use different utilities for video and audio:
 
 You can further extend with additional logic like:
 
-  ((ready-player-use-ogg123-p \"ogg123\")
+  ((ready-player-is-ogg123-p \"ogg123\")
    (ready-player-is-audio-p \"ffplay\" \"--audio-display=no\")
    (ready-player-is-video-p \"mpv\"))"
   :type '(repeat (list string))
@@ -364,12 +364,9 @@ for configuration."
                   (lambda (a b)
                     (string-equal (downcase a) (downcase b)))))
 
-(defun ready-player-use-ogg123-p (file)
-  "Return non-nil if FILE can be handled by ogg123 utility.
-
-Note: You may need to install vorbis-tools."
-  (and (equal (downcase (file-name-extension file)) "ogg")
-       (executable-find "ogg123")))
+(defun ready-player-is-ogg123-p (file)
+  "Return non-nil if FILE can be handled by ogg123 utility."
+  (equal (downcase (file-name-extension file)) "ogg"))
 
 (defun ready-player-is-video-p (file)
   "Return non-nil if FILE extension is found in `ready-player-supported-video'."
