@@ -1031,7 +1031,12 @@ Override DIRED-BUFFER, otherwise resolve internally."
                   (buffer-live-p buffer))
          (with-current-buffer buffer
            (if (and ready-player-repeat
-                    (eq (process-exit-status process) 0))
+                    (eq (process-exit-status process) 0)
+                    ;; Disabling auto advance for non-audio files as
+                    ;; the experience of switching between video
+                    ;; window and Emacs window is currently
+                    ;; uncomfortable.
+                    (ready-player-is-audio-p fpath))
                (unless (ready-player--open-file-at-offset 1 nil)
                  (ready-player--refresh-buffer-status
                   buffer
