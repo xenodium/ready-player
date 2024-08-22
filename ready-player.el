@@ -1530,7 +1530,7 @@ If TO is non-nil, save to that location.  Otherwise generate location."
               (cover-url (concat "https://coverartarchive.org/release-group/"
                                  (url-hexify-string musicbrainz-id) "/front"))
               (destination (or to (make-temp-file (replace-regexp-in-string
-                                                   "/" "-" (concat artist "-" album)) nil ".jpg")))
+                                                   "/" "_" (concat artist "-" album)) nil ".jpg")))
               (downloaded (progn
                             (when (and to (file-exists-p to))
                               (unless (y-or-n-p (format "Override \"%s\"? " to))
@@ -1559,7 +1559,7 @@ If TO is non-nil, save to that location.  Otherwise generate location."
                             "100x100bb" "600x600bb"
                             (cdr (assq 'artworkUrl100 (aref results 0))))))
               (destination (or to (make-temp-file (replace-regexp-in-string
-                                                   "/" "-" (concat artist "-" album)) nil ".jpg")))
+                                                   "/" "_" (concat artist "-" album)) nil ".jpg")))
               (downloaded (progn
                             (when (and to (file-exists-p to))
                               (unless (y-or-n-p (format "Override \"%s\"? " to))
