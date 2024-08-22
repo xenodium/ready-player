@@ -5,8 +5,8 @@
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; Package-Requires: ((emacs "28.1"))
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.5.2
-(defconst ready-player--version "0.5.2")
+;; Version: 0.6.2
+(defconst ready-player--version "0.6.2")
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -1640,9 +1640,25 @@ If TO is non-nil, save to that location.  Otherwise generate location."
     (kill-buffer buffer)
     written))
 
-(defun ready-player-download-album-artwork ()
-  "Download album artwork."
+(defun ready-player-download-album-artwork-and-set-metadata ()
+  "Download album artwork set media metadata.
+
+Note: Can be invoked from either `dired' or `ready-player-major-mode' buffers."
   (interactive)
+  (ready-player--download-album-artwork t))
+
+(defun ready-player-download-album-artwork ()
+  "Download album artwork to media directory.
+
+Note: Can be invoked from either `dired' or `ready-player-major-mode' buffers."
+  (interactive)
+  (ready-player--download-album-artwork))
+
+(defun ready-player--download-album-artwork (&optional set-media-file)
+  "Download album artwork to media directory.
+
+With non-nil SET-MEDIA-FILE, modify media file instead of downloading
+to directory."
   (let* ((media-file (cond ((eq major-mode 'ready-player-major-mode)
                             buffer-file-name)
                            ((eq major-mode 'dired-mode)
@@ -1659,36 +1675,43 @@ If TO is non-nil, save to that location.  Otherwise generate location."
                                                 "Internet Archive / MusicBrainz") nil t))
                       #'ready-player--download-itunes-album-artwork
                     #'ready-player--download-musicbrainz-album-artwork))
+         (artist (or (ready-player--row-value
+                      (ready-player--make-metadata-rows metadata)
+                      "Artist:")
+                     (error "No artist available")))
+         (album (or (ready-player--row-value
+                     (ready-player--make-metadata-rows metadata)
+                     "Album:")
+                    (error "No album available")))
          (temp-file (progn
                       (redisplay) ;; Hides completing-read before blocking call.
-                      (funcall fetcher
-                               (or (ready-player--row-value
-                                    (ready-player--make-metadata-rows metadata)
-                                    "Artist:")
-                                   (error "No artist available"))
-                               (or (ready-player--row-value
-                                    (ready-player--make-metadata-rows metadata)
-                                    "Album:")
-                                   (error "No album available")))))
-         (destination (ready-player--unique-new-file-path
-                       (concat (file-name-sans-extension media-file) ".jpg")))
+                      (funcall fetcher artist album)))
+         (counterpart-artwork (ready-player--unique-new-file-path
+                               (concat (file-name-sans-extension media-file) ".jpg")))
+         (directory-artwork (ready-player--unique-new-file-path
+                             (file-name-concat default-directory "artwork.jpg")))
          (buffer (if temp-file
                      (display-image-in-temp-buffer temp-file)
                    (error "No artwork found")))
          (override)
-         (saved))
+         (reveal-file))
     (unless buffer
       (error "Couldn't display image"))
-    (when (y-or-n-p (format "Override \"%s\" artwork? " (file-name-nondirectory media-file)))
-      (ready-player--set-media-file-artwork media-file temp-file)
-      (setq override t))
-    (when (or override (y-or-n-p (format "Keep \"%s\"? " (file-name-nondirectory destination))))
-      (rename-file temp-file destination)
-      (setq saved t))
+    (if set-media-file
+        (progn
+          (when (y-or-n-p (format "Override \"%s\" artwork? " (file-name-nondirectory media-file)))
+            (ready-player--set-media-file-artwork media-file temp-file)
+            (setq override t))
+          (when (or override (y-or-n-p (format "Keep \"%s\"? " (file-name-nondirectory counterpart-artwork))))
+            (rename-file temp-file counterpart-artwork)
+            (setq reveal-file counterpart-artwork)))
+      (when (y-or-n-p (format "Save \"%s\"? " (file-name-nondirectory directory-artwork)))
+        (rename-file temp-file directory-artwork t)
+        (setq reveal-file directory-artwork)))
     ;; Image buffer is already focused
     (quit-window t)
-    (cond ((and saved (eq major-mode 'dired-mode))
-           (dired-jump nil destination))
+    (cond ((and reveal-file (eq major-mode 'dired-mode))
+           (dired-jump nil reveal-file))
           ((and override (eq major-mode 'ready-player-major-mode))
            (ready-player-reload-buffer)))))
 
