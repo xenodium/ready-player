@@ -167,7 +167,7 @@ so users can opt to hide the mode line."
   :group 'ready-player)
 
 (defcustom ready-player-open-playback-commands
-  '(("mpv" "--audio-display=no")
+  `(("mpv" "--audio-display=no" ,(concat "--input-ipc-server=" (ready-player--socket-file)))
     ("vlc")
     ("ffplay")
     ("mplayer"))
@@ -1030,9 +1030,86 @@ Override DIRED-BUFFER, otherwise resolve internally."
     (ready-player--goto-button 'play-stop)
     (if-let ((fpath (buffer-file-name)))
         (if ready-player--process
-            (ready-player-stop)
+            (if (ready-player--pausable-p)
+                (ready-player--toggle-pause)
+              (ready-player-stop))
           (ready-player-play))
       (error "No file to play/stop"))))
+
+(defun ready-player--has-mpv-socket-p ()
+  "Return non-nil if mpv enabled socket communication."
+  (let ((process-command (ready-player--playback-command (buffer-file-name))))
+    (and (equal "mpv" (seq-first process-command))
+         (seq-find (lambda (param)
+                     (string-match-p "--input-ipc-server" param))
+                   process-command))))
+
+(defun ready-player--pausable-p ()
+  "Return non-nil if player can be paused.
+
+Note: mpv player only at this time.
+
+Get in touch if keen to add for other players."
+  (ready-player--has-mpv-socket-p))
+
+(defun ready-player--toggle-pause ()
+  "Toggle pause.
+
+Note: mpv player only at this time.
+
+Get in touch if keen to add for other players."
+  (ready-player--send-command-to-socket
+   (json-encode '((command . ["cycle" "pause"])))
+   (ready-player--socket-file))
+  (ready-player--update-buffer
+   (current-buffer) (buffer-file-name)
+   (not (ready-player--paused-p))
+   ready-player-repeat
+   ready-player-shuffle
+   ready-player-autoplay
+   ready-player--thumbnail
+   ready-player--metadata
+   (ready-player--dired-playback-buffer)))
+
+(defun ready-player--paused-p ()
+  "Return non-nil if playback is paused.
+
+Note: mpv player only at this time.
+
+Get in touch if keen to add for other players."
+  (with-current-buffer (ready-player--active-buffer)
+    (when-let* ((has-mpv-socket (ready-player--has-mpv-socket-p))
+                (response (json-read-from-string
+                           (ready-player--send-command-to-socket
+                            (json-encode '((command . ["get_property" "pause"])))
+                            (ready-player--socket-file)))))
+      ;; Response looks like:
+      ;; json: {"data":false,"request_id":0,"error":"success"}
+      ;; parsed: ((data . :json-false) (request_id . 0) (error . "success"))
+      (and (equal (map-elt response 'data) t)
+           (equal (map-elt response 'error) "success")))))
+
+(defun ready-player--send-command-to-socket (command socket-path)
+  "Send COMMAND string to SOCKET-PATH.
+
+Returns response string."
+  (unless (string-suffix-p "\n" command)
+    (setq command (concat command "\n")))
+  (with-temp-buffer
+    (let ((process
+           (make-network-process
+            :name "ready-player send to socket"
+            :buffer (current-buffer)
+            :family 'local
+            :service socket-path
+            :coding 'utf-8
+            :noquery t)))
+      (process-send-string process command)
+      (accept-process-output process)
+      (goto-char (point-min))
+      (buffer-string))))
+
+;; (mpv-get-pause-value (ready-player--socket-file))
 
 (defun ready-player-toggle-modeline ()
   "Toggle displaying the mode line."
@@ -1276,11 +1353,24 @@ Render FNAME, BUSY, REPEAT, SHUFFLE, and AUTOPLAY."
 
 (defun ready-player--cached-item-path-for (fpath suffix)
   "Generate cached item path for media at FPATH, appending SUFFIX."
-  (let* ((temp-dir (concat (file-name-as-directory temporary-file-directory) "ready-player"))
-         (temp-fpath (concat (file-name-as-directory temp-dir)
-                             (md5 fpath) suffix)))
+  (let* ((temp-dir (ready-player--temp-dir))
+         (temp-fpath (file-name-concat temp-dir (md5 fpath) suffix)))
     (make-directory temp-dir t)
     temp-fpath))
+
+(defun ready-player--socket-file ()
+  "Socket file name in temp directory."
+  (ready-player--temp-file "socket"))
+
+(defun ready-player--temp-file (name)
+  "Make temp file with NAME (not uniquified)."
+  (file-name-concat (ready-player--temp-dir) name))
+
+(defun ready-player--temp-dir ()
+  "Get ready player's temp directory."
+  (let* ((temp-dir (file-name-concat temporary-file-directory "ready-player")))
+    (make-directory temp-dir t)
+    temp-dir))
 
 (defun ready-player--load-file-thumbnail-via-ffmpegthumbnailer (media-fpath on-loaded)
   "Load media thumbnail at MEDIA-FPATH and invoke ON-LOADED.
