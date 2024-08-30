@@ -5,8 +5,8 @@
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; Package-Requires: ((emacs "28.1"))
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.7.2
-(defconst ready-player--version "0.7.2")
+;; Version: 0.7.3
+(defconst ready-player--version "0.7.3")
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -165,6 +165,20 @@ so users can opt to hide the mode line."
   "Maximum thumbnail pixel height."
   :type 'integer
   :group 'ready-player)
+
+(defun ready-player--socket-file ()
+  "Socket file name in temp directory."
+  (ready-player--temp-file "socket"))
+
+(defun ready-player--temp-file (name)
+  "Make temp file with NAME (not uniquified)."
+  (file-name-concat (ready-player--temp-dir) name))
+
+(defun ready-player--temp-dir ()
+  "Get ready player's temp directory."
+  (let* ((temp-dir (file-name-concat temporary-file-directory "ready-player")))
+    (make-directory temp-dir t)
+    temp-dir))
 
 (defcustom ready-player-open-playback-commands
   `(("mpv" "--audio-display=no" ,(concat "--input-ipc-server=" (ready-player--socket-file)))
@@ -1358,20 +1372,6 @@ Render FNAME, BUSY, REPEAT, SHUFFLE, and AUTOPLAY."
                              (md5 fpath) suffix)))
     (make-directory temp-dir t)
     temp-fpath))
-
-(defun ready-player--socket-file ()
-  "Socket file name in temp directory."
-  (ready-player--temp-file "socket"))
-
-(defun ready-player--temp-file (name)
-  "Make temp file with NAME (not uniquified)."
-  (file-name-concat (ready-player--temp-dir) name))
-
-(defun ready-player--temp-dir ()
-  "Get ready player's temp directory."
-  (let* ((temp-dir (file-name-concat temporary-file-directory "ready-player")))
-    (make-directory temp-dir t)
-    temp-dir))
 
 (defun ready-player--load-file-thumbnail-via-ffmpegthumbnailer (media-fpath on-loaded)
   "Load media thumbnail at MEDIA-FPATH and invoke ON-LOADED.
