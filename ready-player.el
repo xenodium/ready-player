@@ -120,83 +120,42 @@ so users can opt to hide the mode line."
   :type 'boolean
   :group 'ready-player)
 
-;; TODO: Find a better way of checking for SF rendeing.
-(defun ready-player-displays-as-sf-symbol-p (text)
-  "Return t if TEXT can be displayed as macoOS SF symbols.  nil otherwise."
-  (let ((result t)
-        (displayable)
-        (char))
-    (dotimes (i (length text))
-      (setq char (aref text i))
-      (setq displayable (char-displayable-p char))
-      (when (or (eq displayable t)
-                (not (and (fontp displayable)
-                          (string-match-p
-                           "SF"
-                           (font-get (char-displayable-p char) :name)))))
-        (setq result nil)))
-    result))
-
-(defcustom ready-player-previous-icon
-  (if (ready-player-displays-as-sf-symbol-p "􀊉")
-      "􀊉"
-    "<<")
+(defcustom ready-player-previous-icon "<<"
   "Previous button icon string, for example: \"<<\"."
   :type 'string
   :group 'ready-player)
 
-(defcustom ready-player-play-icon
-  (if (ready-player-displays-as-sf-symbol-p "􀊄")
-      "􀊄"
-    "⏵")
+(defcustom ready-player-play-icon "⏵"
   "Play button icon string, for example: \"⏵\"."
   :type 'string
   :group 'ready-player)
 
-(defcustom ready-player-next-icon
-  (if (ready-player-displays-as-sf-symbol-p "􀊋")
-      "􀊋"
-    ">>")
+(defcustom ready-player-next-icon ">>"
   "Next button icon string, for example: \">>\"."
   :type 'string
   :group 'ready-player)
 
-(defcustom ready-player-open-externally-icon
-  (if (ready-player-displays-as-sf-symbol-p "􀉐")
-      "􀉐"
-    "➦")
+(defcustom ready-player-open-externally-icon "➦"
   "Open externally button icon string, for example: \"➦\"."
   :type 'string
   :group 'ready-player)
 
-(defcustom ready-player-stop-icon
-  (if (ready-player-displays-as-sf-symbol-p "􀛷")
-      "􀛷"
-    "■")
+(defcustom ready-player-stop-icon "■"
   "Stop icon string, for example: \"■\"."
   :type 'string
   :group 'ready-player)
 
-(defcustom ready-player-repeat-icon
-  (if (ready-player-displays-as-sf-symbol-p "􀊞")
-      "􀊞"
-    "⇆")
+(defcustom ready-player-repeat-icon "⇆"
   "Repeat icon string, for example: \"⇆\"."
   :type 'string
   :group 'ready-player)
 
-(defcustom ready-player-shuffle-icon
-  (if (ready-player-displays-as-sf-symbol-p "􀊝")
-      "􀊝"
-    "⤮")
+(defcustom ready-player-shuffle-icon "⤮"
   "Shuffle icon string, for example: \"⤮\"."
   :type 'string
   :group 'ready-player)
 
-(defcustom ready-player-autoplay-icon
-  (if (ready-player-displays-as-sf-symbol-p "􀋦")
-      "􀋦"
-    "⚡")
+(defcustom ready-player-autoplay-icon "⚡"
   "Autoplay icon string, for example: \"⚡\"."
   :type 'string
   :group 'ready-player)
@@ -330,6 +289,17 @@ See variable `ready-player-supported-media' for recognized types."
    (cons
     (concat "\\." (regexp-opt (ready-player--supported-media-with-uppercase) t) "\\'")
     #'ready-player-file-name-handler)))
+
+(defun ready-player-macos-use-sf-symbols ()
+  "Set all button icons to use macOS SF symbols."
+  (setq ready-player-previous-icon "􀊉")
+  (setq ready-player-play-icon "􀊄")
+  (setq ready-player-next-icon "􀊋")
+  (setq ready-player-open-externally-icon "􀉐")
+  (setq ready-player-stop-icon "􀛷")
+  (setq ready-player-repeat-icon "􀊞")
+  (setq ready-player-shuffle-icon "􀊝")
+  (setq ready-player-autoplay-icon "􀋦"))
 
 (defun ready-player--supported-media-with-uppercase ()
   "Duplicate variable `ready-player-supported-media' with uppercase equivalents."
