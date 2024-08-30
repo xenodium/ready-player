@@ -1353,8 +1353,9 @@ Render FNAME, BUSY, REPEAT, SHUFFLE, and AUTOPLAY."
 
 (defun ready-player--cached-item-path-for (fpath suffix)
   "Generate cached item path for media at FPATH, appending SUFFIX."
-  (let* ((temp-dir (ready-player--temp-dir))
-         (temp-fpath (file-name-concat temp-dir (md5 fpath) suffix)))
+  (let* ((temp-dir (concat (file-name-as-directory temporary-file-directory) "ready-player"))
+         (temp-fpath (concat (file-name-as-directory temp-dir)
+                             (md5 fpath) suffix)))
     (make-directory temp-dir t)
     temp-fpath))
 
