@@ -114,7 +114,7 @@ Repeats and starts over from the beginning of the directory."
   :type 'boolean
   :group 'ready-player)
 
-(defcustom ready-player-hide-modeline nil
+(defcustom ready-player-hide-modeline t
   "If non-nil, hides mode line in buffer.
 
 File information is already displayed in the buffer,
