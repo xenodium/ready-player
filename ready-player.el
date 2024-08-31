@@ -57,6 +57,7 @@
     (define-key map (kbd "SPC") #'ready-player-toggle-play-stop)
     (define-key map (kbd "TAB") #'ready-player-next-button)
     (define-key map (kbd "<backtab>") #'ready-player-previous-button)
+    (define-key map (kbd "i") #'ready-player-show-info)
     (define-key map (kbd "n") #'ready-player-next)
     (define-key map (kbd "p") #'ready-player-previous)
     (define-key map (kbd "f") #'ready-player-seek-forward)
@@ -574,6 +575,48 @@ and DIRED-BUFFER."
                      (ready-player--make-metadata-rows metadata dired-buffer))))
           (set-buffer-modified-p nil))))))
 
+(defun ready-player-show-info ()
+  "Show playback info in the echo area."
+  (interactive)
+  (with-current-buffer (ready-player--active-buffer)
+    (let ((fname (file-name-nondirectory (buffer-file-name))))
+      (if ready-player--metadata
+          (ready-player--message
+           (ready-player--make-metadata-echo-text ready-player--metadata fname)
+           3)
+        (ready-player--load-file-metadata
+         (buffer-file-name)
+         (lambda (metadata)
+           (ready-player--message
+            (ready-player--make-metadata-echo-text metadata fname)
+            3)))))))
+
+(defun ready-player--make-metadata-echo-text (metadata fallback)
+  "Make METADATA echo text for display.
+
+If no useful metadata found, use FALLBACK."
+  (let ((title (ready-player--row-value
+                (ready-player--make-metadata-rows metadata)
+                "Title:"))
+        (artist (ready-player--row-value
+                 (ready-player--make-metadata-rows metadata)
+                 "Artist:"))
+        (album (ready-player--row-value
+                (ready-player--make-metadata-rows metadata)
+                "Album:"))
+        (text ""))
+    (when title
+      (setq text (concat text title)))
+    (when artist
+      (setq text (concat text "  -  " (propertize
+                                       artist
+                                       'face 'font-lock-comment-face))))
+    (when album
+      (setq text (concat text "  -  " album)))
+    (if (string-empty-p text)
+        fallback
+      text)))
+
 (defun ready-player--make-metadata-mp3-rows (metadata)
   "Make METADATA row data from an mp3 file."
   (let ((metadata-rows))
@@ -754,16 +797,22 @@ With a prefix ARG always prompt for command to use."
 
 With optional argument N, visit the Nth file before the current one."
   (interactive "p" ready-player)
-  (with-current-buffer (ready-player--active-buffer)
-    (ready-player--open-file-at-offset (- n) t)))
+  (let ((in-player (eq major-mode 'ready-player-major-mode)))
+    (with-current-buffer (ready-player--active-buffer)
+      (ready-player--open-file-at-offset (- n) t)
+      (unless in-player
+        (ready-player-show-info)))))
 
 (defun ready-player-next (&optional n)
   "Open the next media file in the same directory.
 
 With optional argument N, visit the Nth file after the current one."
   (interactive "p" ready-player)
-  (with-current-buffer (ready-player--active-buffer)
-    (ready-player--open-file-at-offset n t)))
+  (let ((in-player (eq major-mode 'ready-player-major-mode)))
+    (with-current-buffer (ready-player--active-buffer)
+      (ready-player--open-file-at-offset n t)
+      (unless in-player
+        (ready-player-show-info)))))
 
 (defun ready-player--open-file (fpath buffer start-playing)
   "Open file at FPATH in BUFFER.
