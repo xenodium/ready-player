@@ -960,10 +960,7 @@ Override DIRED-BUFFER, otherwise resolve internally."
   (with-current-buffer (ready-player--active-buffer)
     (setq ready-player--last-button-focus 'play-stop)
     (ready-player--stop-playback-process))
-  (message "Stopped")
-  (run-with-timer 3 nil
-                  (lambda ()
-                    (message ""))))
+  (ready-player--message "Stopped" 1.5))
 
 (defun ready-player-play ()
   "Start media playback."
@@ -1287,12 +1284,10 @@ Returns response string."
      ready-player-repeat
      ready-player-shuffle
      ready-player-autoplay))
-  (message "Repeat: %s" (if ready-player-repeat
+  (ready-player--message
+   (format "Repeat: %s" (if ready-player-repeat
                             "ON"
-                          "OFF"))
-  (run-with-timer 1 nil
-                  (lambda ()
-                    (message ""))))
+                          "OFF")) 1.5))
 
 (defun ready-player-toggle-shuffle ()
   "Toggle shuffle setting."
@@ -1305,12 +1300,10 @@ Returns response string."
      ready-player-repeat
      ready-player-shuffle
      ready-player-autoplay))
-  (message "Shuffle: %s" (if ready-player-shuffle
-                            "ON"
-                          "OFF"))
-  (run-with-timer 1 nil
-                  (lambda ()
-                    (message ""))))
+  (ready-player--message
+   (format "Shuffle: %s" (if ready-player-shuffle
+                             "ON"
+                           "OFF")) 1.5))
 
 (defun ready-player-toggle-autoplay ()
   "Toggle autoplay setting."
@@ -1323,12 +1316,10 @@ Returns response string."
      ready-player-repeat
      ready-player-shuffle
      ready-player-autoplay))
-  (message "Autoplay: %s" (if ready-player-autoplay
-                            "ON"
-                          "OFF"))
-  (run-with-timer 1 nil
-                  (lambda ()
-                    (message ""))))
+  (ready-player--message
+   (format "Autoplay: %s" (if ready-player-autoplay
+                              "ON"
+                            "OFF")) 1.5))
 
 (defun ready-player-reload-buffer ()
   "Reload media from file."
@@ -1366,10 +1357,7 @@ Returns response string."
      (ready-player--dired-playback-buffer))
     (when playing
       (ready-player-play)))
-  (message "Reloaded")
-  (run-with-timer 1 nil
-                  (lambda ()
-                    (message ""))))
+  (ready-player--message "Reloaded" 1.5))
 
 (defun ready-player--playback-command (media-file)
   "Craft a playback command for MEDIA-FILE with first appropriate utility.
