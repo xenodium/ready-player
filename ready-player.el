@@ -1089,7 +1089,7 @@ Get in touch if keen to add for other players."
       (let ((message-log-max nil))
       (when-let ((position (ready-player--position))
                  (duration (ready-player--duration)))
-        (ready-player--message (ready-player--make-time-progress-bar position duration) 1))))))
+        (ready-player--message (ready-player--make-time-progress-bar position duration) 1.5))))))
 
 (defun ready-player--message (text seconds)
   "Display TEXT inthe echo area for SECONDS seconds, then clear if still displayed."
