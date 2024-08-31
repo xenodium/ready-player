@@ -168,22 +168,8 @@ so users can opt to hide the mode line."
   :type 'integer
   :group 'ready-player)
 
-(defun ready-player--socket-file ()
-  "Socket file name in temp directory."
-  (ready-player--temp-file "socket"))
-
-(defun ready-player--temp-file (name)
-  "Make temp file with NAME (not uniquified)."
-  (file-name-concat (ready-player--temp-dir) name))
-
-(defun ready-player--temp-dir ()
-  "Get ready player's temp directory."
-  (let* ((temp-dir (file-name-concat temporary-file-directory "ready-player")))
-    (make-directory temp-dir t)
-    temp-dir))
-
 (defcustom ready-player-open-playback-commands
-  `(("mpv" "--audio-display=no" ,(concat "--input-ipc-server=" (ready-player--socket-file)))
+  '(("mpv" "--audio-display=no" "--input-ipc-server=<<socket>>")
     ("vlc")
     ("ffplay")
     ("mplayer"))
@@ -213,7 +199,17 @@ first item in command list:
    (\"mpv\" \"--audio-display=no\")
    (\"vlc\")
    (\"ffplay\")
-   (\"mplayer\"))"
+   (\"mplayer\"))
+
+To inject a socket file, use <<socket>>:
+
+   ((\"mpv\" \"--audio-display=no\" \"--input-ipc-server=<<socket>>\")
+    (\"vlc\")
+    (\"ffplay\")
+    (\"mplayer\"))
+
+Note: Socket can only be used by mpv player. Get in touch if keen to
+add for other players."
   :type '(repeat (list string))
   :group 'ready-player)
 
@@ -1378,7 +1374,9 @@ Returns response string."
 (defun ready-player--playback-command (media-file)
   "Craft a playback command for MEDIA-FILE with first appropriate utility.
 
-See `ready-player-open-playback-commands' for available commands."
+See `ready-player-open-playback-commands' for available commands.
+
+Note: <<socket>> is expanded to socket path."
   (if-let ((command (seq-find (lambda (command)
                                 (cond
                                  ((and (functionp (seq-first command))
@@ -1396,9 +1394,12 @@ See `ready-player-open-playback-commands' for available commands."
                                  ((stringp (seq-first command))
                                   (executable-find (seq-first command)))))
                               ready-player-open-playback-commands)))
-      (if (or (functionp (car command)) (listp (car command)))
-          (cdr command)
-        command)
+      (mapcar (lambda (param)
+                (replace-regexp-in-string "<<socket>>"
+                                          (ready-player--socket-file) param))
+              (if (or (functionp (car command)) (listp (car command)))
+                  (cdr command)
+                command))
     (user-error "No player found: %s"
                 (mapconcat
                  #'identity (seq-map #'seq-first ready-player-open-playback-commands) " "))))
@@ -1516,6 +1517,20 @@ Render FNAME, BUSY, REPEAT, SHUFFLE, and AUTOPLAY."
                              (md5 fpath) suffix)))
     (make-directory temp-dir t)
     temp-fpath))
+
+(defun ready-player--socket-file ()
+  "Socket file name in temp directory."
+  (ready-player--temp-file "socket"))
+
+(defun ready-player--temp-file (name)
+  "Make temp file with NAME (not uniquified)."
+  (file-name-concat (ready-player--temp-dir) name))
+
+(defun ready-player--temp-dir ()
+  "Get ready player's temp directory."
+  (let* ((temp-dir (file-name-concat temporary-file-directory "ready-player")))
+    (make-directory temp-dir t)
+    temp-dir))
 
 (defun ready-player--load-file-thumbnail-via-ffmpegthumbnailer (media-fpath on-loaded)
   "Load media thumbnail at MEDIA-FPATH and invoke ON-LOADED.
