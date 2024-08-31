@@ -59,6 +59,8 @@
     (define-key map (kbd "<backtab>") #'ready-player-previous-button)
     (define-key map (kbd "n") #'ready-player-next)
     (define-key map (kbd "p") #'ready-player-previous)
+    (define-key map (kbd "f") #'ready-player-seek-forward)
+    (define-key map (kbd "b") #'ready-player-seek-backward)
     (define-key map (kbd "e") #'ready-player-open-externally)
     (define-key map (kbd "o") #'ready-player-open-externally)
     (define-key map (kbd "q") #'ready-player-quit)
@@ -1066,12 +1068,69 @@ Note: mpv player only at this time.
 Get in touch if keen to add for other players."
   (ready-player--has-mpv-socket-p))
 
+(defun ready-player-seek-forward (seconds)
+  "Seek forward.
+
+With prefix, seek in multiples of 60 seconds.
+
+With numeric prefix, seek value in SECONDS.
+
+Note: mpv player only at this time.
+
+Get in touch if keen to add for other players."
+  (interactive "P")
+  (with-current-buffer (ready-player--active-buffer)
+    (when ready-player--process
+      (unless (ready-player--has-mpv-socket-p)
+        (error "Cannot seek without an mpv socket"))
+      (unless seconds
+        (setq seconds 5))
+      (unless (numberp seconds)
+        (setq seconds (* 60 (/ (prefix-numeric-value seconds) 4))))
+      (ready-player--send-command-to-socket
+       (format "seek %d" seconds)
+       (ready-player--socket-file))
+      (let ((message-log-max nil))
+      (when-let ((position (ready-player--position))
+                 (duration (ready-player--duration)))
+        (ready-player--message (ready-player--make-time-progress-bar position duration) 1))))))
+
+(defun ready-player--message (text seconds)
+  "Display TEXT inthe echo area for SECONDS seconds, then clear if still displayed."
+  (message "%s" text)
+  (run-at-time seconds nil
+               (lambda (text)
+                 (when (string= (current-message) text)
+                   (message "")))
+               text))
+
+(defun ready-player-seek-backward (seconds)
+  "Seek backward.
+
+With prefix, seek in multiples of 60 seconds.
+
+With numeric prefix, seek value in SECONDS.
+
+Note: mpv player only at this time.
+
+Get in touch if keen to add for other players."
+  (interactive "P")
+  (unless (ready-player--has-mpv-socket-p)
+    (error "Cannot seek without an mpv socket"))
+  (unless seconds
+    (setq seconds 5))
+  (unless (numberp seconds)
+    (setq seconds (* 60 (/ (prefix-numeric-value seconds) 4))))
+  (ready-player-seek-forward (- seconds)))
+
 (defun ready-player--toggle-pause ()
   "Toggle pause.
 
 Note: mpv player only at this time.
 
 Get in touch if keen to add for other players."
+  (unless (ready-player--has-mpv-socket-p)
+    (error "Cannot pause without an mpv socket"))
   (ready-player--send-command-to-socket
    (json-encode '((command . ["cycle" "pause"])))
    (ready-player--socket-file))
@@ -1103,27 +1162,112 @@ Get in touch if keen to add for other players."
       (and (equal (map-elt response 'data) t)
            (equal (map-elt response 'error) "success")))))
 
+(defun ready-player--position ()
+  "Return playback position.
+
+Note: mpv player only at this time.
+
+Get in touch if keen to add for other players."
+  (with-current-buffer (ready-player--active-buffer)
+    (when-let* ((has-mpv-socket (ready-player--has-mpv-socket-p))
+                (response (condition-case nil
+                              (json-read-from-string
+                               (ready-player--send-command-to-socket
+                                (json-encode '((command . ["get_property" "time-pos"])))
+                                (ready-player--socket-file)))
+                            (json-error nil))))
+      ;; Response looks like:
+      ;; json: {"data":266.182859,"request_id":0,"error":"success"}
+      ;; parsed: ((data . 266.182859) (request_id . 0) (error . "success"))
+      (when (map-elt response 'error)
+        (map-elt response 'data)))))
+
+(defun ready-player--duration ()
+  "Return track duration.
+
+Note: mpv player only at this time.
+
+Get in touch if keen to add for other players."
+  (with-current-buffer (ready-player--active-buffer)
+    (when-let* ((has-mpv-socket (ready-player--has-mpv-socket-p))
+                (response (condition-case nil
+                              (json-read-from-string
+                               (ready-player--send-command-to-socket
+                                (json-encode '((command . ["get_property" "duration"])))
+                                (ready-player--socket-file)))
+                            (json-error nil))))
+      ;; Response looks like:
+      ;; json: {"data":266.182859,"request_id":0,"error":"success"}
+      ;; parsed: ((data . 266.182859) (request_id . 0) (error . "success"))
+      (when (map-elt response 'error)
+        (map-elt response 'data)))))
+
+(defun ready-player--format-time (seconds)
+  "Convert SECONDS to a human readable string in the format MM:SS."
+  (let* ((minutes (/ seconds 60))
+         (remaining-seconds (% seconds 60)))
+    (format "%02d:%02d" minutes remaining-seconds)))
+
+(defun ready-player--make-time-progress-bar (progress total)
+  "Make a bar with PROGRESS out of TOTAL."
+  (setq progress (round progress))
+  (setq total (round total))
+  (let* ((bar-width (frame-width))
+         (percentage (/ (* progress 1.0) total))
+         (total-label (ready-player--format-time total))
+         (label (ready-player--format-time (round progress)))
+         (num-bars (round (* percentage bar-width)))
+         ;; <---->  +  <-----> = 13
+         ;; 00:00 ----- 00:30 ----- 01:00
+         ;;                        <----> = 6
+         (left-bar-width (- num-bars 13))
+         (right-bar-width (- bar-width num-bars 6))
+         ;; <---->     +    <----> = 12
+         ;; 00:00 ---------- 01:00
+         (full-bar-width (- bar-width 12)))
+    (message "num-bars: %d" num-bars)
+    (if (and (> left-bar-width 0)
+             (> right-bar-width 0))
+        (concat "00:00 "
+                (propertize
+                 (make-string left-bar-width ?┄)
+                 'face 'font-lock-comment-face)
+                " "
+                label
+                " "
+                (propertize
+                 (make-string right-bar-width ?┄)
+                 'face 'font-lock-comment-face)
+                " "
+                total-label)
+      (concat "00:00 "
+              (propertize
+               (make-string full-bar-width ?┄)
+               'face 'font-lock-comment-face)
+              " "
+              total-label))))
+
 (defun ready-player--send-command-to-socket (command socket-path)
   "Send COMMAND string to SOCKET-PATH.
 
 Returns response string."
   (unless (string-suffix-p "\n" command)
     (setq command (concat command "\n")))
-  (with-temp-buffer
-    (let ((process
-           (make-network-process
-            :name "ready-player send to socket"
-            :buffer (current-buffer)
-            :family 'local
-            :service socket-path
-            :coding 'utf-8
-            :noquery t)))
-      (process-send-string process command)
-      (accept-process-output process)
-      (goto-char (point-min))
-      (buffer-string))))
-
-;; (mpv-get-pause-value (ready-player--socket-file))
+  (condition-case nil
+      (with-temp-buffer
+        (let ((process
+               (make-network-process
+                :name "ready-player send to socket"
+                :buffer (current-buffer)
+                :family 'local
+                :service socket-path
+                :coding 'utf-8
+                :noquery t)))
+          (process-send-string process command)
+          (accept-process-output process)
+          (goto-char (point-min))
+          (buffer-string)))
+    (error "")))
 
 (defun ready-player-toggle-modeline ()
   "Toggle displaying the mode line."
