@@ -606,13 +606,23 @@ If no useful metadata found, use FALLBACK."
                 "Album:"))
         (text ""))
     (when title
-      (setq text (concat text title)))
+      (setq text (concat text
+                         (propertize
+                          "Title: "
+                          'face 'font-lock-comment-face)
+                         title)))
     (when artist
-      (setq text (concat text "  -  " (propertize
-                                       artist
-                                       'face 'font-lock-comment-face))))
+      (setq text (concat text
+                         (propertize
+                          "   Artist: "
+                          'face 'font-lock-comment-face)
+                         artist)))
     (when album
-      (setq text (concat text "  -  " album)))
+      (setq text (concat text
+                         (propertize
+                          "   Album: "
+                          'face 'font-lock-comment-face)
+                         album)))
     (if (string-empty-p text)
         fallback
       text)))
