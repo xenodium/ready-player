@@ -583,13 +583,13 @@ and DIRED-BUFFER."
       (if ready-player--metadata
           (ready-player--message
            (ready-player--make-metadata-echo-text ready-player--metadata fname)
-           3)
+           5)
         (ready-player--load-file-metadata
          (buffer-file-name)
          (lambda (metadata)
            (ready-player--message
             (ready-player--make-metadata-echo-text metadata fname)
-            3)))))))
+            5)))))))
 
 (defun ready-player--make-metadata-echo-text (metadata fallback)
   "Make METADATA echo text for display.
