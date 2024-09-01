@@ -1097,15 +1097,20 @@ Override DIRED-BUFFER, otherwise resolve internally."
 (defun ready-player-toggle-play-stop ()
   "Toggle play/stop of media."
   (interactive)
-  (with-current-buffer (ready-player--active-buffer)
-    (ready-player--goto-button 'play-stop)
-    (if-let ((fpath (buffer-file-name)))
-        (if ready-player--process
-            (if (ready-player--pausable-p)
-                (ready-player--toggle-pause)
-              (ready-player-stop))
-          (ready-player-play))
-      (error "No file to play/stop"))))
+  (let ((in-player (eq major-mode 'ready-player-major-mode)))
+    (with-current-buffer (ready-player--active-buffer)
+      (ready-player--goto-button 'play-stop)
+      (if-let ((fpath (buffer-file-name)))
+          (if ready-player--process
+              (if (ready-player--pausable-p)
+                  (when (and (not (ready-player--toggle-pause))
+                             (not in-player))
+                    (ready-player-show-info))
+                (ready-player-stop))
+            (ready-player-play)
+            (unless in-player
+              (ready-player-show-info)))
+        (error "No file to play/stop")))))
 
 (defun ready-player--has-mpv-socket-p ()
   "Return non-nil if mpv enabled socket communication."
@@ -1189,15 +1194,17 @@ Get in touch if keen to add for other players."
   (ready-player--send-command-to-socket
    (json-encode '((command . ["cycle" "pause"])))
    (ready-player--socket-file))
-  (ready-player--update-buffer
-   (current-buffer) (buffer-file-name)
-   (not (ready-player--paused-p))
-   ready-player-repeat
-   ready-player-shuffle
-   ready-player-autoplay
-   ready-player--thumbnail
-   ready-player--metadata
-   (ready-player--dired-playback-buffer)))
+  (let ((paused (ready-player--paused-p)))
+    (ready-player--update-buffer
+     (current-buffer) (buffer-file-name)
+     (not paused)
+     ready-player-repeat
+     ready-player-shuffle
+     ready-player-autoplay
+     ready-player--thumbnail
+     ready-player--metadata
+     (ready-player--dired-playback-buffer))
+    paused))
 
 (defun ready-player--paused-p ()
   "Return non-nil if playback is paused.
