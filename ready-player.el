@@ -1924,17 +1924,21 @@ Note: Can be invoked from either `dired' or `ready-player-major-mode' buffers."
   (interactive)
   (ready-player--download-album-artwork t))
 
-(defun ready-player-download-album-artwork ()
+(defun ready-player-download-album-artwork (prefix)
   "Download album artwork to media directory.
 
-Note: Can be invoked from either `dired' or `ready-player-major-mode' buffers."
-  (interactive)
-  (ready-player--download-album-artwork))
+With PREFIX, ask user to provide artist and album.
 
-(defun ready-player--download-album-artwork (&optional set-media-file)
+Note: Can be invoked from either `dired' or `ready-player-major-mode' buffers."
+  (interactive "P")
+  (ready-player--download-album-artwork nil prefix))
+
+(defun ready-player--download-album-artwork (&optional set-media-file ask-user)
   "Download album artwork to media directory.
 
 With non-nil SET-MEDIA-FILE, modify media file instead of downloading
+
+With non-nil ASK-USER, ask user to supply artist and album name.
 to directory."
   (let* ((media-file (cond ((eq major-mode 'ready-player-major-mode)
                             buffer-file-name)
@@ -1952,11 +1956,15 @@ to directory."
                                                 "Internet Archive / MusicBrainz") nil t))
                       #'ready-player--download-itunes-album-artwork
                     #'ready-player--download-musicbrainz-album-artwork))
-         (artist (or (ready-player--row-value
+         (artist (or (when ask-user
+                       (read-string "Artist: "))
+                     (ready-player--row-value
                       (ready-player--make-metadata-rows metadata)
                       "Artist:")
                      (error "No artist available")))
-         (album (or (ready-player--row-value
+         (album (or (when ask-user
+                      (read-string "Album: "))
+                    (ready-player--row-value
                      (ready-player--make-metadata-rows metadata)
                      "Album:")
                     (error "No album available")))
