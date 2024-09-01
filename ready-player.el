@@ -1972,6 +1972,40 @@ to directory."
           ((and override (eq major-mode 'ready-player-major-mode))
            (ready-player-reload-buffer)))))
 
+(defun ready-player-load-m3u-playlist ()
+  "Load an .m3u playlist."
+  (interactive)
+  (let* ((m3u-path (read-file-name "find m3u: " nil nil t nil
+                                   (lambda (name)
+                                     (or (string-match "\\.m3u\\'" name)
+                                         (file-directory-p name)))))
+         (media-files (if (string-match "\\.m3u\\'" m3u-path)
+                          (ready-player--media-at-m3u-file m3u-path)
+                        (error "Not a .m3u file")))
+         ;; Find a common parent via completion.
+         (default-directory (file-name-directory
+                             (try-completion "" media-files)))
+         (m3u-fname (file-name-nondirectory m3u-path))
+         (dired-buffer-name (format "*%s*" m3u-fname))
+         (dired-buffer (dired (append (list dired-buffer-name)
+                                      (mapcar (lambda (path)
+                                                (file-relative-name path default-directory))
+                                              media-files)))))
+    (ready-player-load-dired-playback-buffer dired-buffer)))
+
+(defun ready-player--media-at-m3u-file (m3u-path)
+  "Read m3u playlist at M3U-PATH and return files."
+  (with-temp-buffer
+    (insert-file-contents m3u-path)
+    (let ((files))
+      (while (re-search-forward
+              (rx bol (not (any "#" space))
+                  (zero-or-more (not (any "\n")))
+                  eol) nil t)
+        (when (file-exists-p (match-string 0))
+          (push (match-string 0) files)))
+      (nreverse files))))
+
 (defun display-image-in-temp-buffer (image-path)
   "Display the image at IMAGE-PATH in a temporary, read-only buffer."
   (let ((buffer (get-buffer-create "*album cover*")))
