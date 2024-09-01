@@ -607,20 +607,23 @@ If no useful metadata found, use FALLBACK."
         (text ""))
     (when title
       (setq text (concat text
+                         (if (string-empty-p text) "" "    ")
                          (propertize
                           "Title: "
                           'face 'font-lock-comment-face)
                          title)))
     (when artist
       (setq text (concat text
+                         (if (string-empty-p text) "" "    ")
                          (propertize
-                          "   Artist: "
+                          "Artist: "
                           'face 'font-lock-comment-face)
                          artist)))
     (when album
       (setq text (concat text
+                         (if (string-empty-p text) "" "    ")
                          (propertize
-                          "   Album: "
+                          "Album: "
                           'face 'font-lock-comment-face)
                          album)))
     (if (string-empty-p text)
