@@ -578,6 +578,17 @@ and DIRED-BUFFER."
                      (ready-player--make-metadata-rows metadata dired-buffer))))
           (set-buffer-modified-p nil))))))
 
+(defun ready-player-view-player ()
+  "Switch to player buffer.
+
+If on player buffer already, switch to previous buffer."
+  (interactive)
+  (if (eq major-mode 'ready-player-major-mode)
+      (let ((buffers (buffer-list)))
+        (when (>= (length buffers) 2)
+          (switch-to-buffer (nth 1 buffers))))
+    (switch-to-buffer (ready-player--active-buffer))))
+
 (defun ready-player-show-info ()
   "Show playback info in the echo area."
   (interactive)
