@@ -440,6 +440,7 @@ Note: This function needs to be added to `file-name-handler-alist'."
   (setq buffer-undo-list t)
   (when ready-player-hide-modeline
     (setq mode-line-format nil))
+  (ready-player--save-state)
 
   (let* ((buffer (current-buffer))
          (fpath (buffer-file-name))
@@ -560,6 +561,30 @@ Note: This function needs to be added to `file-name-handler-alist'."
               :text-anchor "middle" :dominant-baseline "central")
     (svg-image svg)))
 
+(defun ready-player--save-state ()
+  "Save state across Emacs sessions."
+  (ready-player--ensure-mode)
+  (let ((media-file (buffer-file-name)))
+    (with-temp-file (file-name-concat
+                     (ready-player--temp-dir)
+                     ".ready-player-state.el")
+      (prin1 (list
+              (cons 'buffer-file-name media-file))
+             (current-buffer)))))
+
+(defun ready-player--read-state ()
+  "Read persisted state across Emacs sessions."
+  (with-temp-buffer
+    (condition-case nil
+        (insert-file-contents (file-name-concat
+                               (ready-player--temp-dir)
+                               ".ready-player-state.el"))
+      (error nil))
+    (goto-char (point-min))
+    (condition-case nil
+        (read (current-buffer))
+      (error nil))))
+
 (defun ready-player--update-buffer (buffer fpath busy repeat shuffle autoplay &optional thumbnail metadata dired-buffer)
   "Update entire BUFFER content.
 
@@ -612,7 +637,13 @@ If on player buffer already, switch to previous buffer."
       (let ((buffers (buffer-list)))
         (when (>= (length buffers) 2)
           (switch-to-buffer (nth 1 buffers))))
-    (switch-to-buffer (ready-player--active-buffer))))
+    (if-let ((active-buffer (ready-player--active-buffer t)))
+        (switch-to-buffer active-buffer)
+      (if-let ((last-played (map-elt (ready-player--read-state)
+                                     'buffer-file-name)))
+          (find-file last-played)
+        ;; Errors if there's no active buffer available.
+        (ready-player--active-buffer)))))
 
 (defun ready-player-show-info ()
   "Show playback info in the echo area."
@@ -1063,12 +1094,28 @@ Override DIRED-BUFFER, otherwise resolve internally."
     (ready-player--stop-playback-process))
   (ready-player--message "Stopped" 1.5))
 
-(defun ready-player-play ()
-  "Start media playback."
+(defun ready-player-play (&optional fallback-to-last)
+  "Start media playback.
+
+If FALLBACK-TO-LAST, attempt open last known file if needed."
   (interactive)
-  (with-current-buffer (ready-player--active-buffer)
-    (setq ready-player--last-button-focus 'play-stop)
-    (ready-player--start-playback-process)))
+  (when (called-interactively-p #'interactive)
+    (setq fallback-to-last t))
+  (if (ready-player--active-buffer t)
+      (with-current-buffer (ready-player--active-buffer)
+        (setq ready-player--last-button-focus 'play-stop)
+        (ready-player--start-playback-process))
+    (if-let ((attempt-fallback fallback-to-last)
+             (last-played (map-elt (ready-player--read-state)
+                                   'buffer-file-name))
+             ;; Avoid autoplaying here and redundantly
+             ;; invoking (ready-player-play) right after.
+             (buffer (let ((ready-player-autoplay nil))
+                       (find-file-noselect last-played))))
+        (with-current-buffer buffer
+          (ready-player-play)
+          (ready-player-show-info))
+      (error "No file to play/stop"))))
 
 (defun ready-player--ensure-mode ()
   "Ensure current buffer is running in `ready-player-major-mode'."
@@ -1136,20 +1183,22 @@ Override DIRED-BUFFER, otherwise resolve internally."
 (defun ready-player-toggle-play-stop ()
   "Toggle play/stop of media."
   (interactive)
-  (let ((in-player (eq major-mode 'ready-player-major-mode)))
-    (with-current-buffer (ready-player--active-buffer)
-      (ready-player--goto-button 'play-stop)
-      (if-let ((fpath (buffer-file-name)))
-          (if ready-player--process
-              (if (ready-player--pausable-p)
-                  (when (and (not (ready-player--toggle-pause))
-                             (not in-player))
-                    (ready-player-show-info))
-                (ready-player-stop))
-            (ready-player-play)
-            (unless in-player
-              (ready-player-show-info)))
-        (error "No file to play/stop")))))
+  (if (ready-player--active-buffer t)
+      (let ((in-player (eq major-mode 'ready-player-major-mode)))
+        (with-current-buffer (ready-player--active-buffer)
+          (ready-player--goto-button 'play-stop)
+          (if-let ((fpath (buffer-file-name)))
+              (if ready-player--process
+                  (if (ready-player--pausable-p)
+                      (when (and (not (ready-player--toggle-pause))
+                                 (not in-player))
+                        (ready-player-show-info))
+                    (ready-player-stop))
+                (ready-player-play)
+                (unless in-player
+                  (ready-player-show-info)))
+            (error "No file to play/stop"))))
+    (ready-player-play t)))
 
 (defun ready-player--has-mpv-socket-p ()
   "Return non-nil if mpv enabled socket communication."
@@ -2196,13 +2245,10 @@ Fails if none available unless NO-ERROR is non-nil."
         ((and ready-player--active-buffer
               (buffer-live-p ready-player--active-buffer))
          ready-player--active-buffer)
+        (no-error
+         nil)
         (t
-         (error "No ready-player buffer available")))
-  (if (and ready-player--active-buffer
-           (buffer-live-p ready-player--active-buffer))
-      ready-player--active-buffer
-    (unless no-error
-      (error "No ready-player buffer available"))))
+         (error "No ready-player buffer available"))))
 
 (provide 'ready-player)
 
