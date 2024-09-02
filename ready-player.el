@@ -79,6 +79,13 @@
   "Settings for Ready Player mode."
   :group 'media)
 
+(defcustom ready-player-set-global-bindings t
+  "When non-nil, bind global bindings under C-c m prefix.
+
+Value must be set before invoking `ready-player-mode'."
+  :type 'boolean
+  :group 'ready-player)
+
 (defcustom ready-player-multi-buffer nil
   "When non-nil, enable opening multiple buffers with parallel playback."
   :type 'boolean
@@ -284,11 +291,29 @@ See variable `ready-player-supported-media' for recognized types."
     (if ready-player-mode
         (progn
           (ready-player-add-to-auto-mode-alist)
+          (when ready-player-set-global-bindings
+            (global-set-key (kbd "C-c m m") 'ready-player-view-player)
+            (global-set-key (kbd "C-c m n") 'ready-player-next)
+            (global-set-key (kbd "C-c m p") 'ready-player-previous)
+            (global-set-key (kbd "C-c m i") 'ready-player-show-info)
+            (global-set-key (kbd "C-c m SPC") 'ready-player-toggle-play-stop)
+            (global-set-key (kbd "C-c m r") 'ready-player-toggle-repeat)
+            (global-set-key (kbd "C-c m s") 'ready-player-toggle-shuffle)
+            (global-set-key (kbd "C-c m a") 'ready-player-toggle-autoplay))
           (when (and called-interactively
                      (string-match-p "no-conversion"
                                      (symbol-name buffer-file-coding-system)))
             (revert-buffer nil t)))
       (ready-player-remove-from-auto-mode-alist)
+      (when ready-player-set-global-bindings
+        (global-unset-key (kbd "C-c m m"))
+        (global-unset-key (kbd "C-c m n"))
+        (global-unset-key (kbd "C-c m p"))
+        (global-unset-key (kbd "C-c m i"))
+        (global-unset-key (kbd "C-c m SPC"))
+        (global-unset-key (kbd "C-c m r"))
+        (global-unset-key (kbd "C-c m s"))
+        (global-unset-key (kbd "C-c m a")))
       (when (and called-interactively
                  (derived-mode-p 'ready-player-major-mode))
         (revert-buffer nil t)))))
