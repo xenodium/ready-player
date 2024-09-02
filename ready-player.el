@@ -97,10 +97,25 @@ Value must be set before invoking `ready-player-mode'."
   :group 'ready-player)
 
 (defcustom ready-player-repeat t
-  "Continue playing if there's more media in current directory.
+  "Continue playing if there's more media in playlist.
 
-Repeats and starts over from the beginning of the directory."
-  :type 'boolean
+Playlist is automatically generated from the current directory.
+
+t or `playlist'
+
+  repeats and starts over from the beginning of the playlist/directory.
+
+file
+
+  repeats current file.
+
+nil
+
+  no repeat."
+  :type '(choice (const :tag "Repeat" t)
+                 (const :tag "No Repeat" nil)
+                 (const :tag "File" file)
+                 (const :tag "Playlist" playlist))
   :group 'ready-player)
 
 (defcustom ready-player-autoplay t
@@ -1164,7 +1179,11 @@ If FALLBACK-TO-LAST, attempt open last known file if needed."
                     ;; window and Emacs window is currently
                     ;; uncomfortable.
                     (ready-player-is-audio-p fpath))
-               (unless (ready-player--open-file-at-offset 1 nil)
+               (unless (ready-player--open-file-at-offset
+                        (if (eq ready-player-repeat 'file)
+                             0
+                          1)
+                        nil)
                  (ready-player--refresh-buffer-status
                   buffer
                   ready-player--process
@@ -1431,9 +1450,13 @@ Returns response string."
     (setq ready-player-hide-modeline nil)))
 
 (defun ready-player-toggle-repeat ()
-  "Toggle repeat setting."
+  "Cycle through repeat settings: file, directory, off."
   (interactive)
-  (setq ready-player-repeat (not ready-player-repeat))
+  (setq ready-player-repeat
+        (cond
+         ((eq ready-player-repeat 'file) 'playlist)
+         ((eq ready-player-repeat 'playlist) nil)
+         (t 'file)))
   (when-let ((buffer (ready-player--active-buffer)))
     (ready-player--refresh-buffer-status
      buffer
@@ -1442,9 +1465,11 @@ Returns response string."
      ready-player-shuffle
      ready-player-autoplay))
   (ready-player--message
-   (format "Repeat: %s" (if ready-player-repeat
-                            "ON"
-                          "OFF")) 1.5))
+   (format "Repeat: %s"
+           (cond
+            ((eq ready-player-repeat 'file) "current file")
+            ((eq ready-player-repeat 'playlist) "playlist")
+            (t "off"))) 1.5))
 
 (defun ready-player-toggle-shuffle ()
   "Toggle shuffle setting."
