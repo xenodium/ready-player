@@ -1107,7 +1107,7 @@ Override DIRED-BUFFER, otherwise resolve internally."
   (with-current-buffer (ready-player--active-buffer)
     (setq ready-player--last-button-focus 'play-stop)
     (ready-player--stop-playback-process))
-  (ready-player--message "Stopped" 1.5))
+  (ready-player--message "Stopped" 2))
 
 (defun ready-player-play (&optional fallback-to-last)
   "Start media playback.
@@ -1209,10 +1209,13 @@ If FALLBACK-TO-LAST, attempt open last known file if needed."
           (if-let ((fpath (buffer-file-name)))
               (if ready-player--process
                   (if (ready-player--pausable-p)
-                      (when (and (not (ready-player--toggle-pause))
-                                 (not in-player))
-                        (ready-player-show-info))
-                    (ready-player-stop))
+                      (let ((paused (ready-player--toggle-pause)))
+                        (when (not in-player)
+                          (if paused
+                              (ready-player--message "Paused" 2)
+                            (ready-player-show-info))))
+                    (ready-player-stop)
+                    (ready-player--message "Stopped" 2))
                 (ready-player-play)
                 (unless in-player
                   (ready-player-show-info)))
@@ -1260,7 +1263,7 @@ Get in touch if keen to add for other players."
       (let ((message-log-max nil))
       (when-let ((position (ready-player--position))
                  (duration (ready-player--duration)))
-        (ready-player--message (ready-player--make-time-progress-bar position duration) 1.5))))))
+        (ready-player--message (ready-player--make-time-progress-bar position duration) 2))))))
 
 (defun ready-player--message (text seconds)
   "Display TEXT inthe echo area for SECONDS seconds, then clear if still displayed."
@@ -1321,10 +1324,12 @@ Note: mpv player only at this time.
 Get in touch if keen to add for other players."
   (with-current-buffer (ready-player--active-buffer)
     (when-let* ((has-mpv-socket (ready-player--has-mpv-socket-p))
-                (response (json-read-from-string
-                           (ready-player--send-command-to-socket
-                            (json-encode '((command . ["get_property" "pause"])))
-                            (ready-player--socket-file)))))
+                (response (condition-case nil
+                              (json-read-from-string
+                               (ready-player--send-command-to-socket
+                                (json-encode '((command . ["get_property" "pause"])))
+                                (ready-player--socket-file)))
+                            (json-error nil))))
       ;; Response looks like:
       ;; json: {"data":false,"request_id":0,"error":"success"}
       ;; parsed: ((data . :json-false) (request_id . 0) (error . "success"))
@@ -1469,7 +1474,7 @@ Returns response string."
            (cond
             ((eq ready-player-repeat 'file) "current file")
             ((eq ready-player-repeat 'playlist) "playlist")
-            (t "off"))) 1.5))
+            (t "off"))) 2))
 
 (defun ready-player-toggle-shuffle ()
   "Toggle shuffle setting."
@@ -1485,7 +1490,7 @@ Returns response string."
   (ready-player--message
    (format "Shuffle: %s" (if ready-player-shuffle
                              "ON"
-                           "OFF")) 1.5))
+                           "OFF")) 2))
 
 (defun ready-player-toggle-autoplay ()
   "Toggle autoplay setting."
@@ -1501,7 +1506,7 @@ Returns response string."
   (ready-player--message
    (format "Autoplay: %s" (if ready-player-autoplay
                               "ON"
-                            "OFF")) 1.5))
+                            "OFF")) 2))
 
 (defun ready-player-reload-buffer ()
   "Reload media from file."
@@ -1539,7 +1544,7 @@ Returns response string."
      (ready-player--dired-playback-buffer))
     (when playing
       (ready-player-play)))
-  (ready-player--message "Reloaded" 1.5))
+  (ready-player--message "Reloaded" 2))
 
 (defun ready-player--playback-command (media-file)
   "Craft a playback command for MEDIA-FILE with first appropriate utility.
