@@ -240,11 +240,15 @@ add for other players."
   :group 'ready-player)
 
 (defcustom ready-player-display-dired-playback-buffer-display-action
-  '((display-buffer-reuse-window
+  `((display-buffer-reuse-mode-window
+     (lambda (buffer alist) ;; Use right side window if one available.
+       (when (window-combination-p (frame-root-window (selected-frame)) t)
+         (window--display-buffer buffer
+                                 (car (window-at-side-list nil 'right))
+                                 'reuse alist)))
      display-buffer-in-direction)
-    (reusable-frames . visible)
-    (direction . right)
-    (window-width . 0.60))
+    (window-width . 0.60)
+    (direction . right))
   "Choose how to display the associated playback `dired' buffer.
 
 Same format as a the action in a `display-buffer-alist' entry."
