@@ -44,6 +44,7 @@
 (require 'cl-lib)
 (require 'comint)
 (require 'dired)
+(require 'map)
 (require 'seq)
 (require 'subr-x)
 (require 'svg)
