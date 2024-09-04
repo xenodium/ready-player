@@ -70,6 +70,7 @@
     (define-key map (kbd "q") #'ready-player-quit)
     (define-key map (kbd "g") #'ready-player-reload-buffer)
     (define-key map (kbd "m") #'ready-player-mark-dired-file)
+    (define-key map (kbd "/") #'ready-player-search-dired-buffer-index)
     (define-key map (kbd "u") #'ready-player-unmark-dired-file)
     (define-key map (kbd "d") #'ready-player-view-dired-playback-buffer)
     map)
@@ -297,6 +298,13 @@ Could be one of:
 
 Used to remember button position across files in continuous playback.")
 
+(defvar ready-player--highest-priority-dired-buffer nil
+  "Non-nil to make this this highest priority `dired' for playback.
+
+Note: This must not be permanently set.
+
+See `ready-player-load-dired-playback-buffer' for temporary override.")
+
 (defvar-local ready-player--dired-playback-buffer nil
   "`dired' buffer used when determining next/previous file.")
 
@@ -312,6 +320,7 @@ See variable `ready-player-supported-media' for recognized types."
           (ready-player-add-to-auto-mode-alist)
           (when ready-player-set-global-bindings
             (global-set-key (kbd "C-c m m") 'ready-player-view-player)
+            (global-set-key (kbd "C-c m /") 'ready-player-search-dired-buffer-index)
             (global-set-key (kbd "C-c m n") 'ready-player-next)
             (global-set-key (kbd "C-c m p") 'ready-player-previous)
             (global-set-key (kbd "C-c m i") 'ready-player-show-info)
@@ -326,6 +335,7 @@ See variable `ready-player-supported-media' for recognized types."
       (ready-player-remove-from-auto-mode-alist)
       (when ready-player-set-global-bindings
         (global-unset-key (kbd "C-c m m"))
+        (global-unset-key (kbd "C-c m /"))
         (global-unset-key (kbd "C-c m n"))
         (global-unset-key (kbd "C-c m p"))
         (global-unset-key (kbd "C-c m i"))
@@ -467,7 +477,8 @@ Note: This function needs to be added to `file-name-handler-alist'."
          (local-thumbnail (ready-player--local-thumbnail-in-directory default-directory))
          (cached-thumbnail (or (ready-player--cached-thumbnail fpath)
                                local-thumbnail))
-         (cached-dired-buffer (ready-player--resolve-file-dired-buffer fpath))
+         (cached-dired-buffer (ready-player--resolve-file-dired-buffer
+                               fpath ready-player--highest-priority-dired-buffer))
          (thumbnailer (if (executable-find "ffmpegthumbnailer")
                           #'ready-player--load-file-thumbnail-via-ffmpegthumbnailer
                         #'ready-player--load-file-thumbnail-via-ffmpeg)))
@@ -477,7 +488,9 @@ Note: This function needs to be added to `file-name-handler-alist'."
         (setq ready-player--dired-playback-buffer
               cached-dired-buffer)
       (setq ready-player--dired-playback-buffer
-            (find-file-noselect default-directory)))
+            (ready-player--find-file-noselect default-directory)))
+    (ready-player--index-dired-buffer
+     ready-player--dired-playback-buffer)
     (setq ready-player--active-buffer buffer)
     (ready-player--update-buffer buffer fpath
                                  ready-player--process
@@ -916,6 +929,13 @@ With optional argument N, visit the Nth file after the current one."
       (unless in-player
         (ready-player-show-info)))))
 
+(defun ready-player--find-file-noselect (file)
+  "Like `find-file-noselect' but be silent and don't record FILE in `recentf'."
+  (let ((inhibit-message t)
+        (recentf-exclude (list (concat (regexp-quote (file-name-nondirectory file)) "\\'"))))
+    (ignore recentf-exclude)
+    (find-file-noselect file)))
+
 (defun ready-player--open-file (fpath buffer start-playing)
   "Open file at FPATH in BUFFER.
 
@@ -923,9 +943,7 @@ If START-PLAYING is non-nil, start playing the media file."
   (let ((old-buffer buffer)
         ;; Auto-played files should not be added to recentf.
         ;; Temporarily override `recentf-exclude'.
-        (new-buffer (let ((recentf-exclude (list (concat (regexp-quote (file-name-nondirectory fpath)) "\\'"))))
-                      (ignore recentf-exclude)
-                      (find-file-noselect fpath))))
+        (new-buffer (ready-player--find-file-noselect fpath)))
     (with-current-buffer new-buffer
       (when (get-buffer-window-list old-buffer nil t)
         (set-window-buffer (car (get-buffer-window-list old-buffer nil t)) new-buffer))
@@ -2190,29 +2208,20 @@ playback."
                                                                (with-current-buffer buffer
                                                                  (derived-mode-p 'dired-mode)))
                                                              (buffer-list)))
+                                                ;; TODO: Open find-file to open a dired buffer
                                                 (error "No `dired' buffers available")) nil t)))
          (media-file (if (buffer-live-p (get-buffer dired-buffer))
                          (ready-player--next-dired-file-from
                           nil 1 t ready-player-shuffle (get-buffer dired-buffer))
                        (error "dired buffer not found")))
          (media-buffer (if media-file
-                           (find-file-noselect media-file)
+                           ;; Momentarily override highest priority buffer
+                           (let ((ready-player--highest-priority-dired-buffer
+                                  (get-buffer dired-buffer)))
+                             (find-file-noselect media-file))
                          (error "No media found"))))
     (unless media-buffer
       (error "No media found"))
-    (with-current-buffer media-buffer
-      ;; Override buffer-local dired buffer's to use chosen one.
-      (setq ready-player--dired-playback-buffer (get-buffer dired-buffer))
-      ;; Refresh to ensure new dired buffer is displayed.
-      (ready-player--update-buffer
-       media-buffer media-file
-       ready-player--process
-       ready-player-repeat
-       ready-player-shuffle
-       ready-player-autoplay
-       ready-player--thumbnail
-       ready-player--metadata
-       (ready-player--dired-playback-buffer)))
     (unless (eq (current-buffer) media-buffer)
       (switch-to-buffer media-buffer))))
 
@@ -2240,22 +2249,51 @@ playback."
                     'ready-player-major-mode))
               (buffer-list)))
 
-(defun ready-player--dired-buffers ()
-  "Get all `ready-player-major-mode' buffers."
-  (seq-mapcat
-   (lambda (buffer)
-     (with-current-buffer buffer
-       (when (buffer-live-p ready-player--dired-playback-buffer)
-         (list ready-player--dired-playback-buffer))))
-   (ready-player--buffers)))
+(defun ready-player--dired-buffers (&optional prioritized-dired-buffer)
+  "Get all `ready-player-major-mode' `dired' buffers.
 
-(defun ready-player--resolve-file-dired-buffer (file)
-  "Return a known `dired' buffer containing FILE or nil otherwise."
+When PRIORITIZED-DIRED-BUFFER is non-nil return as the first buffer in list."
+  (let ((dired-buffers '())
+        (known-dired-buffers '())
+        (result))
+    (dolist (buffer (buffer-list) dired-buffers)
+      (cond ((and (eq (buffer-local-value 'major-mode buffer)
+                      'ready-player-major-mode)
+                  (with-current-buffer buffer
+                    (buffer-live-p ready-player--dired-playback-buffer)))
+             (setq dired-buffers (append dired-buffers
+                                         (list (with-current-buffer buffer
+                                                 ready-player--dired-playback-buffer))))
+             (setq known-dired-buffers (append known-dired-buffers
+                                               (list (with-current-buffer buffer
+                                                       ready-player--dired-playback-buffer)))))
+            ((eq (buffer-local-value 'major-mode buffer)
+                 'dired-mode)
+             (setq dired-buffers (append dired-buffers
+                                         (list buffer))))))
+    (setq result (append
+                  (when prioritized-dired-buffer
+                    (list prioritized-dired-buffer))
+                  known-dired-buffers
+                  dired-buffers))
+    ;; For debugging
+    ;; (message "===============")
+    ;; (message "Buffers:")
+    ;; (mapc (lambda (buffer)
+    ;; (message "%s" buffer)) result)
+    ;; (message "===============")
+    result))
+
+(defun ready-player--resolve-file-dired-buffer (file &optional prioritized-dired-buffer)
+  "Return a known `dired' buffer containing FILE or nil otherwise.
+
+When PRIORITIZED-DIRED-BUFFER is non-nil give highest resolutin priority
+to this `dired' buffers."
   (seq-find
    (lambda (buffer)
      (with-current-buffer buffer
        (dired-goto-file file)))
-   (ready-player--dired-buffers)))
+   (ready-player--dired-buffers prioritized-dired-buffer)))
 
 (defun ready-player--keep-only-this-buffer (buffer)
   "Keep this BUFFER and kill all other `ready-player-mode' buffers."
@@ -2283,6 +2321,194 @@ Fails if none available unless NO-ERROR is non-nil."
          nil)
         (t
          (error "No ready-player buffer available"))))
+
+(defun ready-player--index-dired-buffer (dired-buffer)
+  "Index DIRED-BUFFER (experimental)."
+  (let* ((new-dired-hash (md5 (with-current-buffer dired-buffer
+                                (buffer-string))))
+         (hash-path (ready-player--index-hash-path))
+         (old-dired-hash (when (file-exists-p hash-path)
+                           (with-temp-buffer
+                             (insert-file-contents hash-path)
+                             (string-trim (buffer-string)))))
+         (destination-path (ready-player--index-path))
+         ;; Source contains the list of all files.
+         (source-path (ready-player--source-index-path))
+         (source-path-temp (concat source-path ".tmp"))
+         (now (current-time))
+         (name "Dired buffer media indexing")
+         (buffer (get-buffer-create (format "*%s*" name))))
+    (unless (equal new-dired-hash old-dired-hash)
+      (when-let* ((existing-process (get-buffer-process buffer)))
+        (delete-process existing-process))
+      (delete-file source-path-temp)
+      (with-current-buffer buffer
+        (erase-buffer))
+      (unless (ready-player--dump-media-files-from-dired-buffer
+               dired-buffer source-path-temp)
+        (error "Nothing to index"))
+      (if (executable-find "ffprobe")
+          (set-process-sentinel
+           (start-process
+            name
+            buffer
+            (file-truename (expand-file-name invocation-name
+                                             invocation-directory))
+            "--quick" "--batch" "--eval"
+            (prin1-to-string
+             `(progn
+                (interactive)
+                (require 'cl-lib)
+                (require 'seq)
+                (require 'map)
+                (defun parse-tags (path)
+                  (setq path (file-name-unquote path))
+                  (with-temp-buffer
+                    (if (eq 0 (call-process "ffprobe" nil t nil "-v" "quiet"
+                                            "-print_format" "json" "-show_format" path))
+                        (map-elt (json-parse-string (buffer-string)
+                                                    :object-type 'alist)
+                                 'format)
+                      (message "Warning: Couldn't read track metadata for %s" path)
+                      (message "Only found:\n%s" (buffer-string))
+                      (list (cons 'filename path)))))
+
+                (let* ((paths (with-temp-buffer
+                                (insert-file-contents ,source-path-temp)
+                                (split-string (buffer-string) "\n" t)))
+                       (total (length paths))
+                       (n 0)
+                       (records (seq-map (lambda (path)
+                                           (let ((tags (parse-tags path)))
+                                             (message "%d/%d %s" (setq n (1+ n))
+                                                      total (or (map-elt (map-elt tags 'tags) 'title) "No title"))
+                                             tags))
+                                         paths)))
+                  (rename-file ,source-path-temp ,source-path t)
+                  (delete-file ,destination-path)
+                  (with-temp-buffer
+                    (prin1 (list
+                            (cons 'index records)
+                            (cons 'dired-hash ,new-dired-hash)) (current-buffer))
+                    (write-file ,destination-path nil))
+                  (with-temp-file ,hash-path
+                    (insert ,new-dired-hash))))))
+           (lambda (process _)
+             ;; Ignore mentioning issues if process was killed.
+             (unless (equal (process-status process) 'signal)
+               (if (= (process-exit-status process) 0)
+                   (when-let ((time (float-time (time-subtract (current-time) now)))
+                              (over-10s (> time (float-time (time-subtract (current-time) now)))))
+                     (message "ready-player index ready: \"%s\" (%.3fs)" dired-buffer time))
+                 (message "Indexing music... failed, see %s" buffer)))))
+        (message "Indexing not available (ffprobe not found)")))))
+
+(defun ready-player--dump-media-files-from-dired-buffer (dired-buffer destination)
+  "Dump all files in DIRED-BUFFER to a text file at DESTINATION."
+  (with-current-buffer dired-buffer
+    (let ((regexp (regexp-opt (ready-player--supported-media-with-uppercase) t))
+          (temp-buffer (get-buffer-create "*dired-media-files*")))
+      (with-current-buffer temp-buffer
+        (erase-buffer))
+      (delete-file destination)
+      (save-excursion
+        (goto-char (point-min))
+        (while (= 0 (forward-line))
+          (when-let* ((file (dired-get-filename nil t))
+                      (extension (file-name-extension file))
+                      (match-p (string-match-p regexp extension)))
+            (with-current-buffer temp-buffer
+              (insert file "\n")))))
+      (with-current-buffer temp-buffer
+        ;; Using write-region to avoid "Wrote" echo message.
+        (write-region (point-min) (point-max) destination nil 'noprint)
+        (kill-buffer temp-buffer)))
+    (file-exists-p destination)))
+
+(defun ready-player--index-hash-path ()
+  "Generate an index for DIRED-BUFFER."
+  (ready-player--cached-item-path-for
+   (ready-player--dired-buffer-index-identifier) "_index.diredhash"))
+
+(defun ready-player--index-path ()
+  "Generate an index for DIRED-BUFFER."
+  (ready-player--cached-item-path-for
+   (ready-player--dired-buffer-index-identifier) "_index.el"))
+
+(defun ready-player--dired-buffer-index-identifier ()
+  "Return an identifier for assciated `dired' buffer."
+  (with-current-buffer (ready-player--active-buffer)
+    (with-current-buffer (ready-player--dired-playback-buffer)
+      (concat (dired-current-directory) (buffer-name)))))
+
+(defun ready-player--source-index-path ()
+  "Generate a source index for DIRED-BUFFER."
+  (ready-player--cached-item-path-for
+   (ready-player--dired-buffer-index-identifier) "_source_index.txt"))
+
+(defun ready-player-search-dired-buffer-index ()
+  "Search the `dired' playlist for playback (experimental)."
+  (interactive)
+  (let ((in-player (eq major-mode 'ready-player-major-mode)))
+    (let* ((title-width (max 25 (round (* (- (window-width) 9) 0.3))))
+           (artist-width (round (* (- (window-width) 9) 0.25)))
+           (album-width (- (window-width) 9 title-width artist-width))
+           (index (map-elt (ready-player--dired-buffer-index) 'index))
+           (tracks (progn
+                     (when (seq-empty-p index)
+                       (error "No index available"))
+                     (mapcar
+                      (lambda (track)
+                        (let-alist track
+                          ;; Multi-line
+                          ;; (format "%s\n%s %s%s"
+                          ;;         (or .tags.title (file-name-base .filename) "No title")
+                          ;;         (propertize (or .tags.artist "") 'face 'font-lock-string-face)
+                          ;;         (propertize (or .tags.album "") 'face 'font-lock-variable-name-face)
+                          ;;         (propertize (format "file:%s" .filename) 'invisible t))
+                          (format "%s   %s   %s%s"
+                                  (truncate-string-to-width
+                                   (or .tags.title
+                                       (file-name-base .filename)
+                                       "No title") title-width nil ?\s "…")
+                                  (truncate-string-to-width (propertize (or .tags.artist "")
+                                                                        'face 'font-lock-string-face) artist-width nil ?\s "…")
+                                  (truncate-string-to-width
+                                   (propertize (or .tags.album "")
+                                               'face 'font-lock-variable-name-face) album-width nil ?\s "…")
+                                  (propertize (format "file:%s" .filename) 'invisible t))))
+                      index)))
+           (selection (completing-read "Play: " tracks nil t))
+           (file (with-temp-buffer
+                   (insert (nth 1 (split-string selection "file:")))
+                   (buffer-substring-no-properties (point-min) (point-max)))))
+      (if (ready-player--active-buffer t)
+          (ready-player--open-file file (ready-player--active-buffer) t)
+        (ready-player--open-file file (find-file file) t))
+      (unless in-player
+        (ready-player-show-info)))))
+
+(defun ready-player--dired-buffer-index ()
+  "Load and return the associated index if one is found."
+  ;; Attempt access to full index.
+  (if (file-exists-p (ready-player--index-path))
+      (with-temp-buffer
+        (insert-file-contents (ready-player--index-path))
+        (read (current-buffer)))
+    (with-temp-buffer
+      (cond ((file-exists-p (ready-player--source-index-path))
+             ;; Attempt access to full index sources.
+             (insert-file-contents (ready-player--source-index-path)))
+            ((file-exists-p (concat (ready-player--source-index-path) ".tmp"))
+             ;; Attempt access to partial index sources.
+             (insert-file-contents (concat (ready-player--source-index-path) ".tmp"))))
+      (let (result)
+        (while (not (eobp))
+          (let ((line (buffer-substring-no-properties (line-beginning-position) (line-end-position))))
+            (push (list (cons 'filename line)) result))
+          (forward-line 1))
+        (list
+         (cons 'index (nreverse result)))))))
 
 (provide 'ready-player)
 
