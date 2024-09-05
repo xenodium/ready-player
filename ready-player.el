@@ -2408,13 +2408,14 @@ Fails if none available unless NO-ERROR is non-nil."
          (source-path (ready-player--source-index-path))
          (source-path-temp (concat source-path ".tmp"))
          (now (current-time))
-         (buffer (get-buffer-create
-                  (format "Media indexing (%s)" (buffer-name dired-buffer)))))
+         (dired-buffer-name (buffer-name dired-buffer))
+         (indexing-buffer))
     (unless (equal new-dired-hash old-dired-hash)
-      (when-let* ((existing-process (get-buffer-process buffer)))
+      (setq indexing-buffer (get-buffer-create "*Media indexing*"))
+      (when-let* ((existing-process (get-buffer-process indexing-buffer)))
         (delete-process existing-process))
       (delete-file source-path-temp)
-      (with-current-buffer buffer
+      (with-current-buffer indexing-buffer
         (erase-buffer))
       (unless (ready-player--dump-media-files-from-dired-buffer
                dired-buffer source-path-temp)
@@ -2423,7 +2424,7 @@ Fails if none available unless NO-ERROR is non-nil."
           (set-process-sentinel
            (start-process
             "media-indexing"
-            buffer
+            indexing-buffer
             (file-truename (expand-file-name invocation-name
                                              invocation-directory))
             "--quick" "--batch" "--eval"
@@ -2444,6 +2445,8 @@ Fails if none available unless NO-ERROR is non-nil."
                       (message "Warning: Couldn't read track metadata for %s" path)
                       (message "Only found:\n%s" (buffer-string))
                       (list (cons 'filename path)))))
+                (message "Indexing %s %s" ,dired-buffer-name
+                         (format-time-string "%Y-%m-%d %H:%M:%S"))
                 (let* ((paths (with-temp-buffer
                                 (insert-file-contents ,source-path-temp)
                                 (split-string (buffer-string) "\n" t)))
@@ -2469,10 +2472,11 @@ Fails if none available unless NO-ERROR is non-nil."
              (unless (equal (process-status process) 'signal)
                (if (= (process-exit-status process) 0)
                    (when-let ((time (float-time (time-subtract (current-time) now))))
-                     (with-current-buffer buffer
+                     (with-current-buffer indexing-buffer
                        (goto-char (point-max))
-                       (insert (format "Finished in %.3f seconds" time))))
-                 (message "Failed media indexing, see %s" buffer)))))
+                       (insert (format "Finished in %.3f seconds" time))
+                       (goto-char (point-min))))
+                 (message "Failed media indexing, see %s" indexing-buffer)))))
         (message "Indexing not available (ffprobe not found)")))))
 
 (defun ready-player--dump-media-files-from-dired-buffer (dired-buffer destination)
