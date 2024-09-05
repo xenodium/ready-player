@@ -2249,8 +2249,10 @@ Otherwise browse to select a different directory to load."
   (let* ((current-buffer (current-buffer))
          (directory (if-let* ((in-dired-mode (eq major-mode 'dired-mode))
                               (files (dired-get-marked-files))
-                              (is-single (eq 1 (seq-length files)))
-                              (selection (seq-first files))
+                              (selection (progn
+                                           (unless (eq 1 (seq-length files))
+                                             (error "Select a single directory"))
+                                           (seq-first files)))
                               (is-on-dir (file-directory-p selection))
                               (should-load (y-or-n-p (format "Load \"%s\"? "
                                                              (file-name-nondirectory
