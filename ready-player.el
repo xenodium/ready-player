@@ -2211,8 +2211,6 @@ also show the output of a shell command.  For example, `find-dired'.
 `ready-player-load-dired-buffer' can open any `dired' buffer for
 playback."
   (interactive)
-  (when-let ((existing-player (ready-player--active-buffer t)))
-    (kill-buffer existing-player))
   (let* ((dired-buffer (or dired-buffer
                            (completing-read "Open 'dired' buffer: "
                                             (or (seq-map
@@ -2229,10 +2227,13 @@ playback."
                           nil 1 t ready-player-shuffle (get-buffer dired-buffer))
                        (error "dired buffer not found")))
          (media-buffer (if media-file
-                           ;; Momentarily override highest priority buffer
-                           (let ((ready-player--highest-priority-dired-buffer
-                                  (get-buffer dired-buffer)))
-                             (find-file-noselect media-file))
+                           (progn
+                             (when-let ((existing-player (ready-player--active-buffer t)))
+                               (kill-buffer existing-player))
+                             ;; Momentarily override highest priority buffer
+                             (let ((ready-player--highest-priority-dired-buffer
+                                    (get-buffer dired-buffer)))
+                               (find-file-noselect media-file)))
                          (error "No media found"))))
     (unless media-buffer
       (error "No media found"))
