@@ -104,7 +104,7 @@ Value must be set before invoking `ready-player-mode'."
   :group 'ready-player)
 
 (defcustom ready-player-repeat t
-  "Continue playing if there's more media in playlist.
+  "Continue playing if there's more media in directory or playlist.
 
 Playlist is automatically generated from the current directory.
 
@@ -2197,7 +2197,9 @@ to directory."
     buffer))
 
 (defun ready-player-load-dired-buffer (&optional dired-buffer)
-  "Open a `dired' buffer  If DIRED-BUFFER is nil, offer to pick on.
+  "Load a `dired' buffer.
+
+If DIRED-BUFFER is nil, offer to pick one.
 
 `dired' buffers typically show a directory's content, but they can
 also show the output of a shell command.  For example, `find-dired'.
