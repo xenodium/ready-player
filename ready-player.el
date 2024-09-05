@@ -98,6 +98,11 @@ Value must be set before invoking `ready-player-mode'."
   :type 'boolean
   :group 'ready-player)
 
+(defcustom ready-player-always-load-directory-recursively t
+  "When non-nil, load directory recursively without prompt."
+  :type 'boolean
+  :group 'ready-player)
+
 (defcustom ready-player-repeat t
   "Continue playing if there's more media in playlist.
 
@@ -304,7 +309,7 @@ Used to remember button position across files in continuous playback.")
 
 Note: This must not be permanently set.
 
-See `ready-player-load-dired-playback-buffer' for temporary override.")
+See `ready-player-load-dired-buffer' for temporary override.")
 
 (defvar-local ready-player--dired-playback-buffer nil
   "`dired' buffer used when determining next/previous file.")
@@ -2160,7 +2165,7 @@ to directory."
                                       (mapcar (lambda (path)
                                                 (file-relative-name path default-directory))
                                               media-files)))))
-    (ready-player-load-dired-playback-buffer dired-buffer)))
+    (ready-player-load-dired-buffer dired-buffer)))
 
 (defun ready-player--media-at-m3u-file (m3u-path)
   "Read m3u playlist at M3U-PATH and return files."
@@ -2191,13 +2196,13 @@ to directory."
     (switch-to-buffer-other-window buffer)
     buffer))
 
-(defun ready-player-load-dired-playback-buffer (&optional dired-buffer)
+(defun ready-player-load-dired-buffer (&optional dired-buffer)
   "Open a `dired' buffer  If DIRED-BUFFER is nil, offer to pick on.
 
 `dired' buffers typically show a directory's content, but they can
 also show the output of a shell command.  For example, `find-dired'.
 
-`ready-player-load-dired-playback-buffer' can open any `dired' buffer for
+`ready-player-load-dired-buffer' can open any `dired' buffer for
 playback."
   (interactive)
   (let* ((dired-buffer (or dired-buffer
@@ -2225,6 +2230,49 @@ playback."
       (error "No media found"))
     (unless (eq (current-buffer) media-buffer)
       (switch-to-buffer media-buffer))))
+
+(defun ready-player-load-directory ()
+  "Load all media from directory (experimental)."
+  (interactive)
+  (let* ((current-buffer (current-buffer))
+         (directory (string-remove-suffix "/" (read-directory-name "Load directory: ")))
+         (new-name (concat "*" (file-name-base directory) "*"))
+         (progress-reporter (make-progress-reporter "Loading"))
+         (dired-buffer)
+         (hook))
+    (setq hook (lambda (_beg _end _len)
+                 (with-current-buffer dired-buffer)
+                 (save-excursion
+                   (progress-reporter-update progress-reporter)
+                   (goto-char (point-max))
+                   (when (string-prefix-p
+                          "find finished"
+                          (string-trim
+                           (buffer-substring
+                            (line-beginning-position)
+                            (line-end-position))))
+                     (remove-hook 'after-change-functions hook t)
+                     (progress-reporter-done progress-reporter)
+                     (ready-player-load-dired-buffer dired-buffer)))))
+    (if (or ready-player-always-load-directory-recursively
+            (y-or-n-p "Load recursively? "))
+        (progn
+          (when (buffer-live-p (get-buffer new-name))
+            (kill-buffer new-name))
+          (find-dired directory
+                      (string-join (mapcar (lambda (ext)
+                                             (format "-iname \\*.%s" ext))
+                                           (ready-player-supported-media)) " -o "))
+          ;; find-dired pops to dired buffer same window. Save it.
+          (setq dired-buffer (current-buffer))
+          (rename-buffer new-name)
+          ;; Now switch back to existing buffer while busy finding.
+          (when (buffer-live-p (get-buffer current-buffer))
+            (switch-to-buffer current-buffer))
+          (with-current-buffer dired-buffer
+            (add-hook 'after-change-functions hook nil t)))
+      (ready-player-load-dired-buffer
+       (ready-player--find-file-noselect directory)))))
 
 (defun ready-player--clean-up ()
   "Kill playback process."
