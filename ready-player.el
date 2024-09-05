@@ -155,18 +155,18 @@ so users can opt to hide the mode line."
   :type 'boolean
   :group 'ready-player)
 
-(defcustom ready-player-previous-icon "<<"
-  "Previous button icon string, for example: \"<<\"."
+(defcustom ready-player-previous-icon "◁◁"
+  "Previous button icon string, for example: \"◁◁\"."
   :type 'string
   :group 'ready-player)
 
-(defcustom ready-player-play-icon "⏵"
-  "Play button icon string, for example: \"⏵\"."
+(defcustom ready-player-play-icon "▶"
+  "Play button icon string, for example: \"▶\"."
   :type 'string
   :group 'ready-player)
 
-(defcustom ready-player-next-icon ">>"
-  "Next button icon string, for example: \">>\"."
+(defcustom ready-player-next-icon "▷▷"
+  "Next button icon string, for example: \"▷▷\"."
   :type 'string
   :group 'ready-player)
 
@@ -190,8 +190,13 @@ so users can opt to hide the mode line."
   :type 'string
   :group 'ready-player)
 
-(defcustom ready-player-autoplay-icon "⚡"
-  "Autoplay icon string, for example: \"⚡\"."
+(defcustom ready-player-autoplay-icon "⏻"
+  "Autoplay icon string, for example: \"⏻\"."
+  :type 'string
+  :group 'ready-player)
+
+(defcustom ready-player-search-icon "⌕"
+  "Search icon string, for example: \"⌕\"."
   :type 'string
   :group 'ready-player)
 
@@ -375,7 +380,8 @@ See variable `ready-player-supported-media' for recognized types."
   (setq ready-player-stop-icon "􀛷")
   (setq ready-player-repeat-icon "􀊞")
   (setq ready-player-shuffle-icon "􀊝")
-  (setq ready-player-autoplay-icon "􀋦"))
+  (setq ready-player-autoplay-icon "􀋦")
+  (setq ready-player-search-icon "􀊫"))
 
 (defun ready-player--supported-media-with-uppercase ()
   "Duplicate variable `ready-player-supported-media' with uppercase equivalents."
@@ -1604,7 +1610,7 @@ Note: <<socket>> is expanded to socket path."
 
 (defun ready-player--make-file-button-line (busy repeat shuffle autoplay)
   "Create button line with BUSY, REPEAT, AUTOPLAY, and SHUFFLE."
-  (format " %s %s %s %s %s %s %s"
+  (format " %s %s %s %s %s %s %s %s"
           (ready-player--make-button ready-player-previous-icon
                                      'previous
                                      #'ready-player-previous)
@@ -1627,7 +1633,10 @@ Note: <<socket>> is expanded to socket path."
                                               #'ready-player-toggle-shuffle)
           (ready-player--make-checkbox-button ready-player-autoplay-icon autoplay
                                               'autoplay
-                                              #'ready-player-toggle-autoplay)))
+                                              #'ready-player-toggle-autoplay)
+          (ready-player--make-button ready-player-search-icon
+                                     'search
+                                     #'ready-player-search-dired-buffer-index t)))
 
 (defun ready-player--make-checkbox-button (text checked kind action)
   "Make a checkbox button with TEXT, CHECKED state, KIND, and ACTION."
