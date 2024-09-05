@@ -2240,10 +2240,22 @@ playback."
       (switch-to-buffer media-buffer))))
 
 (defun ready-player-load-directory ()
-  "Load all media from directory (experimental)."
+  "Load all media from directory (experimental).
+
+If point is on a directory in a `dired' mode, offer to load it.
+Otherwise browse to select a different directory to load."
   (interactive)
   (let* ((current-buffer (current-buffer))
-         (directory (string-remove-suffix "/" (read-directory-name "Load directory: ")))
+         (directory (if-let* ((in-dired-mode (eq major-mode 'dired-mode))
+                              (files (dired-get-marked-files))
+                              (is-single (eq 1 (seq-length files)))
+                              (selection (seq-first files))
+                              (is-on-dir (file-directory-p selection))
+                              (should-load (y-or-n-p (format "Load \"%s\"? "
+                                                             (file-name-nondirectory
+                                                              (string-remove-suffix "/" selection))))))
+                        selection
+                      (string-remove-suffix "/" (read-directory-name "Load directory: "))))
          (new-name (concat "*" (file-name-base directory) "*"))
          (progress-reporter (make-progress-reporter "Loading"))
          (dired-buffer)
