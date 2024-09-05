@@ -481,8 +481,8 @@ Note: This function needs to be added to `file-name-handler-alist'."
   (setq buffer-undo-list t)
   (when ready-player-hide-modeline
     (setq mode-line-format nil))
-  (ready-player--save-state)
-
+  (ready-player--save-state 'buffer-file-name
+                            (buffer-file-name))
   (let* ((buffer (current-buffer))
          (fpath (buffer-file-name))
          (cached-metadata (ready-player--cached-metadata fpath))
@@ -501,6 +501,10 @@ Note: This function needs to be added to `file-name-handler-alist'."
               cached-dired-buffer)
       (setq ready-player--dired-playback-buffer
             (ready-player--find-file-noselect default-directory)))
+    (when-let ((dired-buffer ready-player--dired-playback-buffer)
+               (is-live (buffer-live-p dired-buffer)))
+      (ready-player--save-state
+       'default-directory (buffer-local-value 'default-directory dired-buffer)))
     (ready-player--index-dired-buffer
      ready-player--dired-playback-buffer)
     (setq ready-player--active-buffer buffer)
@@ -605,29 +609,34 @@ Note: This function needs to be added to `file-name-handler-alist'."
               :text-anchor "middle" :dominant-baseline "central")
     (svg-image svg)))
 
-(defun ready-player--save-state ()
-  "Save state across Emacs sessions."
+(defun ready-player--save-state (key value)
+  "Save KEY and VALUE in state across Emacs sessions."
   (ready-player--ensure-mode)
-  (let ((media-file (buffer-file-name)))
+  (let ((last-modified (format-time-string "%Y-%m-%dT%H:%M:%SZ" (current-time) t))
+        (old-state (ready-player--read-state)))
     (with-temp-file (file-name-concat
                      (ready-player--temp-dir)
                      ".ready-player-state.el")
-      (prin1 (list
-              (cons 'buffer-file-name media-file))
-             (current-buffer)))))
+      (setf (map-elt old-state 'last-modified) last-modified)
+      (setf (map-elt old-state key) value)
+      (prin1 old-state (current-buffer)))))
 
 (defun ready-player--read-state ()
   "Read persisted state across Emacs sessions."
-  (with-temp-buffer
-    (condition-case nil
-        (insert-file-contents (file-name-concat
-                               (ready-player--temp-dir)
-                               ".ready-player-state.el"))
-      (error nil))
-    (goto-char (point-min))
-    (condition-case nil
-        (read (current-buffer))
-      (error nil))))
+  (let ((fallback (list (cons 'last-modified (format-time-string "%Y-%m-%dT%H:%M:%SZ" (current-time) t)))))
+    (with-temp-buffer
+      (condition-case nil
+          (insert-file-contents (file-name-concat
+                                 (ready-player--temp-dir)
+                                 ".ready-player-state.el"))
+        (error fallback))
+      (goto-char (point-min))
+      (condition-case nil
+          (let ((state (read (current-buffer))))
+            (if (listp state)
+                state
+              fallback))
+        (error fallback)))))
 
 (defun ready-player--update-buffer (buffer fpath busy repeat shuffle autoplay &optional thumbnail metadata dired-buffer)
   "Update entire BUFFER content.
@@ -675,7 +684,10 @@ and DIRED-BUFFER."
 (defun ready-player-view-player ()
   "Switch to player buffer.
 
-If on player buffer already, switch to previous buffer."
+If on player buffer already, switch to previous buffer.
+
+If there's no existing ready-player buffer, attemp to load the last
+known directory."
   (interactive)
   (if (eq major-mode 'ready-player-major-mode)
       (let ((buffers (buffer-list)))
@@ -683,11 +695,16 @@ If on player buffer already, switch to previous buffer."
           (switch-to-buffer (nth 1 buffers))))
     (if-let ((active-buffer (ready-player--active-buffer t)))
         (switch-to-buffer active-buffer)
-      (if-let ((last-played (map-elt (ready-player--read-state)
-                                     'buffer-file-name)))
-          (find-file last-played)
-        ;; Errors if there's no active buffer available.
-        (ready-player--active-buffer)))))
+      (let* ((state (ready-player--read-state))
+             (last-played-file (map-elt state 'buffer-file-name))
+             (last-played-dir (map-elt state 'default-directory)))
+        (cond (last-played-dir
+               (ready-player-load-directory last-played-dir))
+              (last-played-file
+               (find-file last-played-file))
+              (t
+               ;; Errors if there's no active buffer available.
+               (ready-player--active-buffer)))))))
 
 (defun ready-player-show-info ()
   "Show playback info in the echo area."
@@ -2240,26 +2257,29 @@ playback."
     (unless (eq (current-buffer) media-buffer)
       (switch-to-buffer media-buffer))))
 
-(defun ready-player-load-directory ()
+(defun ready-player-load-directory (&optional directory)
   "Load all media from directory (experimental).
 
 If point is on a directory in a `dired' mode, offer to load it.
-Otherwise browse to select a different directory to load."
+Otherwise browse to select a different directory to load.
+
+If invoked programmatically, set DIRECTORY."
   (interactive)
   (let* ((current-buffer (current-buffer))
-         (directory (if-let* ((in-dired-mode (eq major-mode 'dired-mode))
-                              (files (dired-get-marked-files))
-                              (selection (progn
-                                           (unless (eq 1 (seq-length files))
-                                             (error "Select a single directory"))
-                                           (seq-first files)))
-                              (is-on-dir (file-directory-p selection))
-                              (should-load (y-or-n-p (format "Load \"%s\"? "
-                                                             (file-name-nondirectory
-                                                              (string-remove-suffix "/" selection))))))
-                        selection
-                      (string-remove-suffix "/" (read-directory-name "Load directory: "))))
-         (new-name (concat "*" (file-name-base directory) "*"))
+         (directory (or directory
+                        (if-let* ((in-dired-mode (eq major-mode 'dired-mode))
+                                  (files (dired-get-marked-files))
+                                  (selection (progn
+                                               (unless (eq 1 (seq-length files))
+                                                 (error "Select a single directory"))
+                                               (seq-first files)))
+                                  (is-on-dir (file-directory-p selection))
+                                  (should-load (y-or-n-p (format "Load \"%s\"? "
+                                                                 (file-name-nondirectory
+                                                                  selection)))))
+                            selection
+                          (read-directory-name "Load directory: "))))
+         (new-name (concat "*" (file-name-base (string-remove-suffix "/" directory)) "*"))
          (progress-reporter (make-progress-reporter "Loading"))
          (dired-buffer)
          (hook))
@@ -2397,7 +2417,12 @@ Fails if none available unless NO-ERROR is non-nil."
 (defun ready-player--index-dired-buffer (dired-buffer)
   "Index DIRED-BUFFER (experimental)."
   (let* ((new-dired-hash (md5 (with-current-buffer dired-buffer
-                                (buffer-string))))
+                                ;; Remove "find finished" line to avoid false positives.
+                                (replace-regexp-in-string
+                                 "^\\s-*" ""
+                                 (replace-regexp-in-string
+                                  "find finished.*" ""
+                                  (substring-no-properties (buffer-string)))))))
          (hash-path (ready-player--index-hash-path))
          (old-dired-hash (when (file-exists-p hash-path)
                            (with-temp-buffer
@@ -2474,6 +2499,7 @@ Fails if none available unless NO-ERROR is non-nil."
                    (when-let ((time (float-time (time-subtract (current-time) now))))
                      (with-current-buffer indexing-buffer
                        (goto-char (point-max))
+                       (insert (format "Hash: %s\n" new-dired-hash))
                        (insert (format "Finished in %.3f seconds" time))
                        (goto-char (point-min))))
                  (message "Failed media indexing, see %s" indexing-buffer)))))
