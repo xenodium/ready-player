@@ -695,16 +695,7 @@ known directory."
           (switch-to-buffer (nth 1 buffers))))
     (if-let ((active-buffer (ready-player--active-buffer t)))
         (switch-to-buffer active-buffer)
-      (let* ((state (ready-player--read-state))
-             (last-played-file (map-elt state 'buffer-file-name))
-             (last-played-dir (map-elt state 'default-directory)))
-        (cond (last-played-dir
-               (ready-player-load-directory last-played-dir))
-              (last-played-file
-               (find-file last-played-file))
-              (t
-               ;; Errors if there's no active buffer available.
-               (ready-player--active-buffer)))))))
+      (ready-player-load-last-known))))
 
 (defun ready-player-show-info ()
   "Show playback info in the echo area."
@@ -1155,28 +1146,12 @@ Override DIRED-BUFFER, otherwise resolve internally."
     (ready-player--stop-playback-process))
   (ready-player--message "Stopped" 2))
 
-(defun ready-player-play (&optional fallback-to-last)
-  "Start media playback.
-
-If FALLBACK-TO-LAST, attempt open last known file if needed."
+(defun ready-player-play ()
+  "Start media playback."
   (interactive)
-  (when (called-interactively-p #'interactive)
-    (setq fallback-to-last t))
-  (if (ready-player--active-buffer t)
-      (with-current-buffer (ready-player--active-buffer)
-        (setq ready-player--last-button-focus 'play-stop)
-        (ready-player--start-playback-process))
-    (if-let ((attempt-fallback fallback-to-last)
-             (last-played (map-elt (ready-player--read-state)
-                                   'buffer-file-name))
-             ;; Avoid autoplaying here and redundantly
-             ;; invoking (ready-player-play) right after.
-             (buffer (let ((ready-player-autoplay nil))
-                       (find-file-noselect last-played))))
-        (with-current-buffer buffer
-          (ready-player-play)
-          (ready-player-show-info))
-      (error "No file to play/stop"))))
+  (with-current-buffer (ready-player--active-buffer)
+    (setq ready-player--last-button-focus 'play-stop)
+    (ready-player--start-playback-process)))
 
 (defun ready-player--ensure-mode ()
   "Ensure current buffer is running in `ready-player-major-mode'."
@@ -1266,7 +1241,22 @@ If FALLBACK-TO-LAST, attempt open last known file if needed."
                 (unless in-player
                   (ready-player-show-info)))
             (error "No file to play/stop"))))
-    (ready-player-play t)))
+    (ready-player-load-last-known)))
+
+(defun ready-player-load-last-known ()
+  "Attempt to load last known media."
+  (interactive)
+  (let* ((state (ready-player--read-state))
+         (last-played-file (map-elt state 'buffer-file-name))
+         (last-played-dir (map-elt state 'default-directory)))
+    (cond (last-played-dir
+           (ready-player-load-directory last-played-dir
+                                        last-played-file))
+          (last-played-file
+           (find-file last-played-file))
+          (t
+           ;; Errors if there's no active buffer available.
+           (ready-player--active-buffer)))))
 
 (defun ready-player--has-mpv-socket-p ()
   "Return non-nil if mpv enabled socket communication."
@@ -2217,7 +2207,7 @@ to directory."
     (switch-to-buffer-other-window buffer)
     buffer))
 
-(defun ready-player-load-dired-buffer (&optional dired-buffer)
+(defun ready-player-load-dired-buffer (&optional dired-buffer media-file)
   "Load a `dired' buffer.
 
 If DIRED-BUFFER is nil, offer to pick one.
@@ -2226,7 +2216,9 @@ If DIRED-BUFFER is nil, offer to pick one.
 also show the output of a shell command.  For example, `find-dired'.
 
 `ready-player-load-dired-buffer' can open any `dired' buffer for
-playback."
+playback.
+
+If MEDIA-FILE is non-nil, attempt to load it."
   (interactive)
   (let* ((dired-buffer (or dired-buffer
                            (completing-read "Open 'dired' buffer: "
@@ -2239,10 +2231,13 @@ playback."
                                                              (buffer-list)))
                                                 ;; TODO: Open find-file to open a dired buffer
                                                 (error "No `dired' buffers available")) nil t)))
-         (media-file (if (buffer-live-p (get-buffer dired-buffer))
-                         (ready-player--next-dired-file-from
-                          nil 1 t ready-player-shuffle (get-buffer dired-buffer))
-                       (error "dired buffer not found")))
+         (media-file (cond (media-file
+                            media-file)
+                           ((buffer-live-p (get-buffer dired-buffer))
+                            (ready-player--next-dired-file-from
+                             nil 1 t ready-player-shuffle (get-buffer dired-buffer)))
+                           (t
+                            (error "dired buffer not found"))))
          (media-buffer (if media-file
                            (progn
                              (when-let ((existing-player (ready-player--active-buffer t)))
@@ -2257,13 +2252,15 @@ playback."
     (unless (eq (current-buffer) media-buffer)
       (switch-to-buffer media-buffer))))
 
-(defun ready-player-load-directory (&optional directory)
+(defun ready-player-load-directory (&optional directory media-file)
   "Load all media from directory (experimental).
 
 If point is on a directory in a `dired' mode, offer to load it.
 Otherwise browse to select a different directory to load.
 
-If invoked programmatically, set DIRECTORY."
+If invoked programmatically, set DIRECTORY.
+
+If MEDIA-FILE is non-nil, attempt to load it."
   (interactive)
   (let* ((current-buffer (current-buffer))
          (directory (or directory
@@ -2296,7 +2293,7 @@ If invoked programmatically, set DIRECTORY."
                             (line-end-position))))
                      (remove-hook 'after-change-functions hook t)
                      (progress-reporter-done progress-reporter)
-                     (ready-player-load-dired-buffer dired-buffer)))))
+                     (ready-player-load-dired-buffer dired-buffer media-file)))))
     (if (or ready-player-always-load-directory-recursively
             (y-or-n-p "Load recursively? "))
         (progn
