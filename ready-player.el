@@ -285,7 +285,7 @@ Same format as a the action in a `display-buffer-alist' entry."
 
 (defcustom ready-player-supported-audio
   '("aac" "ac3" "aiff" "amr" "ape" "dts" "f4a" "f4b" "flac" "gsm"
-    "m4a" "midi" "mlp" "mka" "mp2" "mp3" "oga" "ogg" "opus" "pva"
+    "m3u" "m4a" "midi" "mlp" "mka" "mp2" "mp3" "oga" "ogg" "opus" "pva"
     "ra" "ram" "raw" "rf64" "spx" "tta" "wav" "wavpack" "wma" "wv")
   "Supported audiomedia."
   :group 'play-mode
@@ -472,7 +472,7 @@ Note: This function needs to be added to `file-name-handler-alist'."
                     (run-at-time 0.1 nil
                                  (lambda ()
                                    (ready-player--keep-only-this-buffer buffer)))))
-               (when ready-player-autoplay
+                (when ready-player-autoplay
                   (ready-player--start-playback-process))
                 (ready-player--goto-button ready-player--last-button-focus))
   :keymap ready-player-major-mode-map
@@ -481,19 +481,41 @@ Note: This function needs to be added to `file-name-handler-alist'."
   (setq buffer-undo-list t)
   (when ready-player-hide-modeline
     (setq mode-line-format nil))
-  (ready-player--save-state 'buffer-file-name
-                            (buffer-file-name))
-  (let* ((buffer (current-buffer))
-         (fpath (buffer-file-name))
+  (let* ((m3u-file (when (eq (compare-strings ;; Case insensitive.
+                              "m3u" nil nil
+                              (file-name-extension (buffer-file-name))
+                              nil nil t) t)
+                     (buffer-file-name)))
+         (m3u-dired-buffer (when m3u-file
+                             (ready-player-load-m3u-playlist m3u-file)))
+         (m3u-first-file (when m3u-dired-buffer
+                           (with-current-buffer m3u-dired-buffer
+                             (goto-char (point-min))
+                             (while (and (not (dired-get-filename 'no-dir t)) (not (eobp)))
+                               (dired-next-line 1))
+                             (dired-get-filename))))
+         (fpath (progn
+                  (when m3u-first-file
+                    (set-visited-file-name m3u-first-file t t))
+                  (buffer-file-name)))
+         (buffer (current-buffer))
          (cached-metadata (ready-player--cached-metadata fpath))
          (local-thumbnail (ready-player--local-thumbnail-in-directory default-directory))
          (cached-thumbnail (or (ready-player--cached-thumbnail fpath)
                                local-thumbnail))
-         (cached-dired-buffer (ready-player--resolve-file-dired-buffer
-                               fpath ready-player--highest-priority-dired-buffer))
+         (cached-dired-buffer (or m3u-dired-buffer
+                                  (ready-player--resolve-file-dired-buffer
+                                   fpath ready-player--highest-priority-dired-buffer)))
          (thumbnailer (if (executable-find "ffmpegthumbnailer")
                           #'ready-player--load-file-thumbnail-via-ffmpegthumbnailer
                         #'ready-player--load-file-thumbnail-via-ffmpeg)))
+    (when (eq (compare-strings ;; Case insensitive.
+               "m3u" nil nil
+               (file-name-extension (buffer-file-name))
+               nil nil t) t)
+      (error "M3u not handled correctly, please file a bug"))
+    (ready-player--save-state 'buffer-file-name fpath)
+    (ready-player--save-state 'm3u m3u-file)
     (ready-player--update-buffer-name buffer nil)
     ;; Sets default related dired buffer.
     (if cached-dired-buffer
@@ -1247,9 +1269,14 @@ Override DIRED-BUFFER, otherwise resolve internally."
   "Attempt to load last known media."
   (interactive)
   (let* ((state (ready-player--read-state))
+         (last-played-m3u (map-elt state 'm3u))
          (last-played-file (map-elt state 'buffer-file-name))
          (last-played-dir (map-elt state 'default-directory)))
-    (cond (last-played-dir
+    (cond (last-played-m3u
+           (ready-player-load-dired-buffer
+            (ready-player-load-m3u-playlist last-played-m3u)
+            last-played-file))
+          (last-played-dir
            (ready-player-load-directory last-played-dir
                                         last-played-file))
           (last-played-file
@@ -2157,39 +2184,62 @@ to directory."
           ((and override (eq major-mode 'ready-player-major-mode))
            (ready-player-reload-buffer)))))
 
-(defun ready-player-load-m3u-playlist ()
-  "Load an .m3u playlist."
+(defun ready-player-load-m3u-playlist (&optional m3u-path)
+  "Load an .m3u playlist.
+
+Optionally set M3U-PATH to override query.
+
+When invoked programmatically, return the `dired' buffer without
+loading into ready-player."
   (interactive)
-  (let* ((m3u-path (read-file-name "find m3u: " nil nil t nil
-                                   (lambda (name)
-                                     (or (string-match "\\.m3u\\'" name)
-                                         (file-directory-p name)))))
+  (let* ((m3u-path (or m3u-path
+                       (read-file-name "find m3u: " nil nil t nil
+                                       (lambda (name)
+                                         (or (string-match "\\.m3u\\'" name)
+                                             (file-directory-p name))))))
          (media-files (if (string-match "\\.m3u\\'" m3u-path)
                           (ready-player--media-at-m3u-file m3u-path)
                         (error "Not a .m3u file")))
          ;; Find a common parent via completion.
-         (default-directory (file-name-directory
-                             (try-completion "" media-files)))
+         (default-directory (progn
+                              (unless media-files
+                                (error "No media found"))
+                              (file-name-directory
+                               (try-completion "" media-files))))
          (m3u-fname (file-name-nondirectory m3u-path))
          (dired-buffer-name (format "*%s*" m3u-fname))
-         (dired-buffer (dired (append (list dired-buffer-name)
-                                      (mapcar (lambda (path)
-                                                (file-relative-name path default-directory))
-                                              media-files)))))
-    (ready-player-load-dired-buffer dired-buffer)))
+         (dired-buffer (progn
+                         (when (and (get-buffer dired-buffer-name)
+                                    (buffer-live-p (get-buffer dired-buffer-name)))
+                           (kill-buffer (get-buffer dired-buffer-name)))
+                        (dired-noselect (append (list dired-buffer-name)
+                                               (mapcar (lambda (path)
+                                                         (file-relative-name path default-directory))
+                                                       media-files))))))
+    (when (called-interactively-p #'interactive)
+      (ready-player-load-dired-buffer dired-buffer))
+    dired-buffer))
 
 (defun ready-player--media-at-m3u-file (m3u-path)
   "Read m3u playlist at M3U-PATH and return files."
-  (with-temp-buffer
-    (insert-file-contents m3u-path)
-    (let ((files))
-      (while (re-search-forward
-              (rx bol (not (any "#" space))
-                  (zero-or-more (not (any "\n")))
-                  eol) nil t)
-        (when (file-exists-p (match-string 0))
-          (push (match-string 0) files)))
-      (nreverse files))))
+  ;; TODO/HACK: Creating a copy of the m3u without extension
+  ;; so the overriden insert-file-contents in
+  ;; ready-player-file-name-handler does not pick it up
+  ;; and yield a zero length file.
+  ;; Consider patching ready-player-file-name-handler instead.
+  (let ((temp-m3u (make-temp-file "temp-m3u-")))
+    (copy-file m3u-path temp-m3u t)
+    (with-temp-buffer
+      (insert-file-contents temp-m3u)
+      (let ((files))
+        (while (re-search-forward
+                (rx bol (not (any "#" space))
+                    (zero-or-more (not (any "\n")))
+                    eol) nil t)
+          (when (file-exists-p (match-string 0))
+            (push (match-string 0) files)))
+        (delete-file temp-m3u)
+        (nreverse files)))))
 
 (defun display-image-in-temp-buffer (image-path)
   "Display the image at IMAGE-PATH in a temporary, read-only buffer."
