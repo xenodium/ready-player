@@ -133,18 +133,17 @@ If you'd like to use different utilities to play video and audio, you can use =r
 
 ** Buttons (macOS SF Symbols)
 
-By default, =ready-player-mode= will try to use macOS [[https://developer.apple.com/sf-symbols/][SF Symbols]] (if available) for =ready-player-play-icon= =ready-player-stop-icon= and =ready-player-open-externally-icon=.
+If you have [[https://lmno.lol/alvaro/emacs-insert-and-render-sf-symbols][SF symbol rendering in Emacs]] on macOS, you can use enable usage in buttons by invoking =(ready-player-macos-use-sf-symbols)=
+ prior to =(ready-player-mode +1)=:
 
-You'll need to [[https://lmno.lol/alvaro/emacs-insert-and-render-sf-symbols][enable SF symbol rendering in Emacs]] /(before loading =ready-player.el=)/.
-
-#+begin_src emacs-lisp :lexical no
-  (when (memq system-type '(darwin))
-    (set-fontset-font t nil "SF Pro Display" nil 'append))
-#+end_src
+ #+begin_src emacs-lisp :lexical no
+   (ready-player-macos-use-sf-symbols)
+   (ready-player-mode +1)
+ #+end_src
 
 ** Buttons (Linux)
 
-If macOS SF Symbols aren't available, =<< ⏵ ■ >> ➦ ⇆= are used as a fallback. These can be customized (see all icon variables), though may not be the best alternative. Happy to take suggestions!
+Default icons are =◁◁ ▶ ■ ▷▷ ➦ ⇆=. These can be customized (see all icon variables). I'm happy to take suggestions for improving default icons.
 
 * Commands
 
