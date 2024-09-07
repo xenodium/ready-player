@@ -1118,6 +1118,8 @@ Override DIRED-BUFFER, otherwise resolve internally."
              (ready-player--apply-dired-function
               #'dired-mark file)))
       (progn
+        (display-buffer marked-buffer
+                        ready-player-display-dired-playback-buffer-display-action)
         (switch-to-buffer-other-window marked-buffer)
         (dired-goto-file file))
     (message "Couldn't find file to mark")))
