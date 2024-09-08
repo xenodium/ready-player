@@ -684,6 +684,7 @@ and DIRED-BUFFER."
           (buffer-read-only nil))
       (when (buffer-live-p buffer)
         (with-current-buffer buffer
+          (ready-player--update-buffer-name buffer busy)
           (erase-buffer)
           (goto-char (point-min))
           (when ready-player-show-thumbnail
