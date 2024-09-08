@@ -1284,24 +1284,20 @@ Override DIRED-BUFFER, otherwise resolve internally."
 (defun ready-player-open-my-media-collection ()
   "Open my media collection from `ready-player-my-media-collection-location'."
   (interactive)
-  (if-let* ((my-collection-dir ready-player-my-media-collection-location)
-            (exists (file-directory-p my-collection-dir)))
-      (when (and (file-equal-p ready-player-my-media-collection-location
-                               (with-current-buffer (ready-player--dired-playback-buffer)
-                                 default-directory))
-                 (y-or-n-p "Already playing your media collection.  Reload? "))
-        (ready-player-load-directory my-collection-dir
-                                     (when-let* ((state (ready-player--read-state))
-                                                 (file (map-elt state 'buffer-file-name))
-                                                 (exists (file-exists-p file)))
-                                       file)))
+  (when-let* ((my-collection-dir (or ready-player-my-media-collection-location
+                                     ;; TODO: Offer to pick one and save it for the user.
+                                     (error "ready-player-my-media-collection-location is not set")))
+              (exists (file-directory-p my-collection-dir))
+              (load (if (file-equal-p my-collection-dir
+                                      (with-current-buffer (ready-player--dired-playback-buffer)
+                                        default-directory))
+                        (y-or-n-p "Already playing your media collection.  Reload? ")
+                      t)))
     (ready-player-load-directory my-collection-dir
                                  (when-let* ((state (ready-player--read-state))
                                              (file (map-elt state 'buffer-file-name))
                                              (exists (file-exists-p file)))
-                                   file))
-    ;; TODO: Offer to pick one and save it for the user.
-    (error "ready-player-my-media-collection-location is not set")))
+                                   file))))
 
 (defun ready-player-load-last-known ()
   "Attempt to load last known media."
