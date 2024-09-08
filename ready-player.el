@@ -58,6 +58,7 @@
     (define-key map (kbd "SPC") #'ready-player-toggle-play-stop)
     (define-key map (kbd "TAB") #'ready-player-next-button)
     (define-key map (kbd "<backtab>") #'ready-player-previous-button)
+    (define-key map (kbd "c") #'ready-player-open-my-media-collection)
     (define-key map (kbd "a") #'ready-player-toggle-autoplay)
     (define-key map (kbd "s") #'ready-player-toggle-shuffle)
     (define-key map (kbd "r") #'ready-player-toggle-repeat)
@@ -80,6 +81,11 @@
 (defgroup ready-player nil
   "Settings for Ready Player mode."
   :group 'media)
+
+(defcustom ready-player-my-media-collection-location nil
+  "Path to your media collection."
+  :type 'string
+  :group 'ready-player)
 
 (defcustom ready-player-set-global-bindings t
   "When non-nil, bind global bindings under C-c m prefix.
@@ -192,6 +198,11 @@ so users can opt to hide the mode line."
 
 (defcustom ready-player-autoplay-icon "⏻"
   "Autoplay icon string, for example: \"⏻\"."
+  :type 'string
+  :group 'ready-player)
+
+(defcustom ready-player-open-my-media-collection-icon "⌂"
+  "Open my collection icon string, for example: \"⌂\"."
   :type 'string
   :group 'ready-player)
 
@@ -330,15 +341,16 @@ See variable `ready-player-supported-media' for recognized types."
         (progn
           (ready-player-add-to-auto-mode-alist)
           (when ready-player-set-global-bindings
-            (global-set-key (kbd "C-c m m") 'ready-player-view-player)
-            (global-set-key (kbd "C-c m /") 'ready-player-search-dired-buffer-index)
-            (global-set-key (kbd "C-c m n") 'ready-player-next)
-            (global-set-key (kbd "C-c m p") 'ready-player-previous)
-            (global-set-key (kbd "C-c m i") 'ready-player-show-info)
-            (global-set-key (kbd "C-c m SPC") 'ready-player-toggle-play-stop)
-            (global-set-key (kbd "C-c m r") 'ready-player-toggle-repeat)
-            (global-set-key (kbd "C-c m s") 'ready-player-toggle-shuffle)
-            (global-set-key (kbd "C-c m a") 'ready-player-toggle-autoplay))
+            (global-set-key (kbd "C-c m m") #'ready-player-view-player)
+            (global-set-key (kbd "C-c m /") #'ready-player-search-dired-buffer-index)
+            (global-set-key (kbd "C-c m n") #'ready-player-next)
+            (global-set-key (kbd "C-c m p") #'ready-player-previous)
+            (global-set-key (kbd "C-c m i") #'ready-player-show-info)
+            (global-set-key (kbd "C-c m c") #'ready-player-open-my-media-collection)
+            (global-set-key (kbd "C-c m SPC") #'ready-player-toggle-play-stop)
+            (global-set-key (kbd "C-c m r") #'ready-player-toggle-repeat)
+            (global-set-key (kbd "C-c m s") #'ready-player-toggle-shuffle)
+            (global-set-key (kbd "C-c m a") #'ready-player-toggle-autoplay))
           (when (and called-interactively
                      (string-match-p "no-conversion"
                                      (symbol-name buffer-file-coding-system)))
@@ -350,6 +362,7 @@ See variable `ready-player-supported-media' for recognized types."
         (global-unset-key (kbd "C-c m n"))
         (global-unset-key (kbd "C-c m p"))
         (global-unset-key (kbd "C-c m i"))
+        (global-unset-key (kbd "C-c m c"))
         (global-unset-key (kbd "C-c m SPC"))
         (global-unset-key (kbd "C-c m r"))
         (global-unset-key (kbd "C-c m s"))
@@ -381,6 +394,7 @@ See variable `ready-player-supported-media' for recognized types."
   (setq ready-player-repeat-icon "􀊞")
   (setq ready-player-shuffle-icon "􀊝")
   (setq ready-player-autoplay-icon "􀋦")
+  (setq ready-player-open-my-media-collection-icon "􀠀")
   (setq ready-player-search-icon "􀊫"))
 
 (defun ready-player--supported-media-with-uppercase ()
@@ -1267,22 +1281,61 @@ Override DIRED-BUFFER, otherwise resolve internally."
             (error "No file to play/stop"))))
     (ready-player-load-last-known)))
 
+(defun ready-player-open-my-media-collection ()
+  "Open my media collection from `ready-player-my-media-collection-location'."
+  (interactive)
+  (if-let* ((my-collection-dir ready-player-my-media-collection-location)
+            (exists (file-directory-p my-collection-dir)))
+      (when (and (file-equal-p ready-player-my-media-collection-location
+                               (with-current-buffer (ready-player--dired-playback-buffer)
+                                 default-directory))
+                 (y-or-n-p "Already playing your media collection.  Reload? "))
+        (ready-player-load-directory my-collection-dir
+                                     (when-let* ((state (ready-player--read-state))
+                                                 (file (map-elt state 'buffer-file-name))
+                                                 (exists (file-exists-p file)))
+                                       file)))
+    (ready-player-load-directory my-collection-dir
+                                 (when-let* ((state (ready-player--read-state))
+                                             (file (map-elt state 'buffer-file-name))
+                                             (exists (file-exists-p file)))
+                                   file))
+    ;; TODO: Offer to pick one and save it for the user.
+    (error "ready-player-my-media-collection-location is not set")))
+
 (defun ready-player-load-last-known ()
   "Attempt to load last known media."
   (interactive)
   (let* ((state (ready-player--read-state))
-         (last-played-m3u (map-elt state 'm3u))
-         (last-played-file (map-elt state 'buffer-file-name))
-         (last-played-dir (map-elt state 'default-directory)))
+         (last-played-m3u (when-let* ((m3u (map-elt state 'm3u))
+                                      (exists (file-exists-p m3u)))
+                            m3u))
+         (last-played-file (when-let* ((file (map-elt state 'buffer-file-name))
+                                       (exists (file-exists-p file)))
+                             file))
+         (last-played-dir (when-let* ((dir (map-elt state 'default-directory))
+                                      (exists (file-directory-p dir)))
+                            dir))
+         (my-media-collection-dir (when-let* ((collection ready-player-my-media-collection-location)
+                                              (exists (file-directory-p collection)))
+                                    collection)))
     (cond (last-played-m3u
            (ready-player-load-dired-buffer
             (ready-player-load-m3u-playlist last-played-m3u)
             last-played-file))
+          ((and last-played-file
+                my-media-collection-dir
+                (file-in-directory-p last-played-file
+                                     my-media-collection-dir))
+           (ready-player-load-directory my-media-collection-dir
+                                        last-played-file))
           (last-played-dir
            (ready-player-load-directory last-played-dir
                                         last-played-file))
           (last-played-file
            (find-file last-played-file))
+          (my-media-collection-dir
+           (ready-player-load-directory my-media-collection-dir nil))
           (t
            ;; Errors if there's no active buffer available.
            (ready-player--active-buffer)))))
@@ -1646,7 +1699,7 @@ Note: <<socket>> is expanded to socket path."
 
 (defun ready-player--make-file-button-line (busy repeat shuffle autoplay)
   "Create button line with BUSY, REPEAT, AUTOPLAY, and SHUFFLE."
-  (format " %s %s %s %s %s %s %s %s"
+  (format " %s %s %s %s %s %s %s %s %s"
           (ready-player--make-button ready-player-previous-icon
                                      'previous
                                      #'ready-player-previous)
@@ -1670,6 +1723,9 @@ Note: <<socket>> is expanded to socket path."
           (ready-player--make-checkbox-button ready-player-autoplay-icon autoplay
                                               'autoplay
                                               #'ready-player-toggle-autoplay)
+          (ready-player--make-button ready-player-open-my-media-collection-icon
+                                     'my-collection
+                                     #'ready-player-open-my-media-collection t)
           (ready-player--make-button ready-player-search-icon
                                      'search
                                      #'ready-player-search-dired-buffer-index t)))
