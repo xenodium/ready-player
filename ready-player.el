@@ -2348,6 +2348,8 @@ If MEDIA-FILE is non-nil, attempt to load it."
                             (error "dired buffer not found"))))
          (media-buffer (if media-file
                            (progn
+                             (unless (file-exists-p media-file)
+                               (error "File not found: %s" media-file))
                              (when-let ((existing-player (ready-player--active-buffer t)))
                                (kill-buffer existing-player))
                              ;; Momentarily override highest priority buffer
