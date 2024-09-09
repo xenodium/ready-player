@@ -173,6 +173,22 @@ If you'd like to use different utilities to play video and audio, you can use =r
           (ready-player-is-video-p "mpv")))
 #+end_src
 
+** Buttons (macOS SF Symbols)
+
+If you have [[https://lmno.lol/alvaro/emacs-insert-and-render-sf-symbols][SF symbol rendering in Emacs]] on macOS, you can use enable usage in buttons by invoking =(ready-player-macos-use-sf-symbols)=
+ prior to =(ready-player-mode +1)=:
+
+ #+begin_src emacs-lisp :lexical no
+   (ready-player-macos-use-sf-symbols)
+   (ready-player-mode +1)
+ #+end_src
+
+** Buttons (Linux)
+
+Default icons are =◁◁ ▶ ■ ▷▷ ➦ ⇆=. These can be customized (see all icon variables). I'm happy to take suggestions for improving default icons.
+
+* All customizations
+
 #+BEGIN_SRC emacs-lisp :results table :colnames '("Custom variable" "Description") :exports results
   (let ((rows))
     (mapatoms
@@ -202,44 +218,34 @@ If you'd like to use different utilities to play video and audio, you can use =r
 | ready-player-supported-video                              | Supported video media.                                                |
 | ready-player-shuffle                                      | Next media item is selected at random within current directory.       |
 | ready-player-mode-hook                                    | Hook run after entering or leaving `ready-player-mode'.               |
-| ready-player-play-icon                                    | Play button icon string, for example: "⏵".                            |
-| ready-player-previous-icon                                | Previous button icon string, for example: "<<".                       |
+| ready-player-play-icon                                    | Play button icon string, for example: "▶".                            |
+| ready-player-search-icon                                  | Search icon string, for example: "⌕".                                  |
+| ready-player-previous-icon                                | Previous button icon string, for example: "◁◁".                       |
 | ready-player-multi-buffer                                 | When non-nil, enable opening multiple buffers with parallel playback. |
 | ready-player-cache-metadata                               | When non-nil, cache metadata.                                         |
 | ready-player-cache-thumbnails                             | When non-nil, cache thumbnail.                                        |
 | ready-player-major-mode-hook                              | Hook run after entering Ready Player mode.                            |
+| ready-player-major-mode-abbrev-table                      | Abbrev table for `ready-player-major-mode'.                           |
 | ready-player-supported-audio                              | Supported audiomedia.                                                 |
 | ready-player-mode                                         | Non-nil if Ready-Player mode is enabled.                              |
+| ready-player-open-my-media-collection-icon                | Open my collection icon string, for example: "⌂".                     |
 | ready-player-stop-icon                                    | Stop icon string, for example: "■".                                   |
 | ready-player-always-load-directory-recursively            | When non-nil, load directory recursively without prompt.              |
 | ready-player-shuffle-icon                                 | Shuffle icon string, for example: "⤮".                                |
 | ready-player-repeat                                       | Continue playing if there's more media in directory or playlist.      |
 | ready-player-autoplay                                     | When non-nil, automatically start playing when media file opens.      |
 | ready-player-open-externally-icon                         | Open externally button icon string, for example: "➦".                 |
+| ready-player-my-media-collection-location                 | Path to your media collection.                                        |
 | ready-player-show-thumbnail                               | When non-nil, display file's thumbnail if available.                  |
 | ready-player-hide-modeline                                | If non-nil, hides mode line in buffer.                                |
-| ready-player-next-icon                                    | Next button icon string, for example: ">>".                           |
+| ready-player-next-icon                                    | Next button icon string, for example: "▷▷".                           |
 | ready-player-major-mode-map                               | Keymap for `ready-player'.                                            |
-| ready-player-autoplay-icon                                | Autoplay icon string, for example: "⚡".                              |
+| ready-player-autoplay-icon                                | Autoplay icon string, for example: "⏻".                               |
 | ready-player-set-global-bindings                          | When non-nil, bind global bindings under C-c m prefix.                |
 | ready-player-open-playback-commands                       | Command line utilities to try for playback.                           |
 | ready-player-major-mode-syntax-table                      | Syntax table for `ready-player-major-mode'.                           |
 | ready-player-display-dired-playback-buffer-display-action | Choose how to display the associated playback `dired' buffer.         |
 | ready-player-repeat-icon                                  | Repeat icon string, for example: "⇆".                                 |
-
-** Buttons (macOS SF Symbols)
-
-If you have [[https://lmno.lol/alvaro/emacs-insert-and-render-sf-symbols][SF symbol rendering in Emacs]] on macOS, you can use enable usage in buttons by invoking =(ready-player-macos-use-sf-symbols)=
- prior to =(ready-player-mode +1)=:
-
- #+begin_src emacs-lisp :lexical no
-   (ready-player-macos-use-sf-symbols)
-   (ready-player-mode +1)
- #+end_src
-
-** Buttons (Linux)
-
-Default icons are =◁◁ ▶ ■ ▷▷ ➦ ⇆=. These can be customized (see all icon variables). I'm happy to take suggestions for improving default icons.
 
 * Commands
 
