@@ -2665,9 +2665,9 @@ Fails if none available unless NO-ERROR is non-nil."
   "Search the `dired' playlist for playback (experimental)."
   (interactive)
   (let ((in-player (eq major-mode 'ready-player-major-mode)))
-    (let* ((title-width (max 25 (round (* (- (window-width) 9) 0.3))))
-           (artist-width (round (* (- (window-width) 9) 0.25)))
-           (album-width (- (window-width) 9 title-width artist-width))
+    (let* ((title-width (max 25 (round (* (- (frame-width) 9) 0.3))))
+           (artist-width (round (* (- (frame-width) 9) 0.25)))
+           (album-width (- (frame-width) 9 title-width artist-width))
            (index (map-elt (ready-player--dired-buffer-index) 'index))
            (tracks (progn
                      (when (seq-empty-p index)
