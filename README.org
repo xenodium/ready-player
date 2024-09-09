@@ -2,7 +2,7 @@
 
 * Ready Player Mode
 
-A lightweight major mode to open media (audio/video) files in an Emacs buffer.
+An Emacs major mode to open media (audio/video) files like any other file (via find-file, dired, etc).
 
 #+HTML: <img src="https://raw.githubusercontent.com/xenodium/ready-player/main/screenshots/audio-player.gif" width="100%" />
 
