@@ -541,6 +541,12 @@ Note: This function needs to be added to `file-name-handler-alist'."
                (is-live (buffer-live-p dired-buffer)))
       (ready-player--save-state
        'default-directory (buffer-local-value 'default-directory dired-buffer)))
+    (ready-player--save-state
+     'visiting-find-buffer
+     (not (null (string-match-p "find-dired-with-command"
+                                (prin1-to-string
+                                 (buffer-local-value 'revert-buffer-function
+                                                     ready-player--dired-playback-buffer))))))
     (ready-player--index-dired-buffer
      ready-player--dired-playback-buffer)
     (setq ready-player--active-buffer buffer)
@@ -1297,7 +1303,9 @@ Override DIRED-BUFFER, otherwise resolve internally."
     (ready-player-load-directory my-collection-dir
                                  (when-let* ((state (ready-player--read-state))
                                              (file (map-elt state 'buffer-file-name))
-                                             (exists (file-exists-p file)))
+                                             (exists (file-exists-p file))
+                                             (file-in-dir (file-in-directory-p file
+                                     my-collection-dir)))
                                    file))))
 
 (defun ready-player-load-last-known ()
@@ -1313,6 +1321,7 @@ Override DIRED-BUFFER, otherwise resolve internally."
          (last-played-dir (when-let* ((dir (map-elt state 'default-directory))
                                       (exists (file-directory-p dir)))
                             dir))
+         (visit-as-find-p (map-elt state 'visiting-find-buffer))
          (my-media-collection-dir (when-let* ((collection ready-player-my-media-collection-location)
                                               (exists (file-directory-p collection)))
                                     collection)))
@@ -1326,7 +1335,7 @@ Override DIRED-BUFFER, otherwise resolve internally."
                                      my-media-collection-dir))
            (ready-player-load-directory my-media-collection-dir
                                         last-played-file))
-          (last-played-dir
+          ((and visit-as-find-p last-played-dir)
            (ready-player-load-directory last-played-dir
                                         last-played-file))
           (last-played-file
