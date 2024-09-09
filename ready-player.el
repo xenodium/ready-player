@@ -1954,7 +1954,7 @@ If ON-LOADED is non-nil, load and invoke asynchronously."
 (defun ready-player--playback-process-buffer (fpath)
   "Get the process playback buffer for FPATH."
   (when-let* ((buffer (get-buffer-create
-                       (format "*%s %s* (ready-player)"
+                       (format "ready-player: *%s %s*"
                                (nth 0 (ready-player--playback-command fpath))
                                (file-name-nondirectory fpath))))
               (buffer-live (buffer-live-p buffer)))
