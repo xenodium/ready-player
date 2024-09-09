@@ -725,7 +725,7 @@ and DIRED-BUFFER."
           (set-buffer-modified-p nil))))))
 
 (defun ready-player-view-player ()
-  "Switch to player buffer.
+  "Toggle switching between player buffer and previous buffer.
 
 If on player buffer already, switch to previous buffer.
 
