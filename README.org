@@ -16,7 +16,9 @@ Optionally, there are additional features like indexing and searching.
 
 * Install / Setup
 
-This package is available on MELPA:
+This package is available on MELPA.
+
+If you just want Emacs to recognize and open media files, this is all you need:
 
 #+begin_src emacs-lisp :lexical no
   (use-package ready-player
