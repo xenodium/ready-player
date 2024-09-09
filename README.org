@@ -6,9 +6,13 @@ An Emacs major mode to open media (audio/video) files like any other file (via f
 
 #+HTML: <img src="https://raw.githubusercontent.com/xenodium/ready-player/main/screenshots/find-file.gif" width="70%" />
 
-#+HTML: <img src="https://raw.githubusercontent.com/xenodium/ready-player/main/screenshots/audio-player.gif" width="100%" />
+Previewing videos is also supported.
 
 #+HTML: <img src="https://raw.githubusercontent.com/xenodium/ready-player/main/screenshots/video-player.png" width="70%" />
+
+Optionally, there are additional features like indexing and searching.
+
+#+HTML: <img src="https://raw.githubusercontent.com/xenodium/ready-player/main/screenshots/audio-player.gif" width="100%" />
 
 * Install / Setup
 
