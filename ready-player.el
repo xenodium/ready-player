@@ -5,8 +5,8 @@
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; Package-Requires: ((emacs "28.1"))
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.18.1
-(defconst ready-player--version "0.18.1")
+;; Version: 0.19.1
+(defconst ready-player--version "0.19.1")
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
