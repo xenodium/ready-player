@@ -751,7 +751,8 @@ known directory."
     (let ((fallback-title (file-name-nondirectory (buffer-file-name))))
       (if (and ready-player--metadata ready-player--thumbnail)
           (ready-player--message
-           (ready-player--make-detailed-metadata-echo-text ready-player--metadata ready-player--thumbnail fallback-title)
+           (ready-player--make-detailed-metadata-echo-text
+            ready-player--metadata ready-player--thumbnail fallback-title)
            5)
         (with-current-buffer (ready-player--active-buffer)
           (let ((media-path (buffer-file-name)))
@@ -761,8 +762,13 @@ known directory."
                (ready-player--load-file-thumbnail
                 media-path
                 (lambda (thumbnail)
+                  (unless thumbnail
+                    (setq thumbnail
+                          (ready-player--local-thumbnail-in-directory
+                           (file-name-directory media-path))))
                   (ready-player--message
-                   (ready-player--make-detailed-metadata-echo-text metadata thumbnail fallback-title)
+                   (ready-player--make-detailed-metadata-echo-text
+                    metadata thumbnail fallback-title)
                    5)))))))))))
 
 (defun ready-player--make-detailed-metadata-echo-text (metadata &optional image-path fallback-title)
@@ -785,7 +791,11 @@ known directory."
          (text-height 25)
          (svg (svg-create (frame-pixel-width) image-height)))
     (if image-path
-        (svg-embed svg image-path "image/png" nil :x 0 :y 0 :width image-width :height image-height)
+        (svg-embed svg image-path
+                   (if (equal "jpg" (file-name-extension image-path))
+                       "image/jpeg"
+                     "image/png")
+                   nil :x 0 :y 0 :width image-width :height image-height)
       (svg-text svg "♫"
                 :x (/ image-width 2) :y (+ (/ image-height 2) (/ icon-size 2.5))
                 :fill foreground-color :font-size icon-size
