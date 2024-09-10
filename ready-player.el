@@ -519,10 +519,7 @@ Note: This function needs to be added to `file-name-handler-alist'."
                                local-thumbnail))
          (cached-dired-buffer (or m3u-dired-buffer
                                   (ready-player--resolve-file-dired-buffer
-                                   fpath ready-player--highest-priority-dired-buffer)))
-         (thumbnailer (if (executable-find "ffmpegthumbnailer")
-                          #'ready-player--load-file-thumbnail-via-ffmpegthumbnailer
-                        #'ready-player--load-file-thumbnail-via-ffmpeg)))
+                                   fpath ready-player--highest-priority-dired-buffer))))
     (when (eq (compare-strings ;; Case insensitive.
                "m3u" nil nil
                (file-name-extension (buffer-file-name))
@@ -567,41 +564,41 @@ Note: This function needs to be added to `file-name-handler-alist'."
            ready-player-autoplay
            cached-thumbnail ready-player--metadata
            (ready-player--dired-playback-buffer)))
-      (funcall thumbnailer
-               fpath (lambda (thumbnail)
-                       (when (buffer-live-p buffer)
-                         (with-current-buffer buffer
-                           (when thumbnail
-                             (setq ready-player--thumbnail thumbnail)
-                             (ready-player--update-buffer
-                              buffer fpath
-                              ready-player--process
-                              ready-player-repeat
-                              ready-player-shuffle
-                              ready-player-autoplay
-                              thumbnail ready-player--metadata
-                              (ready-player--dired-playback-buffer))
-                             (ready-player--goto-button
-                              ready-player--last-button-focus)))))))
+      (ready-player--load-file-thumbnail
+       fpath (lambda (thumbnail)
+               (when (buffer-live-p buffer)
+                 (with-current-buffer buffer
+                   (when thumbnail
+                     (setq ready-player--thumbnail thumbnail)
+                     (ready-player--update-buffer
+                      buffer fpath
+                      ready-player--process
+                      ready-player-repeat
+                      ready-player-shuffle
+                      ready-player-autoplay
+                      thumbnail ready-player--metadata
+                      (ready-player--dired-playback-buffer))
+                     (ready-player--goto-button
+                      ready-player--last-button-focus)))))))
 
     ;; Also attempt to extract embedded thumbnail to give it preference if found.
     (when local-thumbnail
-      (funcall thumbnailer
-               fpath (lambda (thumbnail)
-                       (when (buffer-live-p buffer)
-                         (with-current-buffer buffer
-                           (when thumbnail
-                             (setq ready-player--thumbnail thumbnail)
-                             (ready-player--update-buffer
-                              buffer fpath
-                              ready-player--process
-                              ready-player-repeat
-                              ready-player-shuffle
-                              ready-player-autoplay
-                              thumbnail ready-player--metadata
-                              (ready-player--dired-playback-buffer))
-                             (ready-player--goto-button
-                              ready-player--last-button-focus)))))))
+      (ready-player--load-file-thumbnail
+       fpath (lambda (thumbnail)
+               (when (buffer-live-p buffer)
+                 (with-current-buffer buffer
+                   (when thumbnail
+                     (setq ready-player--thumbnail thumbnail)
+                     (ready-player--update-buffer
+                      buffer fpath
+                      ready-player--process
+                      ready-player-repeat
+                      ready-player-shuffle
+                      ready-player-autoplay
+                      thumbnail ready-player--metadata
+                      (ready-player--dired-playback-buffer))
+                     (ready-player--goto-button
+                      ready-player--last-button-focus)))))))
 
     (if cached-metadata
         (progn
@@ -631,6 +628,13 @@ Note: This function needs to be added to `file-name-handler-alist'."
                      (ready-player--goto-button
                       ready-player--last-button-focus))))))))
   (add-hook 'kill-buffer-hook #'ready-player--clean-up nil t))
+
+(defun ready-player--load-file-thumbnail (media-path on-loaded)
+  "Load thumbnail for MEDIA-PATH and invoke ON-LOADED."
+  (let ((thumbnailer (if (executable-find "ffmpegthumbnailer")
+                         #'ready-player--load-file-thumbnail-via-ffmpegthumbnailer
+                       #'ready-player--load-file-thumbnail-via-ffmpeg)))
+    (funcall thumbnailer media-path on-loaded)))
 
 (defun ready-player-version ()
   "Show Ready Player Mode version."
@@ -744,17 +748,54 @@ known directory."
   "Show playback info in the echo area."
   (interactive)
   (with-current-buffer (ready-player--active-buffer)
-    (let ((fname (file-name-nondirectory (buffer-file-name))))
-      (if ready-player--metadata
+    (let ((fallback-title (file-name-nondirectory (buffer-file-name))))
+      (if (and ready-player--metadata ready-player--thumbnail)
           (ready-player--message
-           (ready-player--make-metadata-echo-text ready-player--metadata fname)
+           (ready-player--make-detailed-metadata-echo-text ready-player--metadata ready-player--thumbnail fallback-title)
            5)
-        (ready-player--load-file-metadata
-         (buffer-file-name)
-         (lambda (metadata)
-           (ready-player--message
-            (ready-player--make-metadata-echo-text metadata fname)
-            5)))))))
+        (with-current-buffer (ready-player--active-buffer)
+          (let ((media-path (buffer-file-name)))
+            (ready-player--load-file-metadata
+             media-path
+             (lambda (metadata)
+               (ready-player--load-file-thumbnail
+                media-path
+                (lambda (thumbnail)
+                  (ready-player--message
+                   (ready-player--make-detailed-metadata-echo-text metadata thumbnail fallback-title)
+                   5)))))))))))
+
+(defun ready-player--make-detailed-metadata-echo-text (metadata &optional image-path fallback-title)
+  "Make echo text, rendering METADATA and IMAGE-PATH as svg in returned text.
+
+ Provide FALLBACK-TITLE in case title is not present in METADATA."
+  (let* ((title (or (ready-player--row-value
+                     (ready-player--make-metadata-rows metadata)
+                     "Title:") fallback-title ""))
+         (artist (or (ready-player--row-value
+                      (ready-player--make-metadata-rows metadata)
+                      "Artist:") ""))
+         (album (or (ready-player--row-value
+                     (ready-player--make-metadata-rows metadata)
+                     "Album:") ""))
+         (foreground-color (face-attribute 'default :foreground))
+         (icon-size 60)
+         (image-width 90)
+         (image-height 90)
+         (text-height 25)
+         (svg (svg-create (frame-pixel-width) image-height)))
+    (if image-path
+        (svg-embed svg image-path "image/png" nil :x 0 :y 0 :width image-width :height image-height)
+      (svg-text svg "♫"
+                :x (/ image-width 2) :y (+ (/ image-height 2) (/ icon-size 2.5))
+                :fill foreground-color :font-size icon-size
+                :text-anchor "middle" :dominant-baseline "central"))
+    (svg-text svg title :x (+ image-width 10) :y text-height :fill foreground-color)
+    (svg-text svg artist :x (+ image-width 10) :y (* 2 text-height) :fill foreground-color)
+    (svg-text svg album :x (+ image-width 10) :y (* 3 text-height) :fill foreground-color)
+    (with-temp-buffer
+      (svg-insert-image svg)
+      (buffer-string))))
 
 (defun ready-player--make-metadata-echo-text (metadata fallback)
   "Make METADATA echo text for display.
@@ -1853,6 +1894,7 @@ Note: This needs the ffmpegthumbnailer command line utility."
          (lambda (process _)
            (if (eq (process-exit-status process) 0)
                (funcall on-loaded thumbnail-fpath)
+             (funcall on-loaded nil)
              (condition-case nil
                  (delete-file thumbnail-fpath)
                (file-error nil))))))
@@ -1908,6 +1950,7 @@ Note: This needs the ffmpeg command line utility."
          (lambda (process _)
            (if (eq (process-exit-status process) 0)
                (funcall on-loaded thumbnail-fpath)
+             (funcall on-loaded nil)
              (condition-case nil
                  (delete-file thumbnail-fpath)
                (file-error nil))))))
