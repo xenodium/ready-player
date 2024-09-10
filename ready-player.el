@@ -1391,12 +1391,14 @@ Get in touch if keen to add for other players."
 
 (defun ready-player--message (text seconds)
   "Display TEXT inthe echo area for SECONDS seconds, then clear if still displayed."
-  (message "%s" text)
-  (run-at-time seconds nil
-               (lambda (text)
-                 (when (string= (current-message) text)
-                   (message "")))
-               text))
+  ;; Uniquify text so it may only clear this and this message alone.
+  (let ((unique-text (concat text
+                             (propertize (format "%s" (random 100)) 'invisible t))))
+    (message "%s" unique-text)
+    (run-at-time seconds nil
+                 (lambda ()
+                   (when (string= (current-message) unique-text)
+                     (message ""))))))
 
 (defun ready-player-seek-backward (seconds)
   "Seek backward.
