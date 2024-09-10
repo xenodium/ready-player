@@ -2738,7 +2738,9 @@ Fails if none available unless NO-ERROR is non-nil."
                                                'face 'font-lock-variable-name-face) album-width nil ?\s "…")
                                   (propertize (format "file:%s" .filename) 'invisible t))))
                       index)))
-           (selection (completing-read "Play: " tracks nil t))
+           (selection (if (seq-empty-p tracks)
+                          (error "No index available")
+                        (completing-read "Play: " tracks nil t)))
            (file (with-temp-buffer
                    (insert (nth 1 (split-string selection "file:")))
                    (buffer-substring-no-properties (point-min) (point-max)))))
