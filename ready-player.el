@@ -298,7 +298,7 @@ Same format as a the action in a `display-buffer-alist' entry."
   '("aac" "ac3" "aiff" "amr" "ape" "dts" "f4a" "f4b" "flac" "gsm"
     "m3u" "m4a" "midi" "mlp" "mka" "mp2" "mp3" "oga" "ogg" "opus" "pva"
     "ra" "ram" "raw" "rf64" "spx" "tta" "wav" "wavpack" "wma" "wv")
-  "Supported audiomedia."
+  "Supported audio media."
   :group 'play-mode
   :type '(repeat string))
 
