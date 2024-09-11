@@ -801,8 +801,10 @@ known directory."
                 :fill foreground-color :font-size icon-size
                 :text-anchor "middle" :dominant-baseline "central"))
     (svg-text svg title :x (+ image-width 10) :y text-height :fill foreground-color)
-    (svg-text svg artist :x (+ image-width 10) :y (* 2 text-height) :fill foreground-color)
-    (svg-text svg album :x (+ image-width 10) :y (* 3 text-height) :fill foreground-color)
+    (svg-text svg artist :x (+ image-width 10) :y (* 2 text-height)
+              :fill (face-attribute 'font-lock-string-face :foreground))
+    (svg-text svg album :x (+ image-width 10) :y (* 3 text-height)
+              :fill (face-attribute 'font-lock-variable-name-face :foreground))
     (with-temp-buffer
       (svg-insert-image svg)
       (buffer-string))))
