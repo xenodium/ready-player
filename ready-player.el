@@ -728,6 +728,8 @@ and DIRED-BUFFER."
                      (ready-player--make-metadata-rows metadata dired-buffer))))
           (set-buffer-modified-p nil))))))
 
+(defalias 'ready-player #'ready-player-view-player)
+
 (defun ready-player-view-player ()
   "Toggle switching between player buffer and previous buffer.
 
