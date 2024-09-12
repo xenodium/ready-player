@@ -72,7 +72,7 @@
     (define-key map (kbd "q") #'ready-player-quit)
     (define-key map (kbd "g") #'ready-player-reload-buffer)
     (define-key map (kbd "m") #'ready-player-mark-dired-file)
-    (define-key map (kbd "/") #'ready-player-search-dired-buffer-index)
+    (define-key map (kbd "/") #'ready-player-search)
     (define-key map (kbd "u") #'ready-player-unmark-dired-file)
     (define-key map (kbd "d") #'ready-player-view-dired-playback-buffer)
     map)
@@ -342,7 +342,7 @@ See variable `ready-player-supported-media' for recognized types."
           (ready-player-add-to-auto-mode-alist)
           (when ready-player-set-global-bindings
             (global-set-key (kbd "C-c m m") #'ready-player-view-player)
-            (global-set-key (kbd "C-c m /") #'ready-player-search-dired-buffer-index)
+            (global-set-key (kbd "C-c m /") #'ready-player-search)
             (global-set-key (kbd "C-c m n") #'ready-player-next)
             (global-set-key (kbd "C-c m p") #'ready-player-previous)
             (global-set-key (kbd "C-c m i") #'ready-player-show-info)
@@ -541,8 +541,15 @@ Note: This function needs to be added to `file-name-handler-alist'."
     (ready-player--save-state
      'visiting-find-buffer
      (ready-player--is-find-dired-buffer ready-player--dired-playback-buffer))
-    (ready-player--index-dired-buffer
-     ready-player--dired-playback-buffer)
+    (cond ((ready-player--is-find-dired-buffer ready-player--dired-playback-buffer)
+           ;; Only index find-dired buffers if fully loaded.
+           (when (ready-player--is-find-dired-buffer-finished
+                  ready-player--dired-playback-buffer)
+             (ready-player--index-dired-buffer
+              ready-player--dired-playback-buffer)))
+          (t
+           (ready-player--index-dired-buffer
+              ready-player--dired-playback-buffer)))
     (setq ready-player--active-buffer buffer)
     (ready-player--update-buffer buffer fpath
                                  ready-player--process
@@ -1799,7 +1806,7 @@ Note: <<socket>> is expanded to socket path."
                                      #'ready-player-open-my-media-collection t)
           (ready-player--make-button ready-player-search-icon
                                      'search
-                                     #'ready-player-search-dired-buffer-index t)))
+                                     #'ready-player-search t)))
 
 (defun ready-player--make-checkbox-button (text checked kind action)
   "Make a checkbox button with TEXT, CHECKED state, KIND, and ACTION."
@@ -2465,10 +2472,8 @@ If MEDIA-FILE is non-nil, attempt to load it."
          (launched nil)
          (hook))
     (setq hook (lambda (_beg _end _len)
-                 (with-current-buffer dired-buffer)
                  (save-excursion
                    (progress-reporter-update progress-reporter)
-                   (goto-char (point-max))
                    ;; Don't wait for find to finish to launch player if possible.
                    (when (and (not launched)
                               media-file
@@ -2477,12 +2482,7 @@ If MEDIA-FILE is non-nil, attempt to load it."
                               (ready-player--is-find-dired-buffer dired-buffer))
                      (setq launched t)
                      (ready-player-load-dired-buffer dired-buffer media-file))
-                   (when (string-prefix-p
-                          "find finished"
-                          (string-trim
-                           (buffer-substring
-                            (line-beginning-position)
-                            (line-end-position))))
+                   (when (ready-player--is-find-dired-buffer-finished dired-buffer)
                      (remove-hook 'after-change-functions hook t)
                      (progress-reporter-done progress-reporter)
                      ;; Index may be incomplete if player launched without
@@ -2510,6 +2510,19 @@ If MEDIA-FILE is non-nil, attempt to load it."
             (add-hook 'after-change-functions hook nil t)))
       (ready-player-load-dired-buffer
        (ready-player--find-file-noselect directory)))))
+
+(defun ready-player--is-find-dired-buffer-finished (buffer)
+  "Return non-nil if BUFFER is a `find-dired' buffer and fully loaded."
+  (when (ready-player--is-find-dired-buffer buffer)
+    (with-current-buffer buffer
+      (save-excursion
+        (goto-char (point-max))
+        (string-prefix-p
+         "find finished"
+         (string-trim
+          (buffer-substring
+           (line-beginning-position)
+           (line-end-position))))))))
 
 (defun ready-player--clean-up ()
   "Kill playback process."
@@ -2747,8 +2760,11 @@ Fails if none available unless NO-ERROR is non-nil."
   (ready-player--cached-item-path-for
    (ready-player--dired-buffer-index-identifier) "_source_index.txt"))
 
-(defun ready-player-search-dired-buffer-index ()
-  "Search the `dired' playlist for playback (experimental)."
+(defun ready-player-search ()
+  "Search the `dired' playlist for playback (experimental).
+
+Index: Fully indexed metadata.
+Source: File list fed to the metadata indexer"
   (interactive)
   (let ((in-player (eq major-mode 'ready-player-major-mode)))
     (let* ((title-width (max 25 (round (* (- (frame-width) 9) 0.3))))
