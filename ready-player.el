@@ -2832,6 +2832,15 @@ Source: File list fed to the metadata indexer"
           (list
            (cons 'index (nreverse result))))))))
 
+(defun ready-player--dump-buffer-state ()
+  "Dump some useful internal details for debugging."
+  (with-current-buffer (ready-player--active-buffer)
+    (message "(buffer-file-name):\n\n%s\n" (buffer-file-name))
+    (message "ready-player--thumbnail:\n\n%s\n" ready-player--thumbnail)
+    (message "ready-player--metadata:\n\n%s\n" (pp-to-string ready-player--metadata))
+    (message "(ready-player--dired-playback-buffer):\n\n%s\n" (ready-player--dired-playback-buffer))
+    (message "(ready-player--temp-dir):\n\n%s\n" (ready-player--temp-dir))))
+
 (provide 'ready-player)
 
 ;;; ready-player.el ends here
