@@ -18,7 +18,7 @@ Optionally, there are additional features like indexing and searching.
 
 This package is available on MELPA.
 
-If you just want Emacs to recognize and open media files, this is all you need:
+If you just want Emacs to recognize and open media files (find-file, dired, etc.), this is all you need:
 
 #+begin_src emacs-lisp :lexical no
   (use-package ready-player
