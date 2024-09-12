@@ -2635,14 +2635,14 @@ Fails if none available unless NO-ERROR is non-nil."
                                  (replace-regexp-in-string
                                   "find finished.*" ""
                                   (substring-no-properties (buffer-string)))))))
-         (hash-path (ready-player--index-hash-path))
+         (hash-path (ready-player--index-hash-path dired-buffer))
          (old-dired-hash (when (file-exists-p hash-path)
                            (with-temp-buffer
                              (insert-file-contents hash-path)
                              (string-trim (buffer-string)))))
-         (destination-path (ready-player--index-path))
+         (destination-path (ready-player--index-path dired-buffer))
          ;; Source contains the list of all files.
-         (source-path (ready-player--source-index-path))
+         (source-path (ready-player--source-index-path dired-buffer))
          (source-path-temp (concat source-path ".tmp"))
          (now (current-time))
          (dired-buffer-name (buffer-name dired-buffer))
@@ -2739,26 +2739,26 @@ Fails if none available unless NO-ERROR is non-nil."
         (kill-buffer temp-buffer)))
     (file-exists-p destination)))
 
-(defun ready-player--index-hash-path ()
+(defun ready-player--index-hash-path (dired-buffer)
   "Generate an index for DIRED-BUFFER."
   (ready-player--cached-item-path-for
-   (ready-player--dired-buffer-index-identifier) "_index.diredhash"))
+   (ready-player--dired-buffer-index-identifier dired-buffer) "_index.diredhash"))
 
-(defun ready-player--index-path ()
+(defun ready-player--index-path (dired-buffer)
   "Generate an index for DIRED-BUFFER."
   (ready-player--cached-item-path-for
-   (ready-player--dired-buffer-index-identifier) "_index.el"))
+   (ready-player--dired-buffer-index-identifier dired-buffer) "_index.el"))
 
-(defun ready-player--dired-buffer-index-identifier ()
-  "Return an identifier for assciated `dired' buffer."
-  (with-current-buffer (ready-player--active-buffer)
-    (with-current-buffer (ready-player--dired-playback-buffer)
-      (concat (dired-current-directory) (buffer-name)))))
+(defun ready-player--dired-buffer-index-identifier (dired-buffer)
+  "Return an identifier for DIRED-BUFFER."
+  (if (and dired-buffer (buffer-live-p dired-buffer))
+      (with-current-buffer dired-buffer
+        (concat (dired-current-directory) (buffer-name)))))
 
-(defun ready-player--source-index-path ()
+(defun ready-player--source-index-path (dired-buffer)
   "Generate a source index for DIRED-BUFFER."
   (ready-player--cached-item-path-for
-   (ready-player--dired-buffer-index-identifier) "_source_index.txt"))
+   (ready-player--dired-buffer-index-identifier dired-buffer) "_source_index.txt"))
 
 (defun ready-player-search ()
   "Search the `dired' playlist for playback (experimental).
@@ -2809,25 +2809,28 @@ Source: File list fed to the metadata indexer"
 
 (defun ready-player--dired-buffer-index ()
   "Load and return the associated index if one is found."
-  ;; Attempt access to full index.
-  (if (file-exists-p (ready-player--index-path))
+  (let* ((dired-buffer (with-current-buffer (ready-player--active-buffer)
+                         (ready-player--dired-playback-buffer)))
+         (source-index-path (ready-player--source-index-path dired-buffer)))
+    (if (file-exists-p (ready-player--index-path dired-buffer))
+        ;; Attempt access to full index.
+        (with-temp-buffer
+          (insert-file-contents (ready-player--index-path dired-buffer))
+          (read (current-buffer)))
       (with-temp-buffer
-        (insert-file-contents (ready-player--index-path))
-        (read (current-buffer)))
-    (with-temp-buffer
-      (cond ((file-exists-p (ready-player--source-index-path))
-             ;; Attempt access to full index sources.
-             (insert-file-contents (ready-player--source-index-path)))
-            ((file-exists-p (concat (ready-player--source-index-path) ".tmp"))
-             ;; Attempt access to partial index sources.
-             (insert-file-contents (concat (ready-player--source-index-path) ".tmp"))))
-      (let (result)
-        (while (not (eobp))
-          (let ((line (buffer-substring-no-properties (line-beginning-position) (line-end-position))))
-            (push (list (cons 'filename line)) result))
-          (forward-line 1))
-        (list
-         (cons 'index (nreverse result)))))))
+        (cond ((file-exists-p source-index-path)
+               ;; Attempt access to full index sources.
+               (insert-file-contents source-index-path))
+              ((file-exists-p (concat source-index-path ".tmp"))
+               ;; Attempt access to partial index sources.
+               (insert-file-contents (concat source-index-path ".tmp"))))
+        (let (result)
+          (while (not (eobp))
+            (let ((line (buffer-substring-no-properties (line-beginning-position) (line-end-position))))
+              (push (list (cons 'filename line)) result))
+            (forward-line 1))
+          (list
+           (cons 'index (nreverse result))))))))
 
 (provide 'ready-player)
 
