@@ -2485,6 +2485,10 @@ If MEDIA-FILE is non-nil, attempt to load it."
                             (line-end-position))))
                      (remove-hook 'after-change-functions hook t)
                      (progress-reporter-done progress-reporter)
+                     ;; Index may be incomplete if player launched without
+                     ;; waiting for find to finish. Not that's finished,
+                     ;; index entirely.
+                     (ready-player--index-dired-buffer dired-buffer)
                      (unless launched
                        (ready-player-load-dired-buffer dired-buffer media-file))))))
     (if (or ready-player-always-load-directory-recursively
