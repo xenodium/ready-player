@@ -540,10 +540,7 @@ Note: This function needs to be added to `file-name-handler-alist'."
        'default-directory (buffer-local-value 'default-directory dired-buffer)))
     (ready-player--save-state
      'visiting-find-buffer
-     (not (null (string-match-p "find-dired-with-command"
-                                (prin1-to-string
-                                 (buffer-local-value 'revert-buffer-function
-                                                     ready-player--dired-playback-buffer))))))
+     (ready-player--is-find-dired-buffer ready-player--dired-playback-buffer))
     (ready-player--index-dired-buffer
      ready-player--dired-playback-buffer)
     (setq ready-player--active-buffer buffer)
@@ -628,6 +625,16 @@ Note: This function needs to be added to `file-name-handler-alist'."
                      (ready-player--goto-button
                       ready-player--last-button-focus))))))))
   (add-hook 'kill-buffer-hook #'ready-player--clean-up nil t))
+
+(defun ready-player--is-find-dired-buffer (buffer)
+  "Return t if BUFFER is a `find-dired' buffer."
+  (and (eq (buffer-local-value 'major-mode buffer)
+           'dired-mode)
+       ;; TODO: Find a better way to determine if find-dired buffer.
+       (not (null (string-match-p "find-dired-with-command"
+                                  (prin1-to-string
+                                   (buffer-local-value 'revert-buffer-function
+                                                       buffer)))))))
 
 (defun ready-player--load-file-thumbnail (media-path on-loaded)
   "Load thumbnail for MEDIA-PATH and invoke ON-LOADED."
@@ -735,7 +742,7 @@ and DIRED-BUFFER."
 
 If on player buffer already, switch to previous buffer.
 
-If there's no existing ready-player buffer, attemp to load the last
+If there's no existing `ready-player' buffer, attempt to load the last
 known directory."
   (interactive)
   (if (eq major-mode 'ready-player-major-mode)
@@ -2314,7 +2321,7 @@ to directory."
 Optionally set M3U-PATH to override query.
 
 When invoked programmatically, return the `dired' buffer without
-loading into ready-player."
+loading into `ready-player'."
   (interactive)
   (let* ((m3u-path (or m3u-path
                        (read-file-name "find m3u: " nil nil t nil
@@ -2455,12 +2462,21 @@ If MEDIA-FILE is non-nil, attempt to load it."
          (new-name (concat "*" (file-name-base (string-remove-suffix "/" directory)) "*"))
          (progress-reporter (make-progress-reporter "Loading"))
          (dired-buffer)
+         (launched nil)
          (hook))
     (setq hook (lambda (_beg _end _len)
                  (with-current-buffer dired-buffer)
                  (save-excursion
                    (progress-reporter-update progress-reporter)
                    (goto-char (point-max))
+                   ;; Don't wait for find to finish to launch player if possible.
+                   (when (and (not launched)
+                              media-file
+                              (file-in-directory-p media-file directory)
+                              ;; Wait until buffer can be recognized as find-dired.
+                              (ready-player--is-find-dired-buffer dired-buffer))
+                     (setq launched t)
+                     (ready-player-load-dired-buffer dired-buffer media-file))
                    (when (string-prefix-p
                           "find finished"
                           (string-trim
@@ -2469,7 +2485,8 @@ If MEDIA-FILE is non-nil, attempt to load it."
                             (line-end-position))))
                      (remove-hook 'after-change-functions hook t)
                      (progress-reporter-done progress-reporter)
-                     (ready-player-load-dired-buffer dired-buffer media-file)))))
+                     (unless launched
+                       (ready-player-load-dired-buffer dired-buffer media-file))))))
     (if (or ready-player-always-load-directory-recursively
             (y-or-n-p "Load recursively? "))
         (progn
@@ -2557,7 +2574,12 @@ to this `dired' buffers."
   (seq-find
    (lambda (buffer)
      (with-current-buffer buffer
-       (dired-goto-file file)))
+       (or (and (ready-player--is-find-dired-buffer buffer)
+                default-directory
+                ;; find buffer may still be searching and file isn't listed.
+                ;; Validate by checking file is in default-directory or subdir.
+                (file-in-directory-p file default-directory))
+           (dired-goto-file file))))
    (ready-player--dired-buffers prioritized-dired-buffer)))
 
 (defun ready-player--keep-only-this-buffer (buffer)
