@@ -1350,9 +1350,10 @@ Override DIRED-BUFFER, otherwise resolve internally."
                                      ;; TODO: Offer to pick one and save it for the user.
                                      (error "ready-player-my-media-collection-location is not set")))
               (exists (file-directory-p my-collection-dir))
-              (load (if (file-equal-p my-collection-dir
-                                      (with-current-buffer (ready-player--dired-playback-buffer)
-                                        default-directory))
+              (load (if (and (ready-player--active-buffer t)
+                             (file-equal-p my-collection-dir
+                                           (with-current-buffer (ready-player--dired-playback-buffer)
+                                             default-directory)))
                         (y-or-n-p "Already playing your media collection.  Reload? ")
                       t)))
     (ready-player-load-directory my-collection-dir
