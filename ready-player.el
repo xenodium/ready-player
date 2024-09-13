@@ -2474,12 +2474,19 @@ If MEDIA-FILE is non-nil, attempt to load it."
     (setq hook (lambda (_beg _end _len)
                  (save-excursion
                    (progress-reporter-update progress-reporter)
-                   ;; Don't wait for find to finish to launch player if possible.
+                   ;; Don't wait for find to finish to launch player
+                   ;; last played file is already known.
                    (when (and (not launched)
                               media-file
                               (file-in-directory-p media-file directory)
                               ;; Wait until buffer can be recognized as find-dired.
                               (ready-player--is-find-dired-buffer dired-buffer))
+                     (setq launched t)
+                     (ready-player-load-dired-buffer dired-buffer media-file))
+                   ;; Don't wait for find to finish to launch player
+                   ;; if first file is already found.
+                   (when-let ((not-launched (not launched))
+                              (first-file (ready-player--first-dired-buffer-file dired-buffer)))
                      (setq launched t)
                      (ready-player-load-dired-buffer dired-buffer media-file))
                    (when (ready-player--is-find-dired-buffer-finished dired-buffer)
@@ -2510,6 +2517,19 @@ If MEDIA-FILE is non-nil, attempt to load it."
             (add-hook 'after-change-functions hook nil t)))
       (ready-player-load-dired-buffer
        (ready-player--find-file-noselect directory)))))
+
+(defun ready-player--first-dired-buffer-file (dired-buffer)
+  "Return the first non-directory file in the Dired buffer DIRED-BUFFER."
+  (with-current-buffer dired-buffer
+    (save-excursion
+      (goto-char (point-min))
+      (let ((first-file nil))
+        (while (and (not first-file) (not (eobp)))
+          (when-let* ((file (dired-get-filename nil t))
+                      (is-file (file-regular-p file)))
+            (setq first-file (dired-get-filename nil t)))
+          (forward-line 1))
+        first-file))))
 
 (defun ready-player--is-find-dired-buffer-finished (buffer)
   "Return non-nil if BUFFER is a `find-dired' buffer and fully loaded."
