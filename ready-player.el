@@ -2514,7 +2514,6 @@ If MEDIA-FILE is non-nil, attempt to load it."
          (hook))
     (setq hook (lambda (_beg _end _len)
                  (save-excursion
-                   (progress-reporter-update progress-reporter)
                    ;; Don't wait for find to finish to launch player
                    ;; last played file is already known.
                    (when (and (not launched)
@@ -2523,22 +2522,27 @@ If MEDIA-FILE is non-nil, attempt to load it."
                               ;; Wait until buffer can be recognized as find-dired.
                               (ready-player--is-find-dired-buffer dired-buffer))
                      (setq launched t)
+                     (progress-reporter-done progress-reporter)
                      (ready-player-load-dired-buffer dired-buffer media-file))
                    ;; Don't wait for find to finish to launch player
                    ;; if first file is already found.
                    (when-let ((not-launched (not launched))
                               (first-file (ready-player--first-dired-buffer-file dired-buffer)))
                      (setq launched t)
+                     (unless launched
+                       (progress-reporter-done progress-reporter))
                      (ready-player-load-dired-buffer dired-buffer media-file))
                    (when (ready-player--is-find-dired-buffer-finished dired-buffer)
                      (remove-hook 'after-change-functions hook t)
-                     (progress-reporter-done progress-reporter)
                      ;; Index may be incomplete if player launched without
                      ;; waiting for find to finish. Not that's finished,
                      ;; index entirely.
                      (ready-player--index-dired-buffer dired-buffer)
                      (unless launched
-                       (ready-player-load-dired-buffer dired-buffer media-file))))))
+                       (progress-reporter-done progress-reporter)
+                       (ready-player-load-dired-buffer dired-buffer media-file)))
+                   (unless launched
+                     (progress-reporter-update progress-reporter)))))
     (if (or ready-player-always-load-directory-recursively
             (y-or-n-p "Load recursively? "))
         (progn
