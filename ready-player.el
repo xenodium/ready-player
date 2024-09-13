@@ -49,6 +49,7 @@
 (require 'subr-x)
 (require 'svg)
 (require 'text-property-search)
+(require 'transient)
 
 ;;; Code:
 
@@ -75,8 +76,39 @@
     (define-key map (kbd "/") #'ready-player-search)
     (define-key map (kbd "u") #'ready-player-unmark-dired-file)
     (define-key map (kbd "d") #'ready-player-view-dired-playback-buffer)
+    (define-key map (kbd "?") #'ready-player-menu)
     map)
   "Keymap for `ready-player'.")
+
+(transient-define-prefix
+  ready-player-menu ()
+  "Ready Player Menu."
+  [""
+   ["Playback"
+    ("SPC" "Play/Stop" ready-player-toggle-play-stop)
+    ("n" "Next" ready-player-next)
+    ("p" "Previous" ready-player-previous)
+    ("g" "Reload" ready-player-reload-buffer)
+    ]
+   ["Search"
+    ("/" "Search" ready-player-search)
+    ("f" "Seek forward" ready-player-seek-forward)
+    ("b" "Seek backward" ready-player-seek-backward)
+    ("c" "Play my collection" ready-player-open-my-media-collection)
+    ]
+   ["Toggle"
+    ("a" "Autoplay" ready-player-toggle-autoplay)
+    ("s" "Shuffle" ready-player-toggle-shuffle)
+    ("r" "Repeat" ready-player-toggle-repeat)
+    ("i" "Info" ready-player-show-info)]
+   ["Dired"
+    ("m" "Mark" ready-player-mark-dired-file)
+    ("u" "Unmark" ready-player-unmark-dired-file)
+    ("d" "Show" ready-player-view-dired-playback-buffer)]
+   ["Other"
+    ("e" "External app" ready-player-open-externally)
+    ("?" "Mode help" describe-mode)
+    ("q" "Quit" ready-player-quit)]])
 
 (defgroup ready-player nil
   "Settings for Ready Player mode."
@@ -208,6 +240,11 @@ so users can opt to hide the mode line."
 
 (defcustom ready-player-search-icon "⌕"
   "Search icon string, for example: \"⌕\"."
+  :type 'string
+  :group 'ready-player)
+
+(defcustom ready-player-help-icon "⁈"
+  "Search icon string, for example: \"⁈\"."
   :type 'string
   :group 'ready-player)
 
@@ -395,7 +432,8 @@ See variable `ready-player-supported-media' for recognized types."
   (setq ready-player-shuffle-icon "􀊝")
   (setq ready-player-autoplay-icon "􀋦")
   (setq ready-player-open-my-media-collection-icon "􀠀")
-  (setq ready-player-search-icon "􀊫"))
+  (setq ready-player-search-icon "􀊫")
+  (setq ready-player-help-icon "􁑣"))
 
 (defun ready-player--supported-media-with-uppercase ()
   "Duplicate variable `ready-player-supported-media' with uppercase equivalents."
@@ -1777,7 +1815,7 @@ Note: <<socket>> is expanded to socket path."
 
 (defun ready-player--make-file-button-line (busy repeat shuffle autoplay)
   "Create button line with BUSY, REPEAT, AUTOPLAY, and SHUFFLE."
-  (format " %s %s %s %s %s %s %s %s %s"
+  (format " %s %s %s %s %s %s %s %s %s %s"
           (ready-player--make-button ready-player-previous-icon
                                      'previous
                                      #'ready-player-previous)
@@ -1806,7 +1844,10 @@ Note: <<socket>> is expanded to socket path."
                                      #'ready-player-open-my-media-collection t)
           (ready-player--make-button ready-player-search-icon
                                      'search
-                                     #'ready-player-search t)))
+                                     #'ready-player-search t)
+          (ready-player--make-button ready-player-help-icon
+                                     'help
+                                     #'ready-player-menu t)))
 
 (defun ready-player--make-checkbox-button (text checked kind action)
   "Make a checkbox button with TEXT, CHECKED state, KIND, and ACTION."
