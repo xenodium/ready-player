@@ -1271,16 +1271,17 @@ Override DIRED-BUFFER, otherwise resolve internally."
   (interactive nil ready-player-major-mode)
   (unless buffer-file-name
     (user-error "No media file in this buffer"))
-  (if-let* ((file buffer-file-name)
-            (marked-buffer
-             (ready-player--apply-dired-function
-              #'dired-mark file)))
-      (progn
-        (display-buffer marked-buffer
-                        ready-player-display-dired-playback-buffer-display-action)
-        (switch-to-buffer-other-window marked-buffer)
-        (dired-goto-file file))
-    (message "Couldn't find file to mark")))
+  (with-current-buffer (ready-player--active-buffer)
+    (if-let* ((file buffer-file-name)
+              (marked-buffer
+               (ready-player--apply-dired-function
+                #'dired-mark file)))
+        (progn
+          (display-buffer marked-buffer
+                          ready-player-display-dired-playback-buffer-display-action)
+          (switch-to-buffer-other-window marked-buffer)
+          (dired-goto-file file))
+      (message "Couldn't find file to mark"))))
 
 ;; Based on `image-mode-unmark-file'.
 (defun ready-player-unmark-dired-file ()
@@ -1288,14 +1289,17 @@ Override DIRED-BUFFER, otherwise resolve internally."
   (interactive nil ready-player-major-mode)
   (unless buffer-file-name
     (user-error "No media file in this buffer"))
-  (if-let* ((file buffer-file-name)
-            (marked-buffer
-             (ready-player--apply-dired-function
-              #'dired-unmark file)))
-      (progn
-        (switch-to-buffer-other-window marked-buffer)
-        (dired-goto-file file))
-    (message "Couldn't find file to unmark")))
+  (with-current-buffer (ready-player--active-buffer)
+    (if-let* ((file buffer-file-name)
+              (marked-buffer
+               (ready-player--apply-dired-function
+                #'dired-unmark file)))
+        (progn
+          (display-buffer marked-buffer
+                          ready-player-display-dired-playback-buffer-display-action)
+          (switch-to-buffer-other-window marked-buffer)
+          (dired-goto-file file))
+      (message "Couldn't find file to unmark"))))
 
 (defun ready-player--apply-dired-function (function file)
   "Apply `dired' FUNCTION to FILE."
@@ -1434,8 +1438,9 @@ Override DIRED-BUFFER, otherwise resolve internally."
               (exists (file-directory-p my-collection-dir))
               (load (if (and (ready-player--active-buffer t)
                              (file-equal-p my-collection-dir
-                                           (with-current-buffer (ready-player--dired-playback-buffer)
-                                             default-directory)))
+                                           (with-current-buffer (ready-player--active-buffer)
+                                             (with-current-buffer (ready-player--dired-playback-buffer)
+                                               default-directory))))
                         (y-or-n-p "Already playing your media collection.  Reload? ")
                       t)))
     (ready-player-load-directory my-collection-dir
@@ -1775,39 +1780,39 @@ Returns response string."
 (defun ready-player-reload-buffer ()
   "Reload media from file."
   (interactive)
-  (ready-player--ensure-mode)
-  (when (equal ready-player--thumbnail
-               (ready-player--cached-thumbnail-path buffer-file-name))
-    (condition-case nil
-        (progn
-          (delete-file ready-player--thumbnail)
-          (image-flush (create-image
-                        ready-player--thumbnail nil nil
-                        :max-height ready-player-thumbnail-max-pixel-height)))
-      (file-error nil)))
-  (when (equal ready-player--metadata
-               (ready-player--cached-metadata-path buffer-file-name))
-    (condition-case nil
-        (delete-file ready-player--metadata)
-      (file-error nil)))
-  (let ((playing ready-player--process)
-        (dired-buffer (ready-player--dired-playback-buffer)))
-    (ready-player--stop-playback-process)
-    (revert-buffer nil t)
-    ;; Override buffer-local dired buffer's to use existing one.
-    (setq ready-player--dired-playback-buffer dired-buffer)
-    ;; Refresh to ensure new dired buffer is displayed.
-    (ready-player--update-buffer
-     (current-buffer) (buffer-file-name)
-     ready-player--process
-     ready-player-repeat
-     ready-player-shuffle
-     ready-player-autoplay
-     ready-player--thumbnail
-     ready-player--metadata
-     (ready-player--dired-playback-buffer))
-    (when playing
-      (ready-player-play)))
+  (with-current-buffer (ready-player--active-buffer)
+    (when (equal ready-player--thumbnail
+                 (ready-player--cached-thumbnail-path buffer-file-name))
+      (condition-case nil
+          (progn
+            (delete-file ready-player--thumbnail)
+            (image-flush (create-image
+                          ready-player--thumbnail nil nil
+                          :max-height ready-player-thumbnail-max-pixel-height)))
+        (file-error nil)))
+    (when (equal ready-player--metadata
+                 (ready-player--cached-metadata-path buffer-file-name))
+      (condition-case nil
+          (delete-file ready-player--metadata)
+        (file-error nil)))
+    (let ((playing ready-player--process)
+          (dired-buffer (ready-player--dired-playback-buffer)))
+      (ready-player--stop-playback-process)
+      (revert-buffer nil t)
+      ;; Override buffer-local dired buffer's to use existing one.
+      (setq ready-player--dired-playback-buffer dired-buffer)
+      ;; Refresh to ensure new dired buffer is displayed.
+      (ready-player--update-buffer
+       (current-buffer) (buffer-file-name)
+       ready-player--process
+       ready-player-repeat
+       ready-player-shuffle
+       ready-player-autoplay
+       ready-player--thumbnail
+       ready-player--metadata
+       (ready-player--dired-playback-buffer))
+      (when playing
+        (ready-player-play))))
   (ready-player--message "Reloaded" 2))
 
 (defun ready-player--playback-command (media-file)
@@ -2147,12 +2152,12 @@ If ON-LOADED is non-nil, load and invoke asynchronously."
 (defun ready-player-view-dired-playback-buffer ()
   "View associated `dired' playback buffer."
   (interactive)
-  (ready-player--ensure-mode)
-  (let ((media-file (buffer-file-name)))
-    (display-buffer (ready-player--dired-playback-buffer)
-                    ready-player-display-dired-playback-buffer-display-action)
-    (switch-to-buffer-other-window (ready-player--dired-playback-buffer))
-    (dired-goto-file media-file)))
+  (with-current-buffer (ready-player--active-buffer)
+    (let ((media-file (buffer-file-name)))
+      (display-buffer (ready-player--dired-playback-buffer)
+                      ready-player-display-dired-playback-buffer-display-action)
+      (switch-to-buffer-other-window (ready-player--dired-playback-buffer))
+      (dired-goto-file media-file))))
 
 (defun ready-player--row-value (rows label)
   "Resolve LABEL in ROWS to row value."
