@@ -97,9 +97,9 @@
     ("c" "Play my collection" ready-player-open-my-media-collection)
     ]
    ["Toggle"
-    ("a" "Autoplay" ready-player-toggle-autoplay)
-    ("s" "Shuffle" ready-player-toggle-shuffle)
-    ("r" "Repeat" ready-player-toggle-repeat)
+    ("a" ready-player--transient-toggle-autoplay)
+    ("s" ready-player--transient-toggle-shuffle)
+    ("r" ready-player--transient-toggle-repeat)
     ("i" "Info" ready-player-show-info)]
    ["Dired"
     ("m" "Mark" ready-player-mark-dired-file)
@@ -109,6 +109,36 @@
     ("e" "External app" ready-player-open-externally)
     ("?" "Mode help" describe-mode)
     ("q" "Quit" ready-player-quit)]])
+
+(transient-define-suffix ready-player--transient-toggle-autoplay ()
+  "Autoplay transient toggle."
+  :description (lambda ()
+                 (format "Autoplay  [%s]" (if ready-player-autoplay "x" " ")))
+  (interactive)
+  (ready-player-toggle-autoplay))
+
+(transient-define-suffix ready-player--transient-toggle-shuffle ()
+  "Shuffle transient toggle."
+  :description (lambda ()
+                 (format "Shuffle   [%s]" (if ready-player-shuffle "x" " ")))
+  (interactive)
+  (ready-player-toggle-shuffle))
+
+(transient-define-suffix ready-player--transient-toggle-repeat ()
+  "Repeat transient toggle."
+  :description (lambda ()
+                 (format "Repeat%s" (cond ((eq ready-player-repeat 'file)
+                                               " [file]")
+                                              ((eq ready-player-repeat 'playlist)
+                                               " [list]")
+                                              ((eq ready-player-repeat t)
+                                               " [list]")
+                                              ((not ready-player-repeat)
+                                               "    [ ]")
+                                              (t
+                                               "[list]"))))
+  (interactive)
+  (ready-player-toggle-repeat))
 
 (defgroup ready-player nil
   "Settings for Ready Player mode."
