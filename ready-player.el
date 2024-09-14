@@ -86,14 +86,14 @@
   [""
    ["Playback"
     ("SPC" "Play/Stop" ready-player-toggle-play-stop)
-    ("n" "Next" ready-player-next)
-    ("p" "Previous" ready-player-previous)
+    ("n" "Next" ready-player-next :transient t)
+    ("p" "Previous" ready-player-previous :transient t)
     ("g" "Reload" ready-player-reload-buffer)
     ]
    ["Search"
     ("/" "Search" ready-player-search)
-    ("f" "Seek forward" ready-player-seek-forward)
-    ("b" "Seek backward" ready-player-seek-backward)
+    ("f" "Seek forward" ready-player-seek-forward :transient t)
+    ("b" "Seek backward" ready-player-seek-backward :transient t)
     ("c" "Play my collection" ready-player-open-my-media-collection)
     ]
    ["Toggle"
@@ -112,6 +112,7 @@
 
 (transient-define-suffix ready-player--transient-toggle-autoplay ()
   "Autoplay transient toggle."
+  :transient t
   :description (lambda ()
                  (format "Autoplay  [%s]" (if ready-player-autoplay "x" " ")))
   (interactive)
@@ -119,6 +120,7 @@
 
 (transient-define-suffix ready-player--transient-toggle-shuffle ()
   "Shuffle transient toggle."
+  :transient t
   :description (lambda ()
                  (format "Shuffle   [%s]" (if ready-player-shuffle "x" " ")))
   (interactive)
@@ -126,6 +128,7 @@
 
 (transient-define-suffix ready-player--transient-toggle-repeat ()
   "Repeat transient toggle."
+  :transient t
   :description (lambda ()
                  (format "Repeat%s" (cond ((eq ready-player-repeat 'file)
                                                " [file]")
