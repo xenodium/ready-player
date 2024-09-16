@@ -640,26 +640,28 @@ Note: This function needs to be added to `file-name-handler-alist'."
            cached-thumbnail ready-player--metadata
            (ready-player--dired-playback-buffer)))
       (ready-player--load-file-thumbnail
-       media-file (lambda (thumbnail)
-               (when (buffer-live-p buffer)
-                 (with-current-buffer buffer
-                   (when thumbnail
-                     (setq ready-player--thumbnail thumbnail)
-                     (ready-player--update-buffer
-                      buffer media-file
-                      ready-player--process
-                      ready-player-repeat
-                      ready-player-shuffle
-                      ready-player-autoplay
-                      thumbnail ready-player--metadata
-                      (ready-player--dired-playback-buffer))
-                     (ready-player--goto-button
-                      ready-player--last-button-focus)))))))
+       :media-file media-file
+       :on-loaded (lambda (thumbnail)
+                    (when (buffer-live-p buffer)
+                      (with-current-buffer buffer
+                        (when thumbnail
+                          (setq ready-player--thumbnail thumbnail)
+                          (ready-player--update-buffer
+                           buffer media-file
+                           ready-player--process
+                           ready-player-repeat
+                           ready-player-shuffle
+                           ready-player-autoplay
+                           thumbnail ready-player--metadata
+                           (ready-player--dired-playback-buffer))
+                          (ready-player--goto-button
+                           ready-player--last-button-focus)))))))
 
     ;; Also attempt to extract embedded thumbnail to give it preference if found.
     (when local-thumbnail
       (ready-player--load-file-thumbnail
-       media-file (lambda (thumbnail)
+       :media-file media-file
+       :on-loaded (lambda (thumbnail)
                     (when (buffer-live-p buffer)
                       (with-current-buffer buffer
                         (when thumbnail
@@ -715,12 +717,28 @@ Note: This function needs to be added to `file-name-handler-alist'."
                                    (buffer-local-value 'revert-buffer-function
                                                        buffer)))))))
 
-(defun ready-player--load-file-thumbnail (media-path on-loaded)
-  "Load thumbnail for MEDIA-PATH and invoke ON-LOADED."
-  (let ((thumbnailer (if (executable-find "ffmpegthumbnailer")
-                         #'ready-player--load-file-thumbnail-via-ffmpegthumbnailer
-                       #'ready-player--load-file-thumbnail-via-ffmpeg)))
-    (funcall thumbnailer media-path on-loaded)))
+(cl-defun ready-player--load-file-thumbnail (&key media-file on-loaded silent)
+  "Load thumbnail for MEDIA-FILE and invoke ON-LOADED.
+
+If SILENT, do not message errors."
+  (cl-assert media-file nil "Needs mandatory \"media-file\".")
+  (or (when ready-player--thumbnail
+        (if on-loaded
+            (funcall on-loaded ready-player--thumbnail)
+          ready-player--thumbnail))
+      (when-let ((cached-thumbnail (ready-player--cached-thumbnail-path media-file))
+                 (exists (file-exists-p cached-thumbnail)))
+        (if on-loaded
+            (funcall on-loaded cached-thumbnail)
+          cached-thumbnail))
+      (when-let ((thumbnailer (if (executable-find "ffmpegthumbnailer")
+                                  #'ready-player--load-file-thumbnail-via-ffmpegthumbnailer
+                                #'ready-player--load-file-thumbnail-via-ffmpeg)))
+        (funcall thumbnailer media-file on-loaded silent))
+      (when-let ((directory-thumbnail (ready-player--local-thumbnail-in-directory (file-name-directory media-file))))
+        (if on-loaded
+            (funcall on-loaded directory-thumbnail)
+          directory-thumbnail))))
 
 (defun ready-player-version ()
   "Show Ready Player Mode version."
@@ -773,7 +791,7 @@ Note: This function needs to be added to `file-name-handler-alist'."
 (defun ready-player--update-buffer (buffer media-file busy repeat shuffle autoplay &optional thumbnail metadata dired-buffer)
   "Update entire BUFFER content.
 
-Render state from MEDIA-PATH BUSY REPEAT SHUFFLE AUTOPLAY THUMBNAIL METADATA
+Render state from MEDIA-FILE BUSY REPEAT SHUFFLE AUTOPLAY THUMBNAIL METADATA
 and DIRED-BUFFER."
   (save-excursion
     (let ((basename (file-name-nondirectory media-file))
@@ -849,16 +867,16 @@ known directory."
              :on-loaded
              (lambda (metadata)
                (ready-player--load-file-thumbnail
-                media-file
-                (lambda (thumbnail)
-                  (unless thumbnail
-                    (setq thumbnail
-                          (ready-player--local-thumbnail-in-directory
-                           (file-name-directory media-file))))
-                  (ready-player--message
-                   (ready-player--make-detailed-metadata-echo-text
-                    metadata thumbnail fallback-title)
-                   5)))))))))))
+                :media-file media-file
+                :on-loaded (lambda (thumbnail)
+                             (unless thumbnail
+                               (setq thumbnail
+                                     (ready-player--local-thumbnail-in-directory
+                                      (file-name-directory media-file))))
+                             (ready-player--message
+                              (ready-player--make-detailed-metadata-echo-text
+                               metadata thumbnail fallback-title)
+                              5)))))))))))
 
 (defun ready-player--make-detailed-metadata-echo-text (metadata &optional image-path fallback-title)
   "Make echo text, rendering METADATA and IMAGE-PATH as svg in returned text.
@@ -1965,7 +1983,7 @@ Render FNAME, BUSY, REPEAT, SHUFFLE, and AUTOPLAY."
   (ready-player--cached-item-path-for media-file ".png"))
 
 (defun ready-player--cached-metadata-path (media-file)
-  "Generate thumbnail path for MEDIA-FILE"
+  "Generate thumbnail path for MEDIA-FILE."
   (ready-player--cached-item-path-for media-file ".json"))
 
 (defun ready-player--cached-item-path-for (media-file suffix)
@@ -1990,25 +2008,36 @@ Render FNAME, BUSY, REPEAT, SHUFFLE, and AUTOPLAY."
     (make-directory temp-dir t)
     temp-dir))
 
-(defun ready-player--load-file-thumbnail-via-ffmpegthumbnailer (media-file on-loaded)
-  "Load media thumbnail at MEDIA-FILE and invoke ON-LOADED.
+(defun ready-player--load-file-thumbnail-via-ffmpegthumbnailer (media-fpath &optional on-loaded silent)
+  "Load media thumbnail at MEDIA-FPATH and invoke ON-LOADED.
+
+If SILENT, do not message errors.
 
 Note: This needs the ffmpegthumbnailer command line utility."
   (if (executable-find "ffmpegthumbnailer")
-      (let* ((thumbnail-file (ready-player--cached-thumbnail-path media-file)))
-        (make-process
-         :name "ffmpegthumbnailer-process"
-         :buffer (get-buffer-create "*ffmpegthumbnailer-output*")
-         :command (list "ffmpegthumbnailer" "-i" (file-name-unquote media-file) "-s" "0" "-m" "-o" thumbnail-file)
-         :sentinel
-         (lambda (process _)
-           (if (eq (process-exit-status process) 0)
-               (funcall on-loaded thumbnail-file)
-             (funcall on-loaded nil)
-             (condition-case nil
-                 (delete-file thumbnail-file)
-               (file-error nil))))))
-    (message "Metadata not available (ffmpegthumbnailer not found)")))
+      (if on-loaded
+          (let* ((thumbnail-fpath (ready-player--cached-thumbnail-path media-fpath)))
+            (make-process
+             :name "ffmpegthumbnailer-process"
+             :buffer (get-buffer-create "*ffmpegthumbnailer-output*")
+             :command (list "ffmpegthumbnailer" "-i" (file-name-unquote media-fpath) "-s" "0" "-m" "-o" thumbnail-fpath)
+             :sentinel
+             (lambda (process _)
+               (if (eq (process-exit-status process) 0)
+                   (funcall on-loaded thumbnail-fpath)
+                 (funcall on-loaded nil)
+                 (condition-case nil
+                     (delete-file thumbnail-fpath)
+                   (file-error nil))))))
+        (with-temp-buffer
+          (let ((thumbnail-fpath (ready-player--cached-thumbnail-path media-fpath)))
+            (if (eq 0 (call-process "ffmpegthumbnailer" nil (current-buffer) nil "-i" (file-name-unquote media-fpath) "-s" "0" "-m" "-o" thumbnail-fpath))
+                thumbnail-fpath
+              (unless silent
+                (message (buffer-string)))
+              nil))))
+    (unless silent
+      (message "Metadata not available (ffmpegthumbnailer not found)"))))
 
 (defun ready-player--cached-thumbnail (media-file)
   "Get cached thumbnail for MEDIA-FILE."
@@ -2045,26 +2074,37 @@ Note: This needs the ffmpegthumbnailer command line utility."
         (goto-char (point-min))
         (json-parse-buffer :object-type 'alist)))))
 
-(defun ready-player--load-file-thumbnail-via-ffmpeg (media-file on-loaded)
-  "Load media thumbnail at MEDIA-FILE and invoke ON-LOADED.
+(defun ready-player--load-file-thumbnail-via-ffmpeg (media-fpath &optional on-loaded silent)
+  "Load media thumbnail at MEDIA-FPATH and invoke ON-LOADED.
+
+If SILENT, do not message errors.
 
 Note: This needs the ffmpeg command line utility."
-  (setq media-file (file-name-unquote media-file))
+  (setq media-fpath (file-name-unquote media-fpath))
   (if (executable-find "ffmpeg")
-      (let* ((thumbnail-file (ready-player--cached-thumbnail-path media-file)))
-        (make-process
-         :name "ffmpeg-process"
-         :buffer (get-buffer-create "*ffmpeg-output*")
-         :command (list "ffmpeg" "-i" media-file "-vf" "thumbnail" "-frames:v" "1" thumbnail-file)
-         :sentinel
-         (lambda (process _)
-           (if (eq (process-exit-status process) 0)
-               (funcall on-loaded thumbnail-file)
-             (funcall on-loaded nil)
-             (condition-case nil
-                 (delete-file thumbnail-file)
-               (file-error nil))))))
-    (message "Metadata not available (ffmpeg not found)")))
+      (if on-loaded
+          (let* ((thumbnail-fpath (ready-player--cached-thumbnail-path media-fpath)))
+            (make-process
+             :name "ffmpeg-process"
+             :buffer (get-buffer-create "*ffmpeg-output*")
+             :command (list "ffmpeg" "-i" media-fpath "-vf" "thumbnail" "-frames:v" "1" thumbnail-fpath)
+             :sentinel
+             (lambda (process _)
+               (if (eq (process-exit-status process) 0)
+                   (funcall on-loaded thumbnail-fpath)
+                 (funcall on-loaded nil)
+                 (condition-case nil
+                     (delete-file thumbnail-fpath)
+                   (file-error nil))))))
+        (with-temp-buffer
+          (let ((thumbnail-fpath (ready-player--cached-thumbnail-path media-fpath)))
+            (if (eq 0 (call-process "ffmpeg" nil (current-buffer) nil "-i" media-fpath "-vf" "thumbnail" "-frames:v" "1" thumbnail-fpath))
+                thumbnail-fpath
+              (unless silent
+                (message (buffer-string)))
+              nil))))
+    (unless silent
+      (message "Metadata not available (ffmpeg not found)"))))
 
 (cl-defun ready-player--load-file-metadata (&key media-file on-loaded silent)
   "Load media metadata at MEDIA-FILE synchronously.
