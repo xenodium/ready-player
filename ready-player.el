@@ -579,24 +579,24 @@ Note: This function needs to be added to `file-name-handler-alist'."
                              (while (and (not (dired-get-filename 'no-dir t)) (not (eobp)))
                                (dired-next-line 1))
                              (dired-get-filename))))
-         (fpath (progn
-                  (when m3u-first-file
-                    (set-visited-file-name m3u-first-file t t))
-                  (buffer-file-name)))
+         (media-file (progn
+                       (when m3u-first-file
+                         (set-visited-file-name m3u-first-file t t))
+                       (buffer-file-name)))
          (buffer (current-buffer))
-         (cached-metadata (ready-player--cached-metadata fpath))
+         (cached-metadata (ready-player--cached-metadata media-file))
          (local-thumbnail (ready-player--local-thumbnail-in-directory default-directory))
-         (cached-thumbnail (or (ready-player--cached-thumbnail fpath)
+         (cached-thumbnail (or (ready-player--cached-thumbnail media-file)
                                local-thumbnail))
          (cached-dired-buffer (or m3u-dired-buffer
                                   (ready-player--resolve-file-dired-buffer
-                                   fpath ready-player--highest-priority-dired-buffer))))
+                                   media-file ready-player--highest-priority-dired-buffer))))
     (when (eq (compare-strings ;; Case insensitive.
                "m3u" nil nil
                (file-name-extension (buffer-file-name))
                nil nil t) t)
       (error "M3u not handled correctly, please file a bug"))
-    (ready-player--save-state 'buffer-file-name fpath)
+    (ready-player--save-state 'buffer-file-name media-file)
     (ready-player--save-state 'm3u m3u-file)
     (ready-player--update-buffer-name buffer nil)
     ;; Sets default related dired buffer.
@@ -620,9 +620,9 @@ Note: This function needs to be added to `file-name-handler-alist'."
               ready-player--dired-playback-buffer)))
           (t
            (ready-player--index-dired-buffer
-              ready-player--dired-playback-buffer)))
+            ready-player--dired-playback-buffer)))
     (setq ready-player--active-buffer buffer)
-    (ready-player--update-buffer buffer fpath
+    (ready-player--update-buffer buffer media-file
                                  ready-player--process
                                  ready-player-repeat
                                  ready-player-shuffle
@@ -632,7 +632,7 @@ Note: This function needs to be added to `file-name-handler-alist'."
         (progn
           (setq ready-player--thumbnail cached-thumbnail)
           (ready-player--update-buffer
-           buffer fpath
+           buffer media-file
            ready-player--process
            ready-player-repeat
            ready-player-shuffle
@@ -640,13 +640,13 @@ Note: This function needs to be added to `file-name-handler-alist'."
            cached-thumbnail ready-player--metadata
            (ready-player--dired-playback-buffer)))
       (ready-player--load-file-thumbnail
-       fpath (lambda (thumbnail)
+       media-file (lambda (thumbnail)
                (when (buffer-live-p buffer)
                  (with-current-buffer buffer
                    (when thumbnail
                      (setq ready-player--thumbnail thumbnail)
                      (ready-player--update-buffer
-                      buffer fpath
+                      buffer media-file
                       ready-player--process
                       ready-player-repeat
                       ready-player-shuffle
@@ -659,27 +659,27 @@ Note: This function needs to be added to `file-name-handler-alist'."
     ;; Also attempt to extract embedded thumbnail to give it preference if found.
     (when local-thumbnail
       (ready-player--load-file-thumbnail
-       fpath (lambda (thumbnail)
-               (when (buffer-live-p buffer)
-                 (with-current-buffer buffer
-                   (when thumbnail
-                     (setq ready-player--thumbnail thumbnail)
-                     (ready-player--update-buffer
-                      buffer fpath
-                      ready-player--process
-                      ready-player-repeat
-                      ready-player-shuffle
-                      ready-player-autoplay
-                      thumbnail ready-player--metadata
-                      (ready-player--dired-playback-buffer))
-                     (ready-player--goto-button
-                      ready-player--last-button-focus)))))))
+       media-file (lambda (thumbnail)
+                    (when (buffer-live-p buffer)
+                      (with-current-buffer buffer
+                        (when thumbnail
+                          (setq ready-player--thumbnail thumbnail)
+                          (ready-player--update-buffer
+                           buffer media-file
+                           ready-player--process
+                           ready-player-repeat
+                           ready-player-shuffle
+                           ready-player-autoplay
+                           thumbnail ready-player--metadata
+                           (ready-player--dired-playback-buffer))
+                          (ready-player--goto-button
+                           ready-player--last-button-focus)))))))
 
     (if cached-metadata
         (progn
           (setq ready-player--metadata cached-metadata)
           (ready-player--update-buffer
-           buffer fpath
+           buffer media-file
            ready-player--process
            ready-player-repeat
            ready-player-shuffle
@@ -687,21 +687,22 @@ Note: This function needs to be added to `file-name-handler-alist'."
            cached-thumbnail ready-player--metadata
            (ready-player--dired-playback-buffer)))
       (ready-player--load-file-metadata
-       fpath (lambda (metadata)
-               (when (buffer-live-p buffer)
-                 (with-current-buffer buffer
-                   (when metadata
-                     (setq ready-player--metadata metadata)
-                     (ready-player--update-buffer
-                      buffer fpath
-                      ready-player--process
-                      ready-player-repeat
-                      ready-player-shuffle
-                      ready-player-autoplay
-                      ready-player--thumbnail metadata
-                      (ready-player--dired-playback-buffer))
-                     (ready-player--goto-button
-                      ready-player--last-button-focus))))))))
+       :media-file media-file
+       :on-loaded (lambda (metadata)
+                    (when (buffer-live-p buffer)
+                      (with-current-buffer buffer
+                        (when metadata
+                          (setq ready-player--metadata metadata)
+                          (ready-player--update-buffer
+                           buffer media-file
+                           ready-player--process
+                           ready-player-repeat
+                           ready-player-shuffle
+                           ready-player-autoplay
+                           ready-player--thumbnail metadata
+                           (ready-player--dired-playback-buffer))
+                          (ready-player--goto-button
+                           ready-player--last-button-focus))))))))
   (add-hook 'kill-buffer-hook #'ready-player--clean-up nil t))
 
 (defun ready-player--is-find-dired-buffer (buffer)
@@ -842,17 +843,18 @@ known directory."
             ready-player--metadata ready-player--thumbnail fallback-title)
            5)
         (with-current-buffer (ready-player--active-buffer)
-          (let ((media-path (buffer-file-name)))
+          (let ((media-file (buffer-file-name)))
             (ready-player--load-file-metadata
-             media-path
+             :media-file media-file
+             :on-loaded
              (lambda (metadata)
                (ready-player--load-file-thumbnail
-                media-path
+                media-file
                 (lambda (thumbnail)
                   (unless thumbnail
                     (setq thumbnail
                           (ready-player--local-thumbnail-in-directory
-                           (file-name-directory media-path))))
+                           (file-name-directory media-file))))
                   (ready-player--message
                    (ready-player--make-detailed-metadata-echo-text
                     metadata thumbnail fallback-title)
@@ -2064,22 +2066,25 @@ Note: This needs the ffmpeg command line utility."
                (file-error nil))))))
     (message "Metadata not available (ffmpeg not found)")))
 
-(defun ready-player--load-file-metadata (fpath &optional on-loaded)
-  "Load media metadata at FPATH synchronously.
+(cl-defun ready-player--load-file-metadata (&key media-file on-loaded silent)
+  "Load media metadata at MEDIA-FILE synchronously.
 
-If ON-LOADED is non-nil, load and invoke asynchronously."
-  (setq fpath (file-name-unquote fpath))
+If ON-LOADED is non-nil, load and invoke asynchronously.
+
+If SILENT, do not output any issues."
+  (cl-assert media-file nil "Needs mandatory \"media-file\".")
+  (setq media-file (file-name-unquote media-file))
   (if (executable-find "ffprobe")
       (if on-loaded
           (when-let* ((buffer (generate-new-buffer "*ffprobe-output*"))
                       (buffer-live (buffer-live-p buffer))
-                      (metadata-fpath (ready-player--cached-metadata-path fpath)))
+                      (metadata-fpath (ready-player--cached-metadata-path media-file)))
             (with-current-buffer buffer
               (erase-buffer))
             (make-process
              :name "ffprobe-process"
              :buffer buffer
-             :command (list "ffprobe" "-v" "quiet" "-print_format" "json" "-show_format" "-show_streams" fpath)
+             :command (list "ffprobe" "-v" "quiet" "-print_format" "json" "-show_format" "-show_streams" media-file)
              :sentinel
              (lambda (process _)
                (condition-case _
@@ -2093,16 +2098,19 @@ If ON-LOADED is non-nil, load and invoke asynchronously."
                  (error nil))
                (kill-buffer (process-buffer process)))))
         (with-temp-buffer
-            (let ((inhibit-read-only t)
-                  (metadata))
-              (erase-buffer)
-              (if (eq 0 (call-process "ffprobe" nil (current-buffer) nil "-v" "quiet" "-print_format" "json" "-show_format" "-show_streams" fpath))
-                  (progn
-                    (goto-char (point-min))
-                    (setq metadata (json-parse-buffer :object-type 'alist)))
-                (message "%s" (buffer-string)))
-              metadata)))
-    (message "Metadata not available (ffprobe not found)")))
+          (let ((inhibit-read-only t)
+                (metadata))
+            (erase-buffer)
+            (if (eq 0 (call-process "ffprobe" nil (current-buffer) nil "-v" "quiet" "-print_format" "json" "-show_format" "-show_streams" media-file))
+                (progn
+                  (goto-char (point-min))
+                  (setq metadata (json-parse-buffer :object-type 'alist)))
+              (unless silent
+                (message "%s" (buffer-string))))
+            metadata)))
+    (unless silent
+      (message "Metadata not available (ffprobe not found)"))
+    nil))
 
 (defun ready-player--playback-process-buffer (fpath)
   "Get the process playback buffer for FPATH."
@@ -2350,7 +2358,7 @@ to directory."
                               (error "Select a single file only")))
                            (t
                             (error "This buffer is not supported"))))
-         (metadata (ready-player--load-file-metadata media-file))
+         (metadata (ready-player--load-file-metadata :media-file media-file))
          (fetcher (if (equal "Apple iTunes"
                              (completing-read "Download from: "
                                               '("Apple iTunes"
