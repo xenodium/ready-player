@@ -1982,7 +1982,7 @@ Render FNAME, BUSY, REPEAT, SHUFFLE, and AUTOPLAY."
 
 (defun ready-player--temp-thumbnail-path (media-file)
   "Generate thumbnail temporary path for MEDIA-FILE."
-  (ready-player--cached-item-path-for media-file "temp..png"))
+  (ready-player--cached-item-path-for media-file "-temp.png"))
 
 (defun ready-player--cached-metadata-path (media-file)
   "Generate thumbnail path for MEDIA-FILE."
