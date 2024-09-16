@@ -770,13 +770,13 @@ Note: This function needs to be added to `file-name-handler-alist'."
               fallback))
         (error fallback)))))
 
-(defun ready-player--update-buffer (buffer fpath busy repeat shuffle autoplay &optional thumbnail metadata dired-buffer)
+(defun ready-player--update-buffer (buffer media-file busy repeat shuffle autoplay &optional thumbnail metadata dired-buffer)
   "Update entire BUFFER content.
 
-Render state from FPATH BUSY REPEAT SHUFFLE AUTOPLAY THUMBNAIL METADATA
+Render state from MEDIA-PATH BUSY REPEAT SHUFFLE AUTOPLAY THUMBNAIL METADATA
 and DIRED-BUFFER."
   (save-excursion
-    (let ((fname (file-name-nondirectory fpath))
+    (let ((basename (file-name-nondirectory media-file))
           (buffer-read-only nil))
       (when (buffer-live-p buffer)
         (with-current-buffer buffer
@@ -797,7 +797,7 @@ and DIRED-BUFFER."
               (insert "\n")
               (set-buffer-modified-p nil)))
           (insert "\n")
-          (insert (format " %s" (propertize fname 'face 'info-title-2)))
+          (insert (format " %s" (propertize basename 'face 'info-title-2)))
           (insert " ")
           (insert (propertize "(playing)"
                               'face `(:foreground ,(face-foreground 'font-lock-comment-face) :inherit info-title-2)
@@ -1136,14 +1136,14 @@ With optional argument N, visit the Nth file after the current one."
     (ignore recentf-exclude)
     (find-file-noselect file)))
 
-(defun ready-player--open-file (fpath buffer start-playing)
-  "Open file at FPATH in BUFFER.
+(defun ready-player--open-media-file (media-file buffer start-playing)
+  "Open file at MEDIA-FILE in BUFFER.
 
 If START-PLAYING is non-nil, start playing the media file."
   (let ((old-buffer buffer)
         ;; Auto-played files should not be added to recentf.
         ;; Temporarily override `recentf-exclude'.
-        (new-buffer (ready-player--find-file-noselect fpath)))
+        (new-buffer (ready-player--find-file-noselect media-file)))
     (with-current-buffer new-buffer
       (when (get-buffer-window-list old-buffer nil t)
         (set-window-buffer (car (get-buffer-window-list old-buffer nil t)) new-buffer))
@@ -1175,7 +1175,7 @@ With FEEDBACK, provide user feedback of the interaction."
          (new-buffer))
     (if new-file
         (progn
-          (setq new-buffer (ready-player--open-file new-file (current-buffer) playing))
+          (setq new-buffer (ready-player--open-media-file new-file (current-buffer) playing))
           (with-current-buffer new-buffer
             (setq ready-player--dired-playback-buffer sticky-dired-buffer)))
       (if playing
@@ -1363,11 +1363,11 @@ Override DIRED-BUFFER, otherwise resolve internally."
   "Start playback process."
   (ready-player--ensure-mode)
   (ready-player--stop-playback-process)
-  (when-let* ((fpath (file-name-unquote (buffer-file-name)))
+  (when-let* ((media-file (file-name-unquote (buffer-file-name)))
               (command (append
-                        (list (format "*ready player mode '%s'*" (file-name-nondirectory fpath))
-                              (ready-player--playback-process-buffer fpath))
-                        (ready-player--playback-command fpath) (list fpath)))
+                        (list (format "*ready player mode '%s'*" (file-name-nondirectory media-file))
+                              (ready-player--playback-process-buffer media-file))
+                        (ready-player--playback-command media-file) (list media-file)))
               (buffer (current-buffer)))
     (setq ready-player--process (apply #'start-process
                                        command))
@@ -1390,7 +1390,7 @@ Override DIRED-BUFFER, otherwise resolve internally."
                     ;; the experience of switching between video
                     ;; window and Emacs window is currently
                     ;; uncomfortable.
-                    (ready-player-is-audio-p fpath))
+                    (ready-player-is-audio-p media-file))
                (unless (ready-player--open-file-at-offset
                         (if (eq ready-player-repeat 'file)
                              0
@@ -1418,7 +1418,7 @@ Override DIRED-BUFFER, otherwise resolve internally."
       (let ((in-player (eq major-mode 'ready-player-major-mode)))
         (with-current-buffer (ready-player--active-buffer)
           (ready-player--goto-button 'play-stop)
-          (if-let ((fpath (buffer-file-name)))
+          (if-let ((media-file (buffer-file-name)))
               (if ready-player--process
                   (if (ready-player--pausable-p)
                       (let ((paused (ready-player--toggle-pause)))
@@ -1960,21 +1960,21 @@ Render FNAME, BUSY, REPEAT, SHUFFLE, and AUTOPLAY."
 
       (set-buffer-modified-p nil))))
 
-(defun ready-player--cached-thumbnail-path (fpath)
-  "Generate thumbnail path for media at FPATH."
-  (ready-player--cached-item-path-for fpath ".png"))
+(defun ready-player--cached-thumbnail-path (media-file)
+  "Generate thumbnail path for MEDIA-FILE."
+  (ready-player--cached-item-path-for media-file ".png"))
 
-(defun ready-player--cached-metadata-path (fpath)
-  "Generate thumbnail path for media at FPATH."
-  (ready-player--cached-item-path-for fpath ".json"))
+(defun ready-player--cached-metadata-path (media-file)
+  "Generate thumbnail path for MEDIA-FILE"
+  (ready-player--cached-item-path-for media-file ".json"))
 
-(defun ready-player--cached-item-path-for (fpath suffix)
-  "Generate cached item path for media at FPATH, appending SUFFIX."
+(defun ready-player--cached-item-path-for (media-file suffix)
+  "Generate cached item path for MEDIA-FILE, appending SUFFIX."
   (let* ((temp-dir (concat (file-name-as-directory temporary-file-directory) "ready-player"))
-         (temp-fpath (concat (file-name-as-directory temp-dir)
-                             (md5 fpath) suffix)))
+         (cached-file (concat (file-name-as-directory temp-dir)
+                             (md5 media-file) suffix)))
     (make-directory temp-dir t)
-    temp-fpath))
+    cached-file))
 
 (defun ready-player--socket-file ()
   "Socket file name in temp directory."
@@ -1990,32 +1990,32 @@ Render FNAME, BUSY, REPEAT, SHUFFLE, and AUTOPLAY."
     (make-directory temp-dir t)
     temp-dir))
 
-(defun ready-player--load-file-thumbnail-via-ffmpegthumbnailer (media-fpath on-loaded)
-  "Load media thumbnail at MEDIA-FPATH and invoke ON-LOADED.
+(defun ready-player--load-file-thumbnail-via-ffmpegthumbnailer (media-file on-loaded)
+  "Load media thumbnail at MEDIA-FILE and invoke ON-LOADED.
 
 Note: This needs the ffmpegthumbnailer command line utility."
   (if (executable-find "ffmpegthumbnailer")
-      (let* ((thumbnail-fpath (ready-player--cached-thumbnail-path media-fpath)))
+      (let* ((thumbnail-file (ready-player--cached-thumbnail-path media-file)))
         (make-process
          :name "ffmpegthumbnailer-process"
          :buffer (get-buffer-create "*ffmpegthumbnailer-output*")
-         :command (list "ffmpegthumbnailer" "-i" (file-name-unquote media-fpath) "-s" "0" "-m" "-o" thumbnail-fpath)
+         :command (list "ffmpegthumbnailer" "-i" (file-name-unquote media-file) "-s" "0" "-m" "-o" thumbnail-file)
          :sentinel
          (lambda (process _)
            (if (eq (process-exit-status process) 0)
-               (funcall on-loaded thumbnail-fpath)
+               (funcall on-loaded thumbnail-file)
              (funcall on-loaded nil)
              (condition-case nil
-                 (delete-file thumbnail-fpath)
+                 (delete-file thumbnail-file)
                (file-error nil))))))
     (message "Metadata not available (ffmpegthumbnailer not found)")))
 
-(defun ready-player--cached-thumbnail (fpath)
-  "Get cached thumbnail for media at FPATH."
-  (let ((cache-fpath (ready-player--cached-thumbnail-path fpath)))
-    (when (and (file-exists-p cache-fpath)
-               (> (file-attribute-size (file-attributes cache-fpath)) 0))
-      cache-fpath)))
+(defun ready-player--cached-thumbnail (media-file)
+  "Get cached thumbnail for MEDIA-FILE."
+  (let ((cache-file (ready-player--cached-thumbnail-path media-file)))
+    (when (and (file-exists-p cache-file)
+               (> (file-attribute-size (file-attributes cache-file)) 0))
+      cache-file)))
 
 (defun ready-player--local-thumbnail-in-directory (dir)
   "Return local thumbnail if found in DIR."
@@ -2034,35 +2034,35 @@ Note: This needs the ffmpegthumbnailer command line utility."
           (throw 'found thumbnail))))
     thumbnail))
 
-(defun ready-player--cached-metadata (fpath)
-  "Get cached thumbnail for media at FPATH."
-  (setq fpath (file-name-unquote fpath))
-  (let ((cache-fpath (ready-player--cached-metadata-path fpath)))
-    (when (and (file-exists-p cache-fpath)
-               (> (file-attribute-size (file-attributes cache-fpath)) 0))
+(defun ready-player--cached-metadata (media-file)
+  "Get cached thumbnail for MEDIA-FILE."
+  (setq media-file (file-name-unquote media-file))
+  (let ((cache-file (ready-player--cached-metadata-path media-file)))
+    (when (and (file-exists-p cache-file)
+               (> (file-attribute-size (file-attributes cache-file)) 0))
       (with-temp-buffer
-        (insert-file-contents cache-fpath)
+        (insert-file-contents cache-file)
         (goto-char (point-min))
         (json-parse-buffer :object-type 'alist)))))
 
-(defun ready-player--load-file-thumbnail-via-ffmpeg (media-fpath on-loaded)
-  "Load media thumbnail at MEDIA-FPATH and invoke ON-LOADED.
+(defun ready-player--load-file-thumbnail-via-ffmpeg (media-file on-loaded)
+  "Load media thumbnail at MEDIA-FILE and invoke ON-LOADED.
 
 Note: This needs the ffmpeg command line utility."
-  (setq media-fpath (file-name-unquote media-fpath))
+  (setq media-file (file-name-unquote media-file))
   (if (executable-find "ffmpeg")
-      (let* ((thumbnail-fpath (ready-player--cached-thumbnail-path media-fpath)))
+      (let* ((thumbnail-file (ready-player--cached-thumbnail-path media-file)))
         (make-process
          :name "ffmpeg-process"
          :buffer (get-buffer-create "*ffmpeg-output*")
-         :command (list "ffmpeg" "-i" media-fpath "-vf" "thumbnail" "-frames:v" "1" thumbnail-fpath)
+         :command (list "ffmpeg" "-i" media-file "-vf" "thumbnail" "-frames:v" "1" thumbnail-file)
          :sentinel
          (lambda (process _)
            (if (eq (process-exit-status process) 0)
-               (funcall on-loaded thumbnail-fpath)
+               (funcall on-loaded thumbnail-file)
              (funcall on-loaded nil)
              (condition-case nil
-                 (delete-file thumbnail-fpath)
+                 (delete-file thumbnail-file)
                (file-error nil))))))
     (message "Metadata not available (ffmpeg not found)")))
 
@@ -2078,7 +2078,7 @@ If SILENT, do not output any issues."
       (if on-loaded
           (when-let* ((buffer (generate-new-buffer "*ffprobe-output*"))
                       (buffer-live (buffer-live-p buffer))
-                      (metadata-fpath (ready-player--cached-metadata-path media-file)))
+                      (metadata-file (ready-player--cached-metadata-path media-file)))
             (with-current-buffer buffer
               (erase-buffer))
             (make-process
@@ -2092,7 +2092,7 @@ If SILENT, do not output any issues."
                               (buffer-live-p (process-buffer process)))
                      (with-current-buffer (process-buffer process)
                        ;; Using write-region to avoid "Wrote" echo message.
-                       (write-region (point-min) (point-max) metadata-fpath nil 'noprint)
+                       (write-region (point-min) (point-max) metadata-file nil 'noprint)
                        (goto-char (point-min))
                        (funcall on-loaded (json-parse-buffer :object-type 'alist))))
                  (error nil))
@@ -2112,12 +2112,12 @@ If SILENT, do not output any issues."
       (message "Metadata not available (ffprobe not found)"))
     nil))
 
-(defun ready-player--playback-process-buffer (fpath)
-  "Get the process playback buffer for FPATH."
+(defun ready-player--playback-process-buffer (media-file)
+  "Get the process playback buffer for MEDIA-FILE."
   (when-let* ((buffer (get-buffer-create
                        (format "ready-player: *%s %s*"
-                               (nth 0 (ready-player--playback-command fpath))
-                               (file-name-nondirectory fpath))))
+                               (nth 0 (ready-player--playback-command media-file))
+                               (file-name-nondirectory media-file))))
               (buffer-live (buffer-live-p buffer)))
     (with-current-buffer buffer
       (let ((inhibit-read-only t))
@@ -2913,8 +2913,8 @@ Source: File list fed to the metadata indexer"
                    (insert (nth 1 (split-string selection "file:")))
                    (buffer-substring-no-properties (point-min) (point-max)))))
       (if (ready-player--active-buffer t)
-          (ready-player--open-file file (ready-player--active-buffer) t)
-        (ready-player--open-file file (find-file file) t))
+          (ready-player--open-media-file file (ready-player--active-buffer) t)
+        (ready-player--open-media-file file (find-file file) t))
       (unless in-player
         (ready-player-show-info)))))
 
