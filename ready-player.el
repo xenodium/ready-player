@@ -1815,9 +1815,7 @@ Returns response string."
         (file-error nil)))
     (when (equal ready-player--metadata
                  (ready-player--cached-metadata-path buffer-file-name))
-      (condition-case nil
-          (delete-file ready-player--metadata)
-        (file-error nil)))
+      (ignore-errors (delete-file ready-player--metadata)))
     (let ((playing ready-player--process)
           (dired-buffer (ready-player--dired-playback-buffer)))
       (ready-player--stop-playback-process)
@@ -1982,6 +1980,10 @@ Render FNAME, BUSY, REPEAT, SHUFFLE, and AUTOPLAY."
   "Generate thumbnail path for MEDIA-FILE."
   (ready-player--cached-item-path-for media-file ".png"))
 
+(defun ready-player--temp-thumbnail-path (media-file)
+  "Generate thumbnail temporary path for MEDIA-FILE."
+  (ready-player--cached-item-path-for media-file "temp..png"))
+
 (defun ready-player--cached-metadata-path (media-file)
   "Generate thumbnail path for MEDIA-FILE."
   (ready-player--cached-item-path-for media-file ".json"))
@@ -2008,31 +2010,38 @@ Render FNAME, BUSY, REPEAT, SHUFFLE, and AUTOPLAY."
     (make-directory temp-dir t)
     temp-dir))
 
-(defun ready-player--load-file-thumbnail-via-ffmpegthumbnailer (media-fpath &optional on-loaded silent)
-  "Load media thumbnail at MEDIA-FPATH and invoke ON-LOADED.
+(defun ready-player--load-file-thumbnail-via-ffmpegthumbnailer (media-file &optional on-loaded silent)
+  "Load media thumbnail at MEDIA-FILE and invoke ON-LOADED.
 
 If SILENT, do not message errors.
 
 Note: This needs the ffmpegthumbnailer command line utility."
   (if (executable-find "ffmpegthumbnailer")
       (if on-loaded
-          (let* ((thumbnail-fpath (ready-player--cached-thumbnail-path media-fpath)))
+          (let* ((temp-file (ready-player--temp-thumbnail-path media-file))
+                 (thumbnail-file (ready-player--cached-thumbnail-path media-file)))
+            (ignore-errors (delete-file temp-file))
             (make-process
              :name "ffmpegthumbnailer-process"
              :buffer (get-buffer-create "*ffmpegthumbnailer-output*")
-             :command (list "ffmpegthumbnailer" "-i" (file-name-unquote media-fpath) "-s" "0" "-m" "-o" thumbnail-fpath)
+             :command (list "ffmpegthumbnailer" "-i" (file-name-unquote media-file) "-s" "0" "-m" "-o" temp-file)
              :sentinel
              (lambda (process _)
                (if (eq (process-exit-status process) 0)
-                   (funcall on-loaded thumbnail-fpath)
-                 (funcall on-loaded nil)
-                 (condition-case nil
-                     (delete-file thumbnail-fpath)
-                   (file-error nil))))))
+                   (progn
+                     (rename-file temp-file thumbnail-file t)
+                     (funcall on-loaded thumbnail-file))
+                 (ignore-errors (delete-file temp-file))
+                 (funcall on-loaded nil)))))
         (with-temp-buffer
-          (let ((thumbnail-fpath (ready-player--cached-thumbnail-path media-fpath)))
-            (if (eq 0 (call-process "ffmpegthumbnailer" nil (current-buffer) nil "-i" (file-name-unquote media-fpath) "-s" "0" "-m" "-o" thumbnail-fpath))
-                thumbnail-fpath
+          (let ((temp-file (ready-player--temp-thumbnail-path media-file))
+                (thumbnail-file (ready-player--cached-thumbnail-path media-file)))
+            (ignore-errors (delete-file temp-file))
+            (if (eq 0 (call-process "ffmpegthumbnailer" nil (current-buffer) nil "-i" (file-name-unquote media-file) "-s" "0" "-m" "-o" temp-file))
+                (progn
+                  (rename-file temp-file thumbnail-file t)
+                  thumbnail-file)
+              (ignore-errors (delete-file temp-file))
               (unless silent
                 (message (buffer-string)))
               nil))))
@@ -2074,32 +2083,39 @@ Note: This needs the ffmpegthumbnailer command line utility."
         (goto-char (point-min))
         (json-parse-buffer :object-type 'alist)))))
 
-(defun ready-player--load-file-thumbnail-via-ffmpeg (media-fpath &optional on-loaded silent)
-  "Load media thumbnail at MEDIA-FPATH and invoke ON-LOADED.
+(defun ready-player--load-file-thumbnail-via-ffmpeg (media-file &optional on-loaded silent)
+  "Load media thumbnail at MEDIA-FILE and invoke ON-LOADED.
 
 If SILENT, do not message errors.
 
 Note: This needs the ffmpeg command line utility."
-  (setq media-fpath (file-name-unquote media-fpath))
+  (setq media-file (file-name-unquote media-file))
   (if (executable-find "ffmpeg")
       (if on-loaded
-          (let* ((thumbnail-fpath (ready-player--cached-thumbnail-path media-fpath)))
+          (let* ((temp-file (ready-player--temp-thumbnail-path media-file))
+                 (thumbnail-file (ready-player--cached-thumbnail-path media-file)))
+            (ignore-errors (delete-file temp-file))
             (make-process
              :name "ffmpeg-process"
              :buffer (get-buffer-create "*ffmpeg-output*")
-             :command (list "ffmpeg" "-i" media-fpath "-vf" "thumbnail" "-frames:v" "1" thumbnail-fpath)
+             :command (list "ffmpeg" "-i" media-file "-vf" "thumbnail" "-frames:v" "1" temp-file)
              :sentinel
              (lambda (process _)
                (if (eq (process-exit-status process) 0)
-                   (funcall on-loaded thumbnail-fpath)
+                   (progn
+                     (rename-file temp-file thumbnail-file t)
+                     (funcall on-loaded thumbnail-file))
                  (funcall on-loaded nil)
-                 (condition-case nil
-                     (delete-file thumbnail-fpath)
-                   (file-error nil))))))
+                 (ignore-errors (delete-file temp-file))))))
         (with-temp-buffer
-          (let ((thumbnail-fpath (ready-player--cached-thumbnail-path media-fpath)))
-            (if (eq 0 (call-process "ffmpeg" nil (current-buffer) nil "-i" media-fpath "-vf" "thumbnail" "-frames:v" "1" thumbnail-fpath))
-                thumbnail-fpath
+          (let ((temp-file (ready-player--temp-thumbnail-path media-file))
+                (thumbnail-file (ready-player--cached-thumbnail-path media-file)))
+            (ignore-errors (delete-file temp-file))
+            (if (eq 0 (call-process "ffmpeg" nil (current-buffer) nil "-i" media-file "-vf" "thumbnail" "-frames:v" "1" temp-file))
+                (progn
+                  (rename-file temp-file thumbnail-file t)
+                  thumbnail-file)
+              (ignore-errors (delete-file temp-file))
               (unless silent
                 (message (buffer-string)))
               nil))))
@@ -2679,14 +2695,10 @@ If MEDIA-FILE is non-nil, attempt to load it."
   "Kill playback process."
   (ready-player--ensure-mode)
   (when-let ((delete-cached-file (not ready-player-cache-thumbnails)))
-    (condition-case nil
-        (delete-file ready-player--thumbnail)
-      (file-error nil)))
+    (ignore-errors (delete-file ready-player--thumbnail)))
   (when-let* ((delete-cached-file (not ready-player-cache-metadata))
               (metadata-path (ready-player--cached-metadata-path (buffer-file-name))))
-    (condition-case nil
-        (delete-file metadata-path)
-      (file-error nil)))
+    (ignore-errors (delete-file metadata-path)))
   (kill-buffer (ready-player--playback-process-buffer (buffer-file-name)))
   (when ready-player--process
     (delete-process ready-player--process)
