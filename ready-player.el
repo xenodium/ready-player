@@ -282,7 +282,7 @@ so users can opt to hide the mode line."
   :group 'ready-player)
 
 (defcustom ready-player-thumbnail-max-pixel-height
-  350
+  250
   "Maximum thumbnail pixel height."
   :type 'integer
   :group 'ready-player)
