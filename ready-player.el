@@ -2028,7 +2028,8 @@ Note: This needs the ffmpegthumbnailer command line utility."
              :command (list "ffmpegthumbnailer" "-i" (file-name-unquote media-file) "-s" "0" "-m" "-o" temp-file)
              :sentinel
              (lambda (process _)
-               (if (eq (process-exit-status process) 0)
+               (if (and (eq (process-exit-status process) 0)
+                        (file-exists-p temp-file))
                    (progn
                      (rename-file temp-file thumbnail-file t)
                      (funcall on-loaded thumbnail-file))
@@ -2038,7 +2039,8 @@ Note: This needs the ffmpegthumbnailer command line utility."
           (let ((temp-file (ready-player--temp-thumbnail-path media-file))
                 (thumbnail-file (ready-player--cached-thumbnail-path media-file)))
             (ignore-errors (delete-file temp-file))
-            (if (eq 0 (call-process "ffmpegthumbnailer" nil (current-buffer) nil "-i" (file-name-unquote media-file) "-s" "0" "-m" "-o" temp-file))
+            (if (and (eq 0 (call-process "ffmpegthumbnailer" nil (current-buffer) nil "-i" (file-name-unquote media-file) "-s" "0" "-m" "-o" temp-file))
+                     (file-exists-p temp-file))
                 (progn
                   (rename-file temp-file thumbnail-file t)
                   thumbnail-file)
@@ -2102,7 +2104,8 @@ Note: This needs the ffmpeg command line utility."
              :command (list "ffmpeg" "-i" media-file "-vf" "thumbnail" "-frames:v" "1" temp-file)
              :sentinel
              (lambda (process _)
-               (if (eq (process-exit-status process) 0)
+               (if (and (eq (process-exit-status process) 0)
+                        (file-exists-p temp-file))
                    (progn
                      (rename-file temp-file thumbnail-file t)
                      (funcall on-loaded thumbnail-file))
@@ -2112,7 +2115,8 @@ Note: This needs the ffmpeg command line utility."
           (let ((temp-file (ready-player--temp-thumbnail-path media-file))
                 (thumbnail-file (ready-player--cached-thumbnail-path media-file)))
             (ignore-errors (delete-file temp-file))
-            (if (eq 0 (call-process "ffmpeg" nil (current-buffer) nil "-i" media-file "-vf" "thumbnail" "-frames:v" "1" temp-file))
+            (if (and (eq 0 (call-process "ffmpeg" nil (current-buffer) nil "-i" media-file "-vf" "thumbnail" "-frames:v" "1" temp-file))
+                     (file-exists-p temp-file))
                 (progn
                   (rename-file temp-file thumbnail-file t)
                   thumbnail-file)
