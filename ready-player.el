@@ -1558,7 +1558,8 @@ Get in touch if keen to add for other players."
 (defun ready-player--message (text seconds)
   "Display TEXT inthe echo area for SECONDS seconds, then clear if still displayed."
   ;; Uniquify text so it may only clear this and this message alone.
-  (let ((unique-text (concat text
+  (let ((message-log-max nil)
+        (unique-text (concat text
                              (propertize (format "%s" (random 100)) 'invisible t))))
     (message "%s" unique-text)
     (run-at-time seconds nil
