@@ -2904,6 +2904,7 @@ Fails if none available unless NO-ERROR is non-nil."
     (let ((regexp (regexp-opt (ready-player--supported-media-with-uppercase) t))
           (temp-buffer (get-buffer-create "*dired-media-files*")))
       (with-current-buffer temp-buffer
+        (setq-local coding-system-for-write 'utf-8)
         (erase-buffer))
       (delete-file destination)
       (save-excursion
