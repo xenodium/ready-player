@@ -1918,7 +1918,7 @@ Note: <<socket>> is expanded to socket path."
                                      #'ready-player-menu t)))
 
 (defun ready-player--make-checkbox-button (text checked help kind action)
-  "Make a checkbox button with TEXT, CHECKED state, KIND, and ACTION."
+  "Make a checkbox button with TEXT, CHECKED state, HELP text, KIND, and ACTION."
   (propertize
    (format "%s%s"
            text
@@ -1935,7 +1935,7 @@ Note: <<socket>> is expanded to socket path."
    'button kind))
 
 (defun ready-player--make-button (text help kind action &optional no-box)
-  "Make button with TEXT, KIND, ACTION and NO-BOX."
+  "Make button with TEXT, HELP text, KIND, ACTION and NO-BOX."
   (propertize
    (if no-box
        (format "%s" text)
