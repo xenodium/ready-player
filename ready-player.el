@@ -1049,6 +1049,7 @@ If no useful metadata found, use FALLBACK."
            (cons 'value
                  (ready-player--make-button
                   (buffer-name dired-buffer)
+                  ""
                   'dired
                   #'ready-player-view-dired-playback-buffer
                   t))))))
@@ -1874,39 +1875,49 @@ Note: <<socket>> is expanded to socket path."
   "Create button line with BUSY, REPEAT, AUTOPLAY, and SHUFFLE."
   (format " %s %s %s %s %s %s %s %s %s %s"
           (ready-player--make-button ready-player-previous-icon
+                                     "Previous"
                                      'previous
                                      #'ready-player-previous)
           (ready-player--make-button (if busy
                                          ready-player-stop-icon
                                        ready-player-play-icon)
+                                     "Toggle play"
                                      'play-stop
                                      #'ready-player-toggle-play-stop)
           (ready-player--make-button ready-player-next-icon
+                                     "Next"
                                      'next
                                      #'ready-player-next)
           (ready-player--make-button ready-player-open-externally-icon
+                                     "Open Externally"
                                      'open-externally
                                      #'ready-player-open-externally)
           (ready-player--make-checkbox-button ready-player-repeat-icon repeat
+                                              "Toggle Repeat"
                                               'repeat
                                               #'ready-player-toggle-repeat)
           (ready-player--make-checkbox-button ready-player-shuffle-icon shuffle
+                                              "Toggle Shuffle"
                                               'shuffle
                                               #'ready-player-toggle-shuffle)
           (ready-player--make-checkbox-button ready-player-autoplay-icon autoplay
+                                              "Toggle Autoplay"
                                               'autoplay
                                               #'ready-player-toggle-autoplay)
           (ready-player--make-button ready-player-open-my-media-collection-icon
+                                     "Open My Media Collection"
                                      'my-collection
                                      #'ready-player-open-my-media-collection t)
           (ready-player--make-button ready-player-search-icon
+                                     "Search"
                                      'search
                                      #'ready-player-search t)
           (ready-player--make-button ready-player-help-icon
+                                     "Show Help"
                                      'help
                                      #'ready-player-menu t)))
 
-(defun ready-player--make-checkbox-button (text checked kind action)
+(defun ready-player--make-checkbox-button (text checked help kind action)
   "Make a checkbox button with TEXT, CHECKED state, KIND, and ACTION."
   (propertize
    (format "%s%s"
@@ -1915,6 +1926,7 @@ Note: <<socket>> is expanded to socket path."
                "*"
              ""))
    'pointer 'hand
+   'help-echo help
    'keymap (let ((map (make-sparse-keymap)))
              (define-key map [mouse-1] action)
              (define-key map (kbd "RET") action)
@@ -1922,7 +1934,7 @@ Note: <<socket>> is expanded to socket path."
              map)
    'button kind))
 
-(defun ready-player--make-button (text kind action &optional no-box)
+(defun ready-player--make-button (text help kind action &optional no-box)
   "Make button with TEXT, KIND, ACTION and NO-BOX."
   (propertize
    (if no-box
@@ -1930,6 +1942,7 @@ Note: <<socket>> is expanded to socket path."
      (format " %s " text))
    ;; TODO: Investigate why 'face is not enough.
    'font-lock-face (if no-box '() '(:box t))
+   'help-echo help
    'pointer 'hand
    'keymap (let ((map (make-sparse-keymap)))
              (define-key map [mouse-1] action)
