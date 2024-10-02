@@ -153,7 +153,7 @@
   :group 'ready-player)
 
 (defcustom ready-player-set-global-bindings t
-  "When non-nil, bind global bindings under C-c m prefix.
+  "When non-nil, bind global bindings under `C-c m' prefix.
 
 Value must be set before invoking `ready-player-mode'."
   :type 'boolean
