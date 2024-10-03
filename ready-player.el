@@ -2228,11 +2228,11 @@ If SILENT, do not output any issues."
         (mapconcat (lambda (row)
                      (let ((label (cdr (assoc 'label row)))
                            (value (cdr (assoc 'value row))))
-                       (format " %s%s %s\n\n"
+                       (format " %s%s %s"
                                (propertize label 'face 'font-lock-comment-face)
                                (make-string (- max-label-length (length label)) ?\s)
                                value)))
-                   rows))
+                   rows "\n\n"))
     ""))
 
 (defun ready-player--format-duration (duration)
