@@ -1183,25 +1183,29 @@ With FEEDBACK, provide user feedback of the interaction."
   (when feedback
     (ready-player--goto-button (if (> n 0) 'next 'previous))
     (setq ready-player--last-button-focus (if (> n 0) 'next 'previous)))
-
-  (let* ((sticky-dired-buffer (ready-player--dired-playback-buffer))
-         (playing ready-player--process)
-         (new-file (or (ready-player--next-dired-file-from
-                        buffer-file-name n nil ready-player-shuffle sticky-dired-buffer)
-                       (when ready-player-repeat
-                         (ready-player--next-dired-file-from
-                          buffer-file-name n t ready-player-shuffle sticky-dired-buffer))))
-         (new-buffer))
-    (if new-file
-        (progn
-          (setq new-buffer (ready-player--open-media-file new-file (current-buffer) playing))
-          (with-current-buffer new-buffer
-            (setq ready-player--dired-playback-buffer sticky-dired-buffer)))
-      (if playing
-          (progn
-            (message "No more media to play"))
-        (message "No more media")))
-    new-file))
+  (condition-case err
+      (let* ((sticky-dired-buffer (ready-player--dired-playback-buffer))
+             (playing ready-player--process)
+             (new-file (or (ready-player--next-dired-file-from
+                            buffer-file-name n nil ready-player-shuffle sticky-dired-buffer)
+                           (when ready-player-repeat
+                             (ready-player--next-dired-file-from
+                              buffer-file-name n t ready-player-shuffle sticky-dired-buffer))))
+             (new-buffer))
+        (if new-file
+            (progn
+              (setq new-buffer (ready-player--open-media-file new-file (current-buffer) playing))
+              (with-current-buffer new-buffer
+                (setq ready-player--dired-playback-buffer sticky-dired-buffer)))
+          (if playing
+              (progn
+                (message "No more media to play"))
+            (message "No more media")))
+        new-file)
+    (error
+     ;; Output the error, but return nil file.
+     (message "%s" (error-message-string err))
+     nil)))
 
 
 (defun ready-player--dired-playback-buffer ()
@@ -1281,8 +1285,9 @@ Override DIRED-BUFFER, otherwise resolve internally."
                        (match-p (string-match-p regexp extension))
                        (first-char (substring (string-trim candidate) 0 1))
                        (last-char  (substring (string-trim candidate) -1)))
-             (when (and (member last-char '("'" "\""))
-                        (not (string= first-char last-char)))
+             (when  (and (member last-char '("'" "\""))
+                         (not (string= first-char last-char)))
+
                (error "Inconsistent quoting: %s. Consider adding ls option --quoting-style=literal to find-ls-option" candidate))
              (setq found candidate)))
          (if found
