@@ -80,6 +80,22 @@
     map)
   "Keymap for `ready-player'.")
 
+
+(defvar ready-player-minor-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "m") #'ready-player-view-player)
+    (define-key map (kbd "/") #'ready-player-search)
+    (define-key map (kbd "n") #'ready-player-next)
+    (define-key map (kbd "p") #'ready-player-previous)
+    (define-key map (kbd "i") #'ready-player-show-info)
+    (define-key map (kbd "c") #'ready-player-open-my-media-collection)
+    (define-key map (kbd "SPC") #'ready-player-toggle-play-stop)
+    (define-key map (kbd "r") #'ready-player-toggle-repeat)
+    (define-key map (kbd "s") #'ready-player-toggle-shuffle)
+    (define-key map (kbd "a") #'ready-player-toggle-autoplay)
+    map)
+  "`ready-player' minor mode map.")
+
 (transient-define-prefix
   ready-player-menu ()
   "Ready Player Menu."
@@ -153,11 +169,19 @@
   :group 'ready-player)
 
 (defcustom ready-player-set-global-bindings t
-  "When non-nil, bind global bindings under `C-c m' prefix.
+  "When non-nil, bind global bindings under `ready-player-minor-mode-map-prefix' prefix.
 
 Value must be set before invoking `ready-player-mode'."
   :type 'boolean
   :group 'ready-player)
+
+(defcustom ready-player-minor-mode-map-prefix "C-c m"
+  "Prefix of the global bindings.
+
+The global bindings are set under this prefix when `ready-player-set-global-bindings'
+is not nil and `ready-player-minor-mode' is true."
+    :type 'string
+    :group 'ready-player)
 
 (defcustom ready-player-multi-buffer nil
   "When non-nil, enable opening multiple buffers with parallel playback."
@@ -411,32 +435,15 @@ See variable `ready-player-supported-media' for recognized types."
         (progn
           (ready-player-add-to-auto-mode-alist)
           (when ready-player-set-global-bindings
-            (global-set-key (kbd "C-c m m") #'ready-player-view-player)
-            (global-set-key (kbd "C-c m /") #'ready-player-search)
-            (global-set-key (kbd "C-c m n") #'ready-player-next)
-            (global-set-key (kbd "C-c m p") #'ready-player-previous)
-            (global-set-key (kbd "C-c m i") #'ready-player-show-info)
-            (global-set-key (kbd "C-c m c") #'ready-player-open-my-media-collection)
-            (global-set-key (kbd "C-c m SPC") #'ready-player-toggle-play-stop)
-            (global-set-key (kbd "C-c m r") #'ready-player-toggle-repeat)
-            (global-set-key (kbd "C-c m s") #'ready-player-toggle-shuffle)
-            (global-set-key (kbd "C-c m a") #'ready-player-toggle-autoplay))
-          (when (and called-interactively
+            (global-set-key (kbd ready-player-minor-mode-map-prefix)
+                            (cons "Ready Player" ready-player-minor-mode-map)))
+            (when (and called-interactively
                      (string-match-p "no-conversion"
                                      (symbol-name buffer-file-coding-system)))
             (revert-buffer nil t)))
       (ready-player-remove-from-auto-mode-alist)
       (when ready-player-set-global-bindings
-        (global-unset-key (kbd "C-c m m"))
-        (global-unset-key (kbd "C-c m /"))
-        (global-unset-key (kbd "C-c m n"))
-        (global-unset-key (kbd "C-c m p"))
-        (global-unset-key (kbd "C-c m i"))
-        (global-unset-key (kbd "C-c m c"))
-        (global-unset-key (kbd "C-c m SPC"))
-        (global-unset-key (kbd "C-c m r"))
-        (global-unset-key (kbd "C-c m s"))
-        (global-unset-key (kbd "C-c m a")))
+        (global-unset-key (kbd ready-player-minor-mode-map-prefix)))
       (when (and called-interactively
                  (derived-mode-p 'ready-player-major-mode))
         (revert-buffer nil t)))))
@@ -535,7 +542,7 @@ Note: This function needs to be added to `file-name-handler-alist'."
        (list buffer-file-name (point-max))))
     ('file-attributes
      (let* ((file-name-handler-alist nil)
-	    (attributes (apply #'file-name-non-special
+            (attributes (apply #'file-name-non-special
                                (append (list operation) args))))
        ;; 7 is file size location
        ;; as per `file-attributes'.
@@ -1339,7 +1346,7 @@ Override DIRED-BUFFER, otherwise resolve internally."
   "Apply `dired' FUNCTION to FILE."
   (let* ((dir (file-name-directory file))
          (found)
-	 (buffers (append
+         (buffers (append
                    (seq-filter (lambda (buffer)
                                  (with-current-buffer buffer
                                    (and (derived-mode-p 'dired-mode)
@@ -1353,8 +1360,8 @@ Override DIRED-BUFFER, otherwise resolve internally."
     (mapc
      (lambda (buffer)
        (with-current-buffer buffer
-	 (when (dired-goto-file file)
-	   (funcall function 1)
+         (when (dired-goto-file file)
+           (funcall function 1)
            (setq found buffer)))) buffers)
     found))
 
