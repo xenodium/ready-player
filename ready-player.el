@@ -712,6 +712,11 @@ Note: This function needs to be added to `file-name-handler-alist'."
                            (ready-player--dired-playback-buffer))
                           (ready-player--goto-button
                            ready-player--last-button-focus))))))))
+  ;; Never attempt to nor ask to write buffer to file.
+  ;; We do not want to corrupt the media file.
+  (add-hook 'after-change-functions
+            (lambda (_beg _end _len)
+              (set-buffer-modified-p nil)) nil t)
   (add-hook 'kill-buffer-hook #'ready-player--clean-up nil t))
 
 (defun ready-player--is-find-dired-buffer (buffer)
