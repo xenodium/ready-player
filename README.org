@@ -221,41 +221,44 @@ Default icons are =◁◁ ▶ ■ ▷▷ ➦ ⇆=. These can be customized (see 
 #+END_SRC
 
 #+RESULTS:
-| Custom variable                                           | Description                                                           |
-|-----------------------------------------------------------+-----------------------------------------------------------------------|
-| ready-player-hide-modeline                                | If non-nil, hides mode line in buffer.                                |
-| ready-player-open-playback-commands                       | Command line utilities to try for playback.                           |
-| ready-player-show-thumbnail                               | When non-nil, display file's thumbnail if available.                  |
-| ready-player-mode                                         | Non-nil if Ready-Player mode is enabled.                              |
-| ready-player-supported-audio                              | Supported audio media.                                                |
-| ready-player-open-externally-icon                         | Open externally button icon string, for example: "➦".                |
-| ready-player-cache-thumbnails                             | When non-nil, cache thumbnail.                                        |
-| ready-player-open-my-media-collection-icon                | Open my collection icon string, for example: "⌂".                     |
-| ready-player-autoplay-icon                                | Autoplay icon string, for example: "⏻".                               |
-| ready-player-set-global-bindings                          | When non-nil, bind global bindings under C-c m prefix.                |
-| ready-player-cache-metadata                               | When non-nil, cache metadata.                                         |
-| ready-player-multi-buffer                                 | When non-nil, enable opening multiple buffers with parallel playback. |
-| ready-player-thumbnail-max-pixel-height                   | Maximum thumbnail pixel height.                                       |
-| ready-player-repeat                                       | Continue playing if there's more media in directory or playlist.      |
-| ready-player-stop-icon                                    | Stop icon string, for example: "■".                                   |
-| ready-player-shuffle-icon                                 | Shuffle icon string, for example: "⤮".                               |
-| ready-player-always-load-directory-recursively            | When non-nil, load directory recursively without prompt.              |
-| ready-player-shuffle                                      | Next media item is selected at random within current directory.       |
-| ready-player-major-mode-syntax-table                      | Syntax table for `ready-player-major-mode'.                           |
-| ready-player-autoplay                                     | When non-nil, automatically start playing when media file opens.      |
-| ready-player-display-dired-playback-buffer-display-action | Choose how to display the associated playback `dired' buffer.         |
-| ready-player-repeat-icon                                  | Repeat icon string, for example: "⇆".                                |
-| ready-player-major-mode-abbrev-table                      | Abbrev table for `ready-player-major-mode'.                           |
-| ready-player-mode-hook                                    | Hook run after entering or leaving `ready-player-mode'.               |
-| ready-player-supported-media                              | Supported media types.                                                |
-| ready-player-major-mode-map                               | Keymap for `ready-player'.                                            |
-| ready-player-play-icon                                    | Play button icon string, for example: "▶".                            |
-| ready-player-search-icon                                  | Search icon string, for example: "⌕".                                 |
-| ready-player-supported-video                              | Supported video media.                                                |
-| ready-player-major-mode-hook                              | Hook run after entering `ready-player-major-mode'.                    |
-| ready-player-my-media-collection-location                 | Path to your media collection.                                        |
-| ready-player-previous-icon                                | Previous button icon string, for example: "◁◁".                       |
-| ready-player-next-icon                                    | Next button icon string, for example: "▷▷".                           |
+| Custom variable                                           | Description                                                                |
+|-----------------------------------------------------------+----------------------------------------------------------------------------|
+| ready-player-hide-modeline                                | If non-nil, hides mode line in buffer.                                     |
+| ready-player-open-playback-commands                       | Command line utilities to try for playback.                                |
+| ready-player-show-thumbnail                               | When non-nil, display file's thumbnail if available.                       |
+| ready-player-mode                                         | Non-nil if Ready-Player mode is enabled.                                   |
+| ready-player-supported-audio                              | Supported audio media.                                                     |
+| ready-player-open-externally-icon                         | Open externally button icon string, for example: "➦".                     |
+| ready-player-cache-thumbnails                             | When non-nil, cache thumbnail.                                             |
+| ready-player-open-my-media-collection-icon                | Open my collection icon string, for example: "⌂".                          |
+| ready-player-autoplay-icon                                | Autoplay icon string, for example: "⏻".                                    |
+| ready-player-set-global-bindings                          | When non-nil, bind global keys under `ready-player-minor-mode-map-prefix'. |
+| ready-player-cache-metadata                               | When non-nil, cache metadata.                                              |
+| ready-player-multi-buffer                                 | When non-nil, enable opening multiple buffers with parallel playback.      |
+| ready-player-thumbnail-max-pixel-height                   | Maximum thumbnail pixel height.                                            |
+| ready-player-repeat                                       | Continue playing if there's more media in directory or playlist.           |
+| ready-player-stop-icon                                    | Stop icon string, for example: "■".                                        |
+| ready-player-shuffle-icon                                 | Shuffle icon string, for example: "⤮".                                    |
+| ready-player-always-load-directory-recursively            | When non-nil, load directory recursively without prompt.                   |
+| ready-player-shuffle                                      | Next media item is selected at random within current directory.            |
+| ready-player-minor-mode-map                               | `ready-player' minor mode map.                                             |
+| ready-player-major-mode-syntax-table                      | Syntax table for `ready-player-major-mode'.                                |
+| ready-player-autoplay                                     | When non-nil, automatically start playing when media file opens.           |
+| ready-player-display-dired-playback-buffer-display-action | Choose how to display the associated playback `dired' buffer.              |
+| ready-player-repeat-icon                                  | Repeat icon string, for example: "⇆".                                     |
+| ready-player-major-mode-abbrev-table                      | Abbrev table for `ready-player-major-mode'.                                |
+| ready-player-mode-hook                                    | Hook run after entering or leaving `ready-player-mode'.                    |
+| ready-player-supported-media                              | Supported media types.                                                     |
+| ready-player-major-mode-map                               | Keymap for `ready-player'.                                                 |
+| ready-player-play-icon                                    | Play button icon string, for example: "▶".                                 |
+| ready-player-search-icon                                  | Search icon string, for example: "⌕".                                      |
+| ready-player-supported-video                              | Supported video media.                                                     |
+| ready-player-major-mode-hook                              | Hook run after entering `ready-player-major-mode'.                         |
+| ready-player-minor-mode-map-prefix                        | The global bindings prefix used in `ready-player-minor-mode'.              |
+| ready-player-my-media-collection-location                 | Path to your media collection.                                             |
+| ready-player-help-icon                                    | Search icon string, for example: "⁈".                                      |
+| ready-player-previous-icon                                | Previous button icon string, for example: "◁◁".                            |
+| ready-player-next-icon                                    | Next button icon string, for example: "▷▷".                                |
 
 * Commands
 
