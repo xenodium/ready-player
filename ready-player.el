@@ -717,6 +717,8 @@ Note: This function needs to be added to `file-name-handler-alist'."
   (add-hook 'after-change-functions
             (lambda (_beg _end _len)
               (set-buffer-modified-p nil)) nil t)
+  ;; Do not need lock files as buffer is not actually accessing file.
+  (setq-local create-lockfiles nil)
   (add-hook 'kill-buffer-hook #'ready-player--clean-up nil t))
 
 (defun ready-player--is-find-dired-buffer (buffer)
