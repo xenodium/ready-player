@@ -169,17 +169,17 @@
   :group 'ready-player)
 
 (defcustom ready-player-set-global-bindings t
-  "When non-nil, bind global bindings under `ready-player-minor-mode-map-prefix' prefix.
+  "When non-nil, bind global keys under `ready-player-minor-mode-map-prefix'.
 
 Value must be set before invoking `ready-player-mode'."
   :type 'boolean
   :group 'ready-player)
 
 (defcustom ready-player-minor-mode-map-prefix "C-c m"
-  "Prefix of the global bindings.
+  "The global bindings prefix used in `ready-player-minor-mode'.
 
-The global bindings are set under this prefix when `ready-player-set-global-bindings'
-is not nil and `ready-player-minor-mode' is true."
+Be sure to set `ready-player-set-global-bindings' to non-nil to enable
+global bindings."
     :type 'string
     :group 'ready-player)
 
