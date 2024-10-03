@@ -1278,7 +1278,12 @@ Override DIRED-BUFFER, otherwise resolve internally."
              (beginning-of-line))
            (when-let* ((candidate (dired-get-filename nil t))
                        (extension (file-name-extension candidate))
-                       (match-p (string-match-p regexp extension)))
+                       (match-p (string-match-p regexp extension))
+                       (first-char (substring (string-trim candidate) 0 1))
+                       (last-char  (substring (string-trim candidate) -1)))
+             (when (and (member last-char '("'" "\""))
+                        (not (string= first-char last-char)))
+               (error "Inconsistent quoting: %s. Consider adding ls option --quoting-style=literal to find-ls-option" candidate))
              (setq found candidate)))
          (if found
              (progn
