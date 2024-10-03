@@ -542,7 +542,7 @@ Note: This function needs to be added to `file-name-handler-alist'."
        (list buffer-file-name (point-max))))
     ('file-attributes
      (let* ((file-name-handler-alist nil)
-            (attributes (apply #'file-name-non-special
+	    (attributes (apply #'file-name-non-special
                                (append (list operation) args))))
        ;; 7 is file size location
        ;; as per `file-attributes'.
@@ -1346,7 +1346,7 @@ Override DIRED-BUFFER, otherwise resolve internally."
   "Apply `dired' FUNCTION to FILE."
   (let* ((dir (file-name-directory file))
          (found)
-         (buffers (append
+	 (buffers (append
                    (seq-filter (lambda (buffer)
                                  (with-current-buffer buffer
                                    (and (derived-mode-p 'dired-mode)
@@ -1360,8 +1360,8 @@ Override DIRED-BUFFER, otherwise resolve internally."
     (mapc
      (lambda (buffer)
        (with-current-buffer buffer
-         (when (dired-goto-file file)
-           (funcall function 1)
+	 (when (dired-goto-file file)
+	   (funcall function 1)
            (setq found buffer)))) buffers)
     found))
 
