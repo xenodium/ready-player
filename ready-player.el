@@ -44,6 +44,7 @@
 (require 'cl-lib)
 (require 'comint)
 (require 'dired)
+(require 'json)
 (require 'map)
 (require 'seq)
 (require 'subr-x)
