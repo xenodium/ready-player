@@ -755,6 +755,7 @@ If SILENT, do not message errors."
             (funcall on-loaded directory-thumbnail)
           directory-thumbnail))))
 
+;;;###autoload
 (defun ready-player-version ()
   "Show Ready Player Mode version."
   (interactive)
@@ -849,6 +850,7 @@ and DIRED-BUFFER."
 
 (defalias 'ready-player #'ready-player-view-player)
 
+;;;###autoload
 (defun ready-player-view-player ()
   "Toggle switching between player buffer and previous buffer.
 
@@ -865,6 +867,7 @@ known directory."
         (switch-to-buffer active-buffer)
       (ready-player-load-last-known))))
 
+;;;###autoload
 (defun ready-player-show-info ()
   "Show playback info in the echo area."
   (interactive)
@@ -1082,6 +1085,7 @@ If no useful metadata found, use FALLBACK."
           (goto-char button-pos))
       (goto-char button-pos))))
 
+;;;###autoload
 (defun ready-player-next-button ()
   "Navigate to next button."
   (interactive)
@@ -1103,6 +1107,7 @@ If no useful metadata found, use FALLBACK."
            ,@body)
        ,@body)))
 
+;;;###autoload
 (defun ready-player-previous-button ()
   "Navigate to previous button."
   (interactive)
@@ -1114,6 +1119,7 @@ If no useful metadata found, use FALLBACK."
     (goto-char (point-max))
     (ready-player-previous-button)))
 
+;;;###autoload
 (defun ready-player-quit ()
   "Quit `ready-player-major-mode' window and kill buffer."
   (interactive)
@@ -1121,6 +1127,7 @@ If no useful metadata found, use FALLBACK."
   (quit-window t))
 
 ;; Based on `crux-open-with'.
+;;;###autoload
 (defun ready-player-open-externally (arg)
   "Open visited file in default external program.
 When in `dired' mode, open file under the cursor.
@@ -1141,6 +1148,7 @@ With a prefix ARG always prompt for command to use."
                     open)))
     (call-process program nil 0 nil current-file-name)))
 
+;;;###autoload
 (defun ready-player-previous (&optional n)
   "Open the previous media file in the same directory.
 
@@ -1152,6 +1160,7 @@ With optional argument N, visit the Nth file before the current one."
       (unless in-player
         (ready-player-show-info)))))
 
+;;;###autoload
 (defun ready-player-next (&optional n)
   "Open the next media file in the same directory.
 
@@ -1315,6 +1324,7 @@ Override DIRED-BUFFER, otherwise resolve internally."
     next))
 
 ;; Based on `image-mode-mark-file'.
+;;;###autoload
 (defun ready-player-mark-dired-file ()
   "Mark the current file in the appropriate `dired' buffer(s)."
   (interactive nil ready-player-major-mode)
@@ -1333,6 +1343,7 @@ Override DIRED-BUFFER, otherwise resolve internally."
       (message "Couldn't find file to mark"))))
 
 ;; Based on `image-mode-unmark-file'.
+;;;###autoload
 (defun ready-player-unmark-dired-file ()
   "Unmark the current file in the appropriate `dired' buffer(s)."
   (interactive nil ready-player-major-mode)
@@ -1373,6 +1384,7 @@ Override DIRED-BUFFER, otherwise resolve internally."
            (setq found buffer)))) buffers)
     found))
 
+;;;###autoload
 (defun ready-player-stop ()
   "Stop media playback."
   (interactive)
@@ -1381,6 +1393,7 @@ Override DIRED-BUFFER, otherwise resolve internally."
     (ready-player--stop-playback-process))
   (ready-player--message "Stopped" 2))
 
+;;;###autoload
 (defun ready-player-play ()
   "Start media playback."
   (interactive)
@@ -1455,6 +1468,7 @@ Override DIRED-BUFFER, otherwise resolve internally."
               ready-player-autoplay))))))
     (set-process-filter ready-player--process #'comint-output-filter)))
 
+;;;###autoload
 (defun ready-player-toggle-play-stop ()
   "Toggle play/stop of media."
   (interactive)
@@ -1478,6 +1492,7 @@ Override DIRED-BUFFER, otherwise resolve internally."
             (error "No file to play/stop"))))
     (ready-player-load-last-known)))
 
+;;;###autoload
 (defun ready-player-open-my-media-collection ()
   "Open my media collection from `ready-player-my-media-collection-location'."
   (interactive)
@@ -1500,6 +1515,7 @@ Override DIRED-BUFFER, otherwise resolve internally."
                                      my-collection-dir)))
                                    file))))
 
+;;;###autoload
 (defun ready-player-load-last-known ()
   "Attempt to load last known media."
   (interactive)
@@ -1554,6 +1570,7 @@ Note: mpv player only at this time.
 Get in touch if keen to add for other players."
   (ready-player--has-mpv-socket-p))
 
+;;;###autoload
 (defun ready-player-seek-forward (seconds)
   "Seek forward.
 
@@ -1593,6 +1610,7 @@ Get in touch if keen to add for other players."
                    (when (string= (current-message) unique-text)
                      (message ""))))))
 
+;;;###autoload
 (defun ready-player-seek-backward (seconds)
   "Seek backward.
 
@@ -1762,6 +1780,7 @@ Returns response string."
           (buffer-string)))
     (error "")))
 
+;;;###autoload
 (defun ready-player-toggle-modeline ()
   "Toggle displaying the mode line."
   (interactive)
@@ -1773,6 +1792,7 @@ Returns response string."
     (setq mode-line-format (default-value 'mode-line-format))
     (setq ready-player-hide-modeline nil)))
 
+;;;###autoload
 (defun ready-player-toggle-repeat ()
   "Cycle through repeat settings: file, directory, off."
   (interactive)
@@ -1795,6 +1815,7 @@ Returns response string."
             ((eq ready-player-repeat 'playlist) "playlist")
             (t "off"))) 2))
 
+;;;###autoload
 (defun ready-player-toggle-shuffle ()
   "Toggle shuffle setting."
   (interactive)
@@ -1811,6 +1832,7 @@ Returns response string."
                              "ON"
                            "OFF")) 2))
 
+;;;###autoload
 (defun ready-player-toggle-autoplay ()
   "Toggle autoplay setting."
   (interactive)
@@ -1827,6 +1849,7 @@ Returns response string."
                               "ON"
                             "OFF")) 2))
 
+;;;###autoload
 (defun ready-player-reload-buffer ()
   "Reload media from file."
   (interactive)
@@ -2259,6 +2282,7 @@ If SILENT, do not output any issues."
    (t
     (format "%d bytes" size))))
 
+;;;###autoload
 (defun ready-player-view-dired-playback-buffer ()
   "View associated `dired' playback buffer."
   (interactive)
@@ -2276,6 +2300,7 @@ If SILENT, do not output any issues."
                      rows)
            'value))
 
+;;;###autoload
 (defun ready-player-lookup-song ()
   "Look up current song on Discogs."
   (interactive)
@@ -2395,6 +2420,7 @@ If TO is non-nil, save to that location.  Otherwise generate location."
       (setq counter (1+ counter)))
     (expand-file-name file-path)))
 
+;;;###autoload
 (defun ready-player-set-album-artwork ()
   "Select image and set as album artwork."
   (interactive)
@@ -2425,6 +2451,7 @@ If TO is non-nil, save to that location.  Otherwise generate location."
     (kill-buffer buffer)
     written))
 
+;;;###autoload
 (defun ready-player-download-album-artwork-and-set-metadata ()
   "Download album artwork set media metadata.
 
@@ -2432,6 +2459,7 @@ Note: Can be invoked from either `dired' or `ready-player-major-mode' buffers."
   (interactive)
   (ready-player--download-album-artwork t))
 
+;;;###autoload
 (defun ready-player-download-album-artwork (prefix)
   "Download album artwork to media directory.
 
@@ -2508,6 +2536,7 @@ to directory."
           ((and override (eq major-mode 'ready-player-major-mode))
            (ready-player-reload-buffer)))))
 
+;;;###autoload
 (defun ready-player-load-m3u-playlist (&optional m3u-path)
   "Load an .m3u playlist.
 
@@ -2581,6 +2610,7 @@ loading into `ready-player'."
     (switch-to-buffer-other-window buffer)
     buffer))
 
+;;;###autoload
 (defun ready-player-load-dired-buffer (&optional dired-buffer media-file)
   "Load a `dired' buffer.
 
@@ -2628,6 +2658,7 @@ If MEDIA-FILE is non-nil, attempt to load it."
     (unless (eq (current-buffer) media-buffer)
       (switch-to-buffer media-buffer))))
 
+;;;###autoload
 (defun ready-player-load-directory (&optional directory media-file)
   "Load all media from directory (experimental).
 
@@ -2967,6 +2998,7 @@ Fails if none available unless NO-ERROR is non-nil."
   (ready-player--cached-item-path-for
    (ready-player--dired-buffer-index-identifier dired-buffer) "_source_index.txt"))
 
+;;;###autoload
 (defun ready-player-search ()
   "Search the `dired' playlist for playback (experimental).
 
