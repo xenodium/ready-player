@@ -183,15 +183,20 @@ If you'd like to use different utilities to play video and audio, you can use =r
           (ready-player-is-video-p "mpv")))
 #+end_src
 
-Ready player does not auto advance for non-audio files to prevent switching between video window and Emacs.
-To force headless audio playback and support repeat, for example to play music from video files, use the following settings:
+** Play all videos as audio
+
+Ready player avoids auto-advancing video files to prevent awkward switching between video window and Emacs.
+
+If you'd like to play all video files as audio (no video stream playback) and auto-advance via repeat, use the following settings:
 
 #+begin_src emacs-lisp :lexical no
-  ;; Mark all video files as audio
-  (setq ready-player-supported-audio (append ready-player-supported-audio ready-player-supported-video))
-  ;; Disable video files
+  ;; Recognize video files as audio.
+  (setq ready-player-supported-audio (append ready-player-supported-audio
+                                             ready-player-supported-video))
+  ;; Don't recognize any file as video.
   (setq ready-player-supported-video nil)
-  ;; Disable window creation (with mpv)
+
+  ;; Disable video stream playback (mpv player)
   (setq ready-player-open-playback-commands
         '(("mpv" "--audio-display=no" "--video=no" "--input-ipc-server=<<socket>>")))
 #+end_src
