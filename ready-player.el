@@ -373,6 +373,25 @@ Same format as a the action in a `display-buffer-alist' entry."
   :type (plist-get (cdr (get 'display-buffer-alist 'custom-type)) :value-type)
   :group 'ready-player)
 
+(defcustom ready-player-display-action
+  (cons '(major-mode . ready-player-major-mode)
+        ;; Use existing window if one available.
+        `((display-buffer-reuse-mode-window
+           (lambda (buffer alist)
+             (when (window-combination-p (frame-root-window (selected-frame)) t)
+               (window--display-buffer buffer
+                                       (car (window-at-side-list nil 'left))
+                                       'reuse alist)))
+           display-buffer-in-direction)))
+  "Choose how to display the `ready-player-major-mode' buffer.
+
+Same format as a the action in a `display-buffer-alist' entry.
+Set to nil if no addition to `display-buffer-alist' is desired.
+
+Default value attempts to reuse existing window."
+  :type (plist-get (cdr (get 'display-buffer-alist 'custom-type)) :value-type)
+  :group 'ready-player)
+
 (defcustom ready-player-supported-media
   #'ready-player-supported-audio-and-video
   "Supported media types."
@@ -574,6 +593,10 @@ Note: This function needs to be added to `file-name-handler-alist'."
   (setq buffer-undo-list t)
   (when ready-player-hide-modeline
     (setq mode-line-format nil))
+  (when ready-player-display-action
+    (add-to-list
+     'display-buffer-alist
+     ready-player-display-action))
   (let* ((m3u-file (when (eq (compare-strings ;; Case insensitive.
                               "m3u" nil nil
                               (file-name-extension (buffer-file-name))
