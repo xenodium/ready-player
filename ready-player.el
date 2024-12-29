@@ -376,7 +376,7 @@ Same format as a the action in a `display-buffer-alist' entry."
 (defcustom ready-player-supported-media
   #'ready-player-supported-audio-and-video
   "Supported media types."
-  :group 'play-mode
+  :group 'ready-player
   :type '(choice (function :tag "Function")
                  (repeat (string :tag "String"))))
 
@@ -386,7 +386,7 @@ Same format as a the action in a `display-buffer-alist' entry."
     "mpg" "mpeg" "mts" "mxf" "ogm" "ogv" "qt" "rm" "rmvb" "vob"
     "webm" "wmv")
   "Supported video media."
-  :group 'play-mode
+  :group 'ready-player
   :type '(repeat string))
 
 (defcustom ready-player-supported-audio
@@ -394,7 +394,7 @@ Same format as a the action in a `display-buffer-alist' entry."
     "m3u" "m4a" "midi" "mlp" "mka" "mp2" "mp3" "oga" "ogg" "opus" "pva"
     "ra" "ram" "raw" "rf64" "spx" "tta" "wav" "wavpack" "wma" "wv")
   "Supported audio media."
-  :group 'play-mode
+  :group 'ready-player
   :type '(repeat string))
 
 (defvar-local ready-player--process nil "Media-playing process.")
