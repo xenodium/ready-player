@@ -2556,7 +2556,7 @@ to directory."
     (quit-window t)
     (cond ((and reveal-file (eq major-mode 'dired-mode))
            (dired-jump nil reveal-file))
-          ((and override (eq major-mode 'ready-player-major-mode))
+          ((and (or override reveal-file) (eq major-mode 'ready-player-major-mode))
            (ready-player-reload-buffer)))))
 
 ;;;###autoload
