@@ -3094,6 +3094,55 @@ Source: File list fed to the metadata indexer"
           (list
            (cons 'index (nreverse result))))))))
 
+(defun ready-player-dired-add-overlays ()
+  "Add a metadata overlay to each file line in a `dired' buffer."
+  (interactive)
+  (when (eq major-mode 'dired-mode)
+    (ready-player-dired-remove-overlays)
+    (save-restriction
+      (save-excursion
+        (when (use-region-p)
+          (narrow-to-region (region-beginning)
+                            (min (1+ (region-end))
+                                 (point-max))))
+        (widen)
+        (goto-char (point-min))
+        (while (not (eobp))
+          (when-let* ((media-file (dired-get-filename nil t))
+                      (is-audio (seq-contains-p
+                                 ready-player-supported-audio
+                                 (file-name-extension media-file)))
+                      (start (+ 1 (line-beginning-position)))
+                      (end (line-end-position))
+                      (overlay (make-overlay start end)))
+            (ready-player--load-file-metadata
+             :media-file media-file
+             :on-loaded (lambda (metadata)
+                          (overlay-put overlay 'display
+                                       (concat " "
+                                               (propertize (ready-player--row-value
+                                                            (ready-player--make-metadata-rows metadata)
+                                                            "Artist:")
+                                                           'face 'font-lock-string-face)
+                                               "      "
+                                               (propertize (ready-player--row-value
+                                                            (ready-player--make-metadata-rows metadata)
+                                                            "Album:")
+                                                           'face 'font-lock-variable-name-face)
+                                               "      "
+                                               (ready-player--row-value
+                                                (ready-player--make-metadata-rows metadata)
+                                                "Title:"))) " "
+                          (overlay-put overlay 'ready-player-dired-overlay t))))
+          (forward-line 1))))))
+
+(defun ready-player-dired-remove-overlays ()
+  "Remove metadata overlays from dired buffer."
+  (interactive)
+  (when (eq major-mode 'dired-mode)
+    (remove-overlays nil nil 'ready-player-dired-overlay t)))
+
+
 (defun ready-player--dump-buffer-state ()
   "Dump some useful internal details for debugging."
   (with-current-buffer (ready-player--active-buffer)
