@@ -899,7 +899,8 @@ known directory."
       (if (and ready-player--metadata ready-player--thumbnail)
           (ready-player--message
            (ready-player--make-detailed-metadata-echo-text
-            ready-player--metadata ready-player--thumbnail fallback-title)
+            ready-player--metadata ready-player--thumbnail fallback-title
+            (frame-pixel-width))
            5)
         (with-current-buffer (ready-player--active-buffer)
           (let ((media-file (buffer-file-name)))
@@ -916,13 +917,15 @@ known directory."
                                       (file-name-directory media-file))))
                              (ready-player--message
                               (ready-player--make-detailed-metadata-echo-text
-                               metadata thumbnail fallback-title)
+                               metadata thumbnail fallback-title (frame-pixel-width))
                               5)))))))))))
 
-(defun ready-player--make-detailed-metadata-echo-text (metadata &optional image-path fallback-title)
+(defun ready-player--make-detailed-metadata-echo-text (metadata &optional image-path fallback-title max-pixel-width)
   "Make echo text, rendering METADATA and IMAGE-PATH as svg in returned text.
 
- Provide FALLBACK-TITLE in case title is not present in METADATA."
+ Provide FALLBACK-TITLE in case title is not present in METADATA.
+
+ Use MAX-PIXEL-WIDTH to cap generated svg width."
   (let* ((title (or (ready-player--row-value
                      (ready-player--make-metadata-rows metadata)
                      "Title:") fallback-title ""))
@@ -937,7 +940,14 @@ known directory."
          (image-width 90)
          (image-height 90)
          (text-height 25)
-         (svg (svg-create (frame-pixel-width) image-height)))
+         (svg-width (min max-pixel-width
+                         (+ image-width 20
+                            (apply #'max
+                                   (mapcar (lambda (text)
+                                             ;; Approximate char width.
+                                             (* (length (or text "")) 10))
+                                           (list title artist album))))))
+         (svg (svg-create svg-width image-height)))
     (if image-path
         (svg-embed svg image-path
                    (if (equal "jpg" (file-name-extension image-path))
