@@ -90,7 +90,7 @@ From then onwards, you can directly open your collection via =M-x ready-player= 
 | u         | ready-player-unmark-dired-file          | Unmark the current file in the appropriate `dired' buffer(s).              |
 
 * Global key bindings
-Global bindinds are under the =C-c m= prefix. If you prefer not to have these bindings disable them with:
+Global bindinds are under the =C-c #= prefix. If you prefer not to have these bindings disable them with:
 
 #+begin_src emacs-lisp :lexical no
   (setq ready-player-set-global-bindings nil)
@@ -111,20 +111,20 @@ Global bindinds are under the =C-c m= prefix. If you prefer not to have these bi
                     "\n")))
                rows))))
     (seq-filter (lambda (command)
-                  (string-match "C-c m" (car command))) rows))
+                  (string-match "C-c #" (car command))) rows))
 #+END_SRC
 
 #+RESULTS:
-| C-c m SPC | ready-player-toggle-play-stop         | Toggle play/stop of media.                                                 |
-| C-c m r   | ready-player-toggle-repeat            | Cycle through repeat settings: file, directory, off.                       |
-| C-c m m   | ready-player-view-player              | Toggle switching between player buffer and previous buffer.                |
-| C-c m s   | ready-player-toggle-shuffle           | Toggle shuffle setting.                                                    |
-| C-c m a   | ready-player-toggle-autoplay          | Toggle autoplay setting.                                                   |
-| C-c m n   | ready-player-next                     | Open the next media file in the same directory.                            |
-| C-c m c   | ready-player-open-my-media-collection | Open my media collection from `ready-player-my-media-collection-location'. |
-| C-c m i   | ready-player-show-info                | Show playback info in the echo area.                                       |
-| C-c m p   | ready-player-previous                 | Open the previous media file in the same directory.                        |
-| C-c m /   | ready-player-search                   | Search the `dired' playlist for playback (experimental).                   |
+| C-c # SPC | ready-player-toggle-play-stop         | Toggle play/stop of media.                                                 |
+| C-c # r   | ready-player-toggle-repeat            | Cycle through repeat settings: file, directory, off.                       |
+| C-c # m   | ready-player-view-player              | Toggle switching between player buffer and previous buffer.                |
+| C-c # s   | ready-player-toggle-shuffle           | Toggle shuffle setting.                                                    |
+| C-c # a   | ready-player-toggle-autoplay          | Toggle autoplay setting.                                                   |
+| C-c # n   | ready-player-next                     | Open the next media file in the same directory.                            |
+| C-c # c   | ready-player-open-my-media-collection | Open my media collection from `ready-player-my-media-collection-location'. |
+| C-c # i   | ready-player-show-info                | Show playback info in the echo area.                                       |
+| C-c # p   | ready-player-previous                 | Open the previous media file in the same directory.                        |
+| C-c # /   | ready-player-search                   | Search the `dired' playlist for playback (experimental).                   |
 
 
 * Toggle recognition
@@ -311,38 +311,38 @@ Default icons are =◁◁ ▶ ■ ▷▷ ➦ ⇆=. These can be customized (see 
 
 #+RESULTS:
 | TAB              | ready-player-next-button                             | Navigate to next button.                                                   |
-| SPC or C-c m SPC | ready-player-toggle-play-stop                        | Toggle play/stop of media.                                                 |
+| SPC or C-c # SPC | ready-player-toggle-play-stop                        | Toggle play/stop of media.                                                 |
 |                  | ready-player-mode                                    | Toggle Ready Player mode media file recognition.                           |
 | g                | ready-player-reload-buffer                           | Reload media from file.                                                    |
-| r or C-c m r     | ready-player-toggle-repeat                           | Cycle through repeat settings: file, directory, off.                       |
+| r or C-c # r     | ready-player-toggle-repeat                           | Cycle through repeat settings: file, directory, off.                       |
 | f                | ready-player-seek-forward                            | Seek forward.                                                              |
 |                  | ready-player-set-album-artwork                       | Select image and set as album artwork.                                     |
 | q                | ready-player-quit                                    | Quit `ready-player-major-mode' window and kill buffer.                     |
 |                  | ready-player-version                                 | Show Ready Player Mode version.                                            |
 |                  | ready-player-download-album-artwork                  | Download album artwork to media directory.                                 |
-| C-c m m          | ready-player-view-player                             | Toggle switching between player buffer and previous buffer.                |
+| C-c # m          | ready-player-view-player                             | Toggle switching between player buffer and previous buffer.                |
 |                  | ready-player-toggle-modeline                         | Toggle displaying the mode line.                                           |
 | d                | ready-player-view-dired-playback-buffer              | View associated `dired' playback buffer.                                   |
 |                  | ready-player-load-dired-buffer                       | Load a `dired' buffer.                                                     |
-| s or C-c m s     | ready-player-toggle-shuffle                          | Toggle shuffle setting.                                                    |
+| s or C-c # s     | ready-player-toggle-shuffle                          | Toggle shuffle setting.                                                    |
 |                  | ready-player-play                                    | Start media playback.                                                      |
 | b                | ready-player-seek-backward                           | Seek backward.                                                             |
-| a or C-c m a     | ready-player-toggle-autoplay                         | Toggle autoplay setting.                                                   |
+| a or C-c # a     | ready-player-toggle-autoplay                         | Toggle autoplay setting.                                                   |
 | o or e           | ready-player-open-externally                         | Open visited file in default external program.                             |
 |                  | ready-player-stop                                    | Stop media playback.                                                       |
-| n or C-c m n     | ready-player-next                                    | Open the next media file in the same directory.                            |
+| n or C-c # n     | ready-player-next                                    | Open the next media file in the same directory.                            |
 |                  | ready-player-download-album-artwork-and-set-metadata | Download album artwork set media metadata.                                 |
-| c or C-c m c     | ready-player-open-my-media-collection                | Open my media collection from `ready-player-my-media-collection-location'. |
-| C-c m m          | ready-player                                         | Toggle switching between player buffer and previous buffer.                |
+| c or C-c # c     | ready-player-open-my-media-collection                | Open my media collection from `ready-player-my-media-collection-location'. |
+| C-c # m          | ready-player                                         | Toggle switching between player buffer and previous buffer.                |
 |                  | ready-player-lookup-song                             | Look up current song on Discogs.                                           |
 |                  | ready-player-major-mode                              | Major mode to preview and play media files.                                |
 |                  | ready-player-load-directory                          | Load all media from directory (experimental).                              |
-| i or C-c m i     | ready-player-show-info                               | Show playback info in the echo area.                                       |
-| p or C-c m p     | ready-player-previous                                | Open the previous media file in the same directory.                        |
+| i or C-c # i     | ready-player-show-info                               | Show playback info in the echo area.                                       |
+| p or C-c # p     | ready-player-previous                                | Open the previous media file in the same directory.                        |
 | m                | ready-player-mark-dired-file                         | Mark the current file in the appropriate `dired' buffer(s).                |
 | <backtab>        | ready-player-previous-button                         | Navigate to previous button.                                               |
 | u                | ready-player-unmark-dired-file                       | Unmark the current file in the appropriate `dired' buffer(s).              |
-| / or C-c m /     | ready-player-search                                  | Search the `dired' playlist for playback (experimental).                   |
+| / or C-c # /     | ready-player-search                                  | Search the `dired' playlist for playback (experimental).                   |
 |                  | ready-player-load-m3u-playlist                       | Load an .m3u playlist.                                                     |
 |                  | ready-player-load-last-known                         | Attempt to load last known media.                                          |
 
