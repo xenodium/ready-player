@@ -176,7 +176,7 @@ Value must be set before invoking `ready-player-mode'."
   :type 'boolean
   :group 'ready-player)
 
-(defcustom ready-player-minor-mode-map-prefix "C-c m"
+(defcustom ready-player-minor-mode-map-prefix "C-c #"
   "The global bindings prefix used in `ready-player-minor-mode'.
 
 Be sure to set `ready-player-set-global-bindings' to non-nil to enable
