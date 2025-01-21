@@ -126,7 +126,6 @@ Global bindinds are under the =C-c m= prefix. If you prefer not to have these bi
 | C-c m p   | ready-player-previous                 | Open the previous media file in the same directory.                        |
 | C-c m /   | ready-player-search                   | Search the `dired' playlist for playback (experimental).                   |
 
-
 * Toggle recognition
 
 You can optionally toggle media recognition on and off interactively via =M-x ready-player-mode=.
@@ -347,3 +346,47 @@ Default icons are =◁◁ ▶ ■ ▷▷ ➦ ⇆=. These can be customized (see 
 |                  | ready-player-load-last-known                         | Attempt to load last known media.                                          |
 
 👉 [[https://github.com/sponsors/xenodium][Support this work via GitHub Sponsors]]
+
+* Tips and Tricks
+** Centering the Buffer with Olivetti Mode
+
+If you prefer to center the buffer content, especially when working
+with large screens, you can use =olivetti-mode= to achieve
+this. =olivetti-mode= is a lightweight Emacs package that centers text
+in the buffer, making it more readable and visually appealing.
+
+Note that =olivetti-mode= does not perform "true centering" (i.e.,
+centering each line individually). Instead, it centers the entire
+buffer content by adding padding to the left and right, effectively
+creating a centered column of text. This approach ensures consistent
+alignment and avoids visual distractions caused by uneven line
+lengths.
+
+To enable centering for =ready-player=, add the following configuration
+to your Emacs setup:
+
+#+BEGIN_SRC emacs-lisp
+(use-package olivetti
+  :defer t
+  :ensure t
+  :init
+  (defun my-center-ready-player-on ()
+    "Enable olivetti-mode and visual-line-mode for ready-player."
+    (setq olivetti-body-width 0) ; Or a number to control the amount of chars to be centered
+    (olivetti-mode 1)            ; Enable olivetti-mode
+    (visual-line-mode 1))        ; Enable/Disable visual-line-mode for text wrapping of your liking
+
+  ;; Hook into ready-player's major mode
+  (add-hook 'ready-player-major-mode-hook #'my-center-ready-player-on))
+#+END_SRC
+
+This configuration will automatically center the buffer content
+whenever =ready-player= is active. You can adjust the
+=olivetti-body-width= value to control the width of the centered text.
+
+*** Note:
+
+Although =olivetti-mode= handles edge cases well and is a robust solution
+for centering text, if you prefer not to use =olivetti-mode=, there are
+alternatives like =perfect-margin=, =centered-window-mode=, or =darkroom=,
+which you can configure similarly.
