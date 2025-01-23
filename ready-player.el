@@ -314,6 +314,7 @@ so users can opt to hide the mode line."
 
 (defcustom ready-player-open-playback-commands
   '(("mpv" "--audio-display=no" "--input-ipc-server=<<socket>>")
+    ("cvlc")
     ("vlc")
     ("ffplay")
     ("mplayer"))
