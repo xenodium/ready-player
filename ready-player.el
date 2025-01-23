@@ -5,8 +5,8 @@
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; Package-Requires: ((emacs "28.1"))
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.25.2
-(defconst ready-player--version "0.25.2")
+;; Version: 0.26.1
+(defconst ready-player--version "0.26.1")
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -1050,11 +1050,9 @@ If no useful metadata found, use FALLBACK."
 
 (defun ready-player--make-metadata-ogg-rows (metadata)
   "Make METADATA row data from an ogg file."
-  (let ((metadata-rows)
-        (stream))
+  (let ((metadata-rows))
     (let-alist metadata
-      (setq stream (seq-first .streams))
-      (let-alist stream
+      (let-alist (seq-first .streams)
         (when (or .tags.title .tags.TITLE)
           (setq metadata-rows
                 (append metadata-rows
@@ -1074,6 +1072,31 @@ If no useful metadata found, use FALLBACK."
                          (list (cons 'label "Album:")
                                (cons 'value (or .tags.album .tags.ALBUM)))))))))))
 
+(defun ready-player--make-metadata-flac-rows (metadata)
+  "Make METADATA row data from a flac file."
+  (let ((metadata-rows))
+    (let-alist metadata
+      (let-alist .format.tags
+        (when (or .title .TITLE)
+          (setq metadata-rows
+                (append metadata-rows
+                        (list
+                         (list (cons 'label "Title:")
+                               (cons 'value (or .title .TITLE)))))))
+        (when .ARTIST
+          (setq metadata-rows
+                (append metadata-rows
+                        (list
+                         (list (cons 'label "Artist:")
+                               (cons 'value (or .artist .ARTIST)))))))
+        (when .ALBUM
+          (setq metadata-rows
+                (append metadata-rows
+                        (list
+                         (list (cons 'label "Album:")
+                               (cons 'value (or .album .ALBUM)))))))))
+    metadata-rows))
+
 (defun ready-player--make-metadata-rows (metadata &optional dired-buffer)
   "Make METADATA row data with DIRED-BUFFER."
   (let ((metadata-rows)
@@ -1084,6 +1107,11 @@ If no useful metadata found, use FALLBACK."
       (setq metadata-rows (append metadata-rows
                                   (ready-player--make-dired-playlist-row dired-buffer))))
     (setq new-rows (ready-player--make-metadata-ogg-rows metadata))
+    (setq metadata-rows (append metadata-rows new-rows))
+    (when new-rows
+      (setq metadata-rows (append metadata-rows
+                                  (ready-player--make-dired-playlist-row dired-buffer))))
+    (setq new-rows (ready-player--make-metadata-flac-rows metadata))
     (setq metadata-rows (append metadata-rows new-rows))
     (when new-rows
       (setq metadata-rows (append metadata-rows
@@ -2945,10 +2973,8 @@ Fails if none available unless NO-ERROR is non-nil."
                   (setq path (file-name-unquote path))
                   (with-temp-buffer
                     (if (eq 0 (call-process "ffprobe" nil t nil "-v" "quiet"
-                                            "-print_format" "json" "-show_format" path))
-                        (map-elt (json-parse-string (buffer-string)
-                                                    :object-type 'alist)
-                                 'format)
+                                            "-print_format" "json" "-show_format" "-show_streams" path))
+                        (json-parse-string (buffer-string) :object-type 'alist)
                       (message "Warning: Couldn't read track metadata for %s" path)
                       (message "Only found:\n%s" (buffer-string))
                       (list (cons 'filename path)))))
@@ -3049,21 +3075,22 @@ Source: File list fed to the metadata indexer"
                      (mapcar
                       (lambda (track)
                         (let-alist track
-                          ;; Multi-line
-                          ;; (format "%s\n%s %s%s"
-                          ;;         (or .tags.title (file-name-base .filename) "No title")
-                          ;;         (propertize (or .tags.artist "") 'face 'font-lock-string-face)
-                          ;;         (propertize (or .tags.album "") 'face 'font-lock-variable-name-face)
-                          ;;         (propertize (format "file:%s" .filename) 'invisible t))
                           (format "%s   %s   %s%s"
                                   (truncate-string-to-width
-                                   (or .tags.title
+                                   (or (ready-player--row-value
+                                        (ready-player--make-metadata-rows track)
+                                        "Title:")
                                        (file-name-base .filename)
                                        "No title") title-width nil ?\s "…")
-                                  (truncate-string-to-width (propertize (or .tags.artist "")
+                                  (truncate-string-to-width (propertize (or
+                                                                         (ready-player--row-value
+                                                                          (ready-player--make-metadata-rows track)
+                                                                          "Artist:") "")
                                                                         'face 'font-lock-string-face) artist-width nil ?\s "…")
                                   (truncate-string-to-width
-                                   (propertize (or .tags.album "")
+                                   (propertize (or (ready-player--row-value
+                                                    (ready-player--make-metadata-rows track)
+                                                    "Album:") "")
                                                'face 'font-lock-variable-name-face) album-width nil ?\s "…")
                                   (propertize (format "file:%s" .filename) 'invisible t))))
                       index)))
