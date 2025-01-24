@@ -1100,25 +1100,13 @@ If no useful metadata found, use FALLBACK."
 
 (defun ready-player--make-metadata-rows (metadata &optional dired-buffer)
   "Make METADATA row data with DIRED-BUFFER."
-  (let ((metadata-rows)
-        (new-rows))
-    (setq new-rows (ready-player--make-metadata-mp3-rows metadata))
-    (setq metadata-rows (append metadata-rows new-rows))
-    (when new-rows
-      (setq metadata-rows (append metadata-rows
-                                  (ready-player--make-dired-playlist-row dired-buffer))))
-    (setq new-rows (ready-player--make-metadata-ogg-rows metadata))
-    (setq metadata-rows (append metadata-rows new-rows))
-    (when new-rows
-      (setq metadata-rows (append metadata-rows
-                                  (ready-player--make-dired-playlist-row dired-buffer))))
-    (setq new-rows (ready-player--make-metadata-flac-rows metadata))
-    (setq metadata-rows (append metadata-rows new-rows))
-    (when new-rows
-      (setq metadata-rows (append metadata-rows
-                                  (ready-player--make-dired-playlist-row dired-buffer))))
-    (setq new-rows (ready-player--make-metadata-core-rows metadata))
-    (setq metadata-rows (append metadata-rows new-rows))
+  (let ((metadata-rows))
+    (setq metadata-rows (append metadata-rows (or (ready-player--make-metadata-mp3-rows metadata)
+                                                  (ready-player--make-metadata-ogg-rows metadata)
+                                                  (ready-player--make-metadata-flac-rows metadata))))
+    (setq metadata-rows (append metadata-rows
+                                (ready-player--make-dired-playlist-row dired-buffer)))
+    (setq metadata-rows (append metadata-rows (ready-player--make-metadata-core-rows metadata)))
     metadata-rows))
 
 (defun ready-player--make-dired-playlist-row (dired-buffer)
