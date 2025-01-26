@@ -1770,43 +1770,29 @@ Get in touch if keen to add for other players."
     (format "%02d:%02d" minutes remaining-seconds)))
 
 (defun ready-player--make-time-progress-bar (progress total)
-  "Make a bar with PROGRESS out of TOTAL."
+  "Make a progress bar with PROGRESS out of TOTAL, aligned with frame width.
+
+For example:
+
+00:00 ------ 00:30 ------ 01:00"
   (setq progress (round progress))
   (setq total (round total))
-  (let* ((bar-width (frame-width))
-         (percentage (/ (* progress 1.0) total))
+  (let* ((start-label "00:00")
+         (label (ready-player--format-time progress))
          (total-label (ready-player--format-time total))
-         (label (ready-player--format-time (round progress)))
-         (num-bars (round (* percentage bar-width)))
-         ;; <---->  +  <-----> = 13
-         ;; 00:00 ----- 00:30 ----- 01:00
-         ;;                        <----> = 6
-         (left-bar-width (- num-bars 13))
-         (right-bar-width (- bar-width num-bars 6))
-         ;; <---->     +    <----> = 12
-         ;; 00:00 ---------- 01:00
-         (full-bar-width (- bar-width 12)))
-    (message "num-bars: %d" num-bars)
-    (if (and (> left-bar-width 0)
-             (> right-bar-width 0))
-        (concat "00:00 "
-                (propertize
-                 (make-string left-bar-width ?┄)
-                 'face 'font-lock-comment-face)
-                " "
-                label
-                " "
-                (propertize
-                 (make-string right-bar-width ?┄)
-                 'face 'font-lock-comment-face)
-                " "
-                total-label)
-      (concat "00:00 "
-              (propertize
-               (make-string full-bar-width ?┄)
-               'face 'font-lock-comment-face)
-              " "
-              total-label))))
+         (reserved-width (+ (length start-label) 1   ; "00:00 " start
+                            1 (length label) 1       ; " 00:30 " current
+                            1 (length total-label))) ; " 01:00" end
+         (bar-width (- (frame-width) reserved-width))
+         ;; Calculate percentage length for left bar.
+         (percentage (/ (* progress 1.0) total))
+         (left-bars (round (* percentage bar-width)))
+         (right-bars (- bar-width left-bars)))
+    (concat start-label " "
+            (make-string left-bars ?┄)
+            " " label " "
+            (make-string right-bars ?┄)
+            " " total-label)))
 
 (defun ready-player--send-command-to-socket (command socket-path)
   "Send COMMAND string to SOCKET-PATH.
