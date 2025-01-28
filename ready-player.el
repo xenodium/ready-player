@@ -1263,9 +1263,6 @@ one.  Negative values move backwards.
 
 With FEEDBACK, provide user feedback of the interaction."
   (ready-player--ensure-mode)
-  (when feedback
-    (ready-player--goto-button (if (> n 0) 'next 'previous))
-    (setq ready-player--last-button-focus (if (> n 0) 'next 'previous)))
   (condition-case err
       (let* ((sticky-dired-buffer (ready-player--dired-playback-buffer))
              (playing ready-player--process)
@@ -1284,6 +1281,9 @@ With FEEDBACK, provide user feedback of the interaction."
               (progn
                 (message "No more media to play"))
             (message "No more media")))
+        (when feedback
+          (ready-player--goto-button (if (> n 0) 'next 'previous))
+          (setq ready-player--last-button-focus (if (> n 0) 'next 'previous)))
         new-file)
     (error
      ;; Output the error, but return nil file.
