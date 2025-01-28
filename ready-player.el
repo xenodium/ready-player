@@ -1222,6 +1222,15 @@ With optional argument N, visit the Nth file after the current one."
       (unless in-player
         (ready-player-show-info)))))
 
+;;;###autoload
+(defun ready-player-reindex-session ()
+  "Re-index current ready player session."
+  (interactive)
+  (with-current-buffer (ready-player--active-buffer)
+    (when (y-or-n-p (format "Reindex %s" (buffer-name ready-player--dired-playback-buffer)))
+      (ready-player--index-dired-buffer
+       ready-player--dired-playback-buffer t))))
+
 (defun ready-player--find-file-noselect (file)
   "Like `find-file-noselect' but be silent and don't record FILE in `recentf'."
   (let ((inhibit-message t)
@@ -2747,7 +2756,7 @@ If MEDIA-FILE is non-nil, attempt to load it."
                    (when (ready-player--is-find-dired-buffer-finished dired-buffer)
                      (remove-hook 'after-change-functions hook t)
                      ;; Index may be incomplete if player launched without
-                     ;; waiting for find to finish. Not that's finished,
+                     ;; waiting for find to finish. Now that's finished,
                      ;; index entirely.
                      (ready-player--index-dired-buffer dired-buffer)
                      (unless launched
@@ -2899,7 +2908,7 @@ Fails if none available unless NO-ERROR is non-nil."
         (t
          (error "No ready-player buffer available"))))
 
-(defun ready-player--index-dired-buffer (dired-buffer)
+(defun ready-player--index-dired-buffer (dired-buffer &optional requested)
   "Index DIRED-BUFFER (experimental)."
   (let* ((new-dired-hash (md5 (with-current-buffer dired-buffer
                                 ;; Remove "find finished" line to avoid false positives.
@@ -2920,8 +2929,10 @@ Fails if none available unless NO-ERROR is non-nil."
          (now (current-time))
          (dired-buffer-name (buffer-name dired-buffer))
          (indexing-buffer))
-    (unless (equal new-dired-hash old-dired-hash)
+    (when (or requested (not (equal new-dired-hash old-dired-hash)))
       (setq indexing-buffer (get-buffer-create "*Media indexing*"))
+      (when requested
+        (message "Reindexing... see %s" (buffer-name indexing-buffer)))
       (when-let* ((existing-process (get-buffer-process indexing-buffer)))
         (delete-process existing-process))
       (delete-file source-path-temp)
@@ -2963,7 +2974,7 @@ Fails if none available unless NO-ERROR is non-nil."
                        (records (seq-map (lambda (path)
                                            (let ((tags (parse-tags path)))
                                              (message "%d/%d %s" (setq n (1+ n))
-                                                      total (or (map-elt (map-elt tags 'tags) 'title) "No title"))
+                                                      total (file-name-nondirectory path))
                                              tags))
                                          paths)))
                   (rename-file ,source-path-temp ,source-path t)
@@ -3067,7 +3078,8 @@ Source: File list fed to the metadata indexer"
                                                     (ready-player--make-metadata-rows track)
                                                     "Album:") "")
                                                'face 'font-lock-variable-name-face) album-width nil ?\s "…")
-                                  (propertize (format "file:%s" (or .format.filename (error "No .format.filename in %s" track)))
+                                  (propertize (format "file:%s" (or .format.filename
+                                                                    .filename (error "No .format.filename in %s" track)))
                                               'invisible t))))
                       index)))
            (selection (if (seq-empty-p tracks)
