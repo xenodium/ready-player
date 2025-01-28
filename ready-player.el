@@ -3108,8 +3108,11 @@ Source: File list fed to the metadata indexer"
                                    (or (ready-player--row-value
                                         (ready-player--make-metadata-rows track)
                                         "Title:")
-                                       (file-name-base .filename)
-                                       "No title") title-width nil ?\s "…")
+                                       (when .filename
+                                         (file-name-base .filename))
+                                       (when .format.filename
+                                         (file-name-base .format.filename))
+                                       (error "No file found in %s" track)) title-width nil ?\s "…")
                                   (truncate-string-to-width (propertize (or
                                                                          (ready-player--row-value
                                                                           (ready-player--make-metadata-rows track)
