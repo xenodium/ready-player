@@ -61,6 +61,7 @@
     (define-key map (kbd "TAB") #'ready-player-next-button)
     (define-key map (kbd "<backtab>") #'ready-player-previous-button)
     (define-key map (kbd "c") #'ready-player-open-my-media-collection)
+    (define-key map (kbd "t") #'ready-player-toggle-bookmarked)
     (define-key map (kbd "a") #'ready-player-toggle-autoplay)
     (define-key map (kbd "s") #'ready-player-toggle-shuffle)
     (define-key map (kbd "r") #'ready-player-toggle-repeat)
@@ -114,6 +115,7 @@
     ("c" "Play my collection" ready-player-open-my-media-collection)
     ]
    ["Toggle"
+    ("t" ready-player--transient-toggle-bookmark)
     ("a" ready-player--transient-toggle-autoplay)
     ("s" ready-player--transient-toggle-shuffle)
     ("r" ready-player--transient-toggle-repeat)
@@ -134,6 +136,14 @@
                  (format "Autoplay  [%s]" (if ready-player-autoplay "x" " ")))
   (interactive)
   (ready-player-toggle-autoplay))
+
+(transient-define-suffix ready-player--transient-toggle-bookmark ()
+  "Bookmark transient toggle."
+  :transient t
+  :description (lambda ()
+                 (format "Bookmark  [%s]" (if (ready-player--file-bookmarked-p (buffer-file-name)) "x" " ")))
+  (interactive)
+  (ready-player-toggle-bookmarked))
 
 (transient-define-suffix ready-player--transient-toggle-shuffle ()
   "Shuffle transient toggle."
@@ -855,6 +865,11 @@ and DIRED-BUFFER."
               (insert "\n")
               (set-buffer-modified-p nil)))
           (insert "\n")
+          (insert " ")
+          (insert (ready-player--make-checkbox-button (propertize "☆" 'face 'info-title-1)
+                                                      (ready-player--file-bookmarked-p media-file) "Bookmark" 'bookmark
+                                                      #'ready-player-toggle-bookmarked
+                                                      (propertize "★" 'face 'info-title-1)))
           (insert (format " %s" (propertize basename 'face 'info-title-2)))
           (insert " ")
           (insert (propertize "(playing)"
@@ -1227,7 +1242,7 @@ With optional argument N, visit the Nth file after the current one."
   "Re-index current ready player session."
   (interactive)
   (with-current-buffer (ready-player--active-buffer)
-    (when (y-or-n-p (format "Reindex %s" (buffer-name ready-player--dired-playback-buffer)))
+    (when (y-or-n-p (format "Reindex %s?" (buffer-name ready-player--dired-playback-buffer)))
       (ready-player--index-dired-buffer
        ready-player--dired-playback-buffer t))))
 
@@ -1932,6 +1947,22 @@ Returns response string."
         (ready-player-play))))
   (ready-player--message "Reloaded" 2))
 
+(defun ready-player--refresh ()
+  "Refresh buffer interface without reloading file."
+  (interactive)
+  (with-current-buffer (ready-player--active-buffer)
+    (let ((point (point)))
+      (ready-player--update-buffer
+       (current-buffer) (buffer-file-name)
+       ready-player--process
+       ready-player-repeat
+       ready-player-shuffle
+       ready-player-autoplay
+       ready-player--thumbnail
+       ready-player--metadata
+       (ready-player--dired-playback-buffer))
+      (goto-char point))))
+
 (defun ready-player--playback-command (media-file)
   "Craft a playback command for MEDIA-FILE with first appropriate utility.
 
@@ -2011,14 +2042,20 @@ Note: <<socket>> is expanded to socket path."
                                      'help
                                      #'ready-player-menu t)))
 
-(defun ready-player--make-checkbox-button (text checked help kind action)
-  "Make a checkbox button with TEXT, CHECKED state, HELP text, KIND, and ACTION."
+(defun ready-player--make-checkbox-button (text checked help kind action &optional checked-text)
+  "Make a checkbox button with TEXT, CHECKED state, HELP text, KIND, ACTION.
+
+Optionally use CHECKED-TEXT to swap TEXT for CHECKED-TEXT."
   (propertize
-   (format "%s%s"
-           text
-           (if checked
-               "*"
-             ""))
+   (if checked-text
+       (if checked
+           checked-text
+         text)
+     (format "%s%s"
+             text
+             (if checked
+                 "*"
+               "")))
    'pointer 'hand
    'help-echo help
    'keymap (let ((map (make-sparse-keymap)))
@@ -2075,7 +2112,7 @@ Render FNAME, BUSY, REPEAT, SHUFFLE, and AUTOPLAY."
 
         (goto-char (point-min))
 
-        (when (text-property-search-forward 'button)
+        (when (text-property-search-forward 'previous)
           (delete-region (line-beginning-position) (line-end-position))
           (insert (ready-player--make-file-button-line busy repeat shuffle autoplay))))
       (goto-char saved-point)
@@ -2910,7 +2947,9 @@ Fails if none available unless NO-ERROR is non-nil."
          (error "No ready-player buffer available"))))
 
 (defun ready-player--index-dired-buffer (dired-buffer &optional requested)
-  "Index DIRED-BUFFER (experimental)."
+  "Index DIRED-BUFFER (experimental).
+
+Use REQUESTED to force indexing and display messaging."
   (let* ((new-dired-hash (md5 (with-current-buffer dired-buffer
                                 ;; Remove "find finished" line to avoid false positives.
                                 (replace-regexp-in-string
@@ -3177,6 +3216,60 @@ Source: File list fed to the metadata indexer"
     (message "ready-player--metadata:\n\n%s\n" (pp-to-string ready-player--metadata))
     (message "(ready-player--dired-playback-buffer):\n\n%s\n" (ready-player--dired-playback-buffer))
     (message "(ready-player--temp-dir):\n\n%s\n" (ready-player--temp-dir))))
+
+;;;###autoload
+(defun ready-player-toggle-bookmarked ()
+  "Toggle displaying the mode line."
+  (interactive)
+  (ready-player--ensure-mode)
+  (if (ready-player--file-bookmarked-p (buffer-file-name))
+      (ready-player--unbookmark-file (buffer-file-name))
+    (let ((title (or (ready-player--row-value
+                      (ready-player--make-metadata-rows ready-player--metadata)
+                      "Title:") (file-name-nondirectory (buffer-file-name))))
+          (artist (or (ready-player--row-value
+                       (ready-player--make-metadata-rows ready-player--metadata)
+                       "Artist:") ""))
+          (album (or (ready-player--row-value
+                      (ready-player--make-metadata-rows ready-player--metadata)
+                      "Album:") ""))
+          (name "♫"))
+      (when title
+        (setq name (concat name " " title)))
+      (when artist
+        (setq name (concat name " - " artist)))
+      (when album
+        (setq name (concat name " - " album)))
+      (setq name (concat name " (ready-player)"))
+      (ready-player--bookmark-file (buffer-file-name) name)))
+  (ready-player--message
+   (format "Bookmark: %s" (if (ready-player--file-bookmarked-p (buffer-file-name))
+                              "ON"
+                            "OFF")) 2)
+  (ready-player--refresh))
+
+(defun ready-player--file-bookmarked-p (filename)
+  "Return t if FILENAME is bookmakred."
+  (seq-some (lambda (bookmark)
+              (equal (file-truename filename)
+                     (bookmark-get-filename bookmark)))
+            bookmark-alist))
+
+(defun ready-player--bookmark-file (filename &optional name)
+  "Bookmark FILENAME with optional NAME."
+  (let ((bookmark-name (or name (file-name-nondirectory filename))))
+    (bookmark-set bookmark-name)
+    (bookmark-prop-set bookmark-name 'filename (file-truename filename))
+    (bookmark-prop-set bookmark-name 'bookmarked-by 'ready-player)))
+
+(defun ready-player--unbookmark-file (filename)
+  "Unbookmark FILENAME."
+  (let ((bookmark (seq-find (lambda (b)
+                              (string= (file-truename filename)
+                                       (bookmark-get-filename b)))
+                            bookmark-alist)))
+    (when bookmark
+      (bookmark-delete (car bookmark)))))
 
 (provide 'ready-player)
 
