@@ -3240,7 +3240,6 @@ Source: File list fed to the metadata indexer"
         (setq name (concat name " - " artist)))
       (when album
         (setq name (concat name " - " album)))
-      (setq name (concat name " (ready-player)"))
       (ready-player--bookmark-file (buffer-file-name) name)))
   (ready-player--message
    (format "Bookmark: %s" (if (ready-player--file-bookmarked-p (buffer-file-name))
