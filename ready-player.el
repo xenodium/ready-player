@@ -1710,7 +1710,8 @@ Get in touch if keen to add for other players."
      ready-player--thumbnail
      ready-player--metadata
      (ready-player--dired-playback-buffer))
-    paused))
+    paused)
+  (ready-player--goto-button 'play-stop))
 
 (defun ready-player--paused-p ()
   "Return non-nil if playback is paused.
