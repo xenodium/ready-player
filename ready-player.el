@@ -61,7 +61,8 @@
     (define-key map (kbd "TAB") #'ready-player-next-button)
     (define-key map (kbd "<backtab>") #'ready-player-previous-button)
     (define-key map (kbd "c") #'ready-player-open-my-media-collection)
-    (define-key map (kbd "t") #'ready-player-toggle-bookmarked)
+    (define-key map (kbd "K") #'ready-player-toggle-bookmarked)
+    (define-key map (kbd "k") #'ready-player-search-bookmarks)
     (define-key map (kbd "a") #'ready-player-toggle-autoplay)
     (define-key map (kbd "s") #'ready-player-toggle-shuffle)
     (define-key map (kbd "r") #'ready-player-toggle-repeat)
@@ -110,12 +111,13 @@
     ]
    ["Search"
     ("/" "Search" ready-player-search)
+    ("k" "Search bookmarks" ready-player-search-bookmarks)
     ("f" "Seek forward" ready-player-seek-forward :transient t)
     ("b" "Seek backward" ready-player-seek-backward :transient t)
     ("c" "Play my collection" ready-player-open-my-media-collection)
     ]
    ["Toggle"
-    ("t" ready-player--transient-toggle-bookmark)
+    ("K" ready-player--transient-toggle-bookmark)
     ("a" ready-player--transient-toggle-autoplay)
     ("s" ready-player--transient-toggle-shuffle)
     ("r" ready-player--transient-toggle-repeat)
