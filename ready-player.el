@@ -3134,6 +3134,50 @@ Source: File list fed to the metadata indexer"
       (unless in-player
         (ready-player-show-info)))))
 
+;;;###autoload
+(defun ready-player-search-bookmarks ()
+  "Search the bookmarked files."
+  (interactive)
+  (let ((in-player (eq major-mode 'ready-player-major-mode)))
+    (let* ((title-width (max 25 (round (* (- (frame-width) 9) 0.3))))
+           (artist-width (round (* (- (frame-width) 9) 0.25)))
+           (album-width (- (frame-width) 9 title-width artist-width))
+           (bookmarks (seq-filter
+                       (lambda (bookmark)
+                         (equal (bookmark-prop-get bookmark 'bookmarked-by) 'ready-player))
+                       bookmark-alist))
+           (tracks (progn
+                     (when (seq-empty-p bookmarks)
+                       (error "No bookmarks available"))
+                     (mapcar
+                      (lambda (bookmark)
+                        (let-alist bookmark
+                          (format "★ %s   %s   %s%s"
+                                  (truncate-string-to-width
+                                   (or (bookmark-prop-get bookmark 'title)
+                                       (file-name-nondirectory (bookmark-prop-get bookmark 'filename))) title-width nil ?\s "…")
+                                  (truncate-string-to-width (propertize (or
+                                                                         (bookmark-prop-get bookmark 'artist) "")
+                                                                        'face 'font-lock-string-face) artist-width nil ?\s "…")
+                                  (truncate-string-to-width
+                                   (propertize (or (bookmark-prop-get bookmark 'album) "")
+                                               'face 'font-lock-variable-name-face) album-width nil ?\s "…")
+                                  (propertize (format "file:%s" (or (bookmark-prop-get bookmark 'filename)
+                                                                    (error "No 'filename in %s" bookmark)))
+                                              'invisible t))))
+                      bookmarks)))
+           (selection (if (seq-empty-p tracks)
+                          (error "No index available")
+                        (completing-read "Play bookmark: " tracks nil t)))
+           (file (with-temp-buffer
+                   (insert (nth 1 (split-string selection "file:")))
+                   (buffer-substring-no-properties (point-min) (point-max)))))
+      (if (ready-player--active-buffer t)
+          (ready-player--open-media-file file (ready-player--active-buffer) t)
+        (ready-player--open-media-file file (find-file file) t))
+      (unless in-player
+        (ready-player-show-info)))))
+
 (defun ready-player--dired-buffer-index ()
   "Load and return the associated index if one is found."
   (let* ((dired-buffer (with-current-buffer (ready-player--active-buffer)
@@ -3224,23 +3268,7 @@ Source: File list fed to the metadata indexer"
   (ready-player--ensure-mode)
   (if (ready-player--file-bookmarked-p (buffer-file-name))
       (ready-player--unbookmark-file (buffer-file-name))
-    (let ((title (or (ready-player--row-value
-                      (ready-player--make-metadata-rows ready-player--metadata)
-                      "Title:") (file-name-nondirectory (buffer-file-name))))
-          (artist (or (ready-player--row-value
-                       (ready-player--make-metadata-rows ready-player--metadata)
-                       "Artist:") ""))
-          (album (or (ready-player--row-value
-                      (ready-player--make-metadata-rows ready-player--metadata)
-                      "Album:") ""))
-          (name "♫"))
-      (when title
-        (setq name (concat name " " title)))
-      (when artist
-        (setq name (concat name " - " artist)))
-      (when album
-        (setq name (concat name " - " album)))
-      (ready-player--bookmark-file (buffer-file-name) name)))
+    (ready-player--bookmark-file (buffer-file-name)))
   (ready-player--message
    (format "Bookmark: %s" (if (ready-player--file-bookmarked-p (buffer-file-name))
                               "ON"
@@ -3254,12 +3282,31 @@ Source: File list fed to the metadata indexer"
                      (bookmark-get-filename bookmark)))
             bookmark-alist))
 
-(defun ready-player--bookmark-file (filename &optional name)
+(defun ready-player--bookmark-file (filename)
   "Bookmark FILENAME with optional NAME."
-  (let ((bookmark-name (or name (file-name-nondirectory filename))))
+  (let ((title (or (ready-player--row-value
+                    (ready-player--make-metadata-rows ready-player--metadata)
+                    "Title:")
+                   (file-name-nondirectory (buffer-file-name))))
+        (artist (or (ready-player--row-value
+                     (ready-player--make-metadata-rows ready-player--metadata)
+                     "Artist:") ""))
+        (album (or (ready-player--row-value
+                    (ready-player--make-metadata-rows ready-player--metadata)
+                    "Album:") ""))
+        (bookmark-name "♫"))
+    (when title
+      (setq bookmark-name (concat bookmark-name " " title)))
+    (when artist
+      (setq bookmark-name (concat bookmark-name " - " artist)))
+    (when album
+      (setq bookmark-name (concat bookmark-name " - " album)))
     (bookmark-set bookmark-name)
     (bookmark-prop-set bookmark-name 'filename (file-truename filename))
-    (bookmark-prop-set bookmark-name 'bookmarked-by 'ready-player)))
+    (bookmark-prop-set bookmark-name 'bookmarked-by 'ready-player)
+    (bookmark-prop-set bookmark-name 'title title)
+    (bookmark-prop-set bookmark-name 'artist artist)
+    (bookmark-prop-set bookmark-name 'album album)))
 
 (defun ready-player--unbookmark-file (filename)
   "Unbookmark FILENAME."
