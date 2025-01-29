@@ -429,6 +429,11 @@ Default value attempts to reuse existing window."
   :group 'ready-player
   :type '(repeat string))
 
+(defcustom ready-player-ask-for-project-sustainability t
+  "Ask for project sustainability with a button."
+  :type 'boolean
+  :group 'ready-player)
+
 (defvar-local ready-player--process nil "Media-playing process.")
 
 (defvar ready-player--active-buffer nil "Buffer to interact with.")
@@ -896,7 +901,19 @@ and DIRED-BUFFER."
             (insert (ready-player--format-metadata-rows
                      ;; cdr to drop Title from list.
                      ;; It's already displayed in large font.
-                     (cdr metadata-rows))))
+                     (cdr metadata-rows)))
+            (when ready-player-ask-for-project-sustainability
+              (insert "\n")
+              (insert "\n")
+              (insert "\n")
+              (insert (format
+                       " Make it ✨sustainable✨ %s"
+                       (ready-player--make-button "sponsor ready-player" "This project needs your support to stay alive"
+                                                  'sponsor
+                                                  (lambda ()
+                                                    (interactive)
+                                                    (browse-url "https://github.com/sponsors/xenodium")
+                                                    (message "Thank you!")))))))
           (set-buffer-modified-p nil))))))
 
 (defalias 'ready-player #'ready-player-view-player)
