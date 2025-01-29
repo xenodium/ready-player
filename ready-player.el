@@ -622,6 +622,8 @@ Note: This function needs to be added to `file-name-handler-alist'."
     (add-to-list
      'display-buffer-alist
      ready-player-display-action))
+  ;; Don't show bookmark in fringe (☆ already does it).
+  (setq-local bookmark-fringe-mark nil)
   (let* ((m3u-file (when (eq (compare-strings ;; Case insensitive.
                               "m3u" nil nil
                               (file-name-extension (buffer-file-name))
