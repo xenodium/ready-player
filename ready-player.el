@@ -2151,7 +2151,7 @@ Render FNAME, BUSY, REPEAT, SHUFFLE, and AUTOPLAY."
 
         (goto-char (point-min))
 
-        (when (text-property-search-forward 'previous)
+        (when (text-property-search-forward 'button 'previous)
           (delete-region (line-beginning-position) (line-end-position))
           (insert (ready-player--make-file-button-line busy repeat shuffle autoplay))))
       (goto-char saved-point)
