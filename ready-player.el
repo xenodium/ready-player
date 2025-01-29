@@ -2128,11 +2128,14 @@ Optionally use CHECKED-TEXT to swap TEXT for CHECKED-TEXT."
 (defun ready-player--update-buffer-name (buffer busy)
   "Rename BUFFER reflecting if BUSY playing."
   (with-current-buffer buffer
-    (let ((base-name (string-remove-prefix "ready-player: "
-                                           (string-remove-suffix " (playing)" (string-trim (buffer-name))))))
-      (rename-buffer (if busy
-                         (concat "ready-player: " base-name " (playing)")
-                       (concat "ready-player: " base-name))))))
+    (let* ((base-name (string-remove-prefix "ready-player: "
+                                            (string-remove-suffix " (playing)" (string-trim (buffer-name)))))
+           (target-name (if busy
+                            (concat "ready-player: " base-name " (playing)")
+                          (concat "ready-player: " base-name))))
+      (unless (and (get-buffer target-name)
+                   (buffer-live-p (get-buffer target-name)))
+        (rename-buffer target-name)))))
 
 (defun ready-player--refresh-buffer-status (buffer busy repeat shuffle autoplay)
   "Refresh and render status in buffer in BUFFER.
