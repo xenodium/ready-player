@@ -1963,6 +1963,7 @@ Returns response string."
                  (ready-player--cached-metadata-path buffer-file-name))
       (ignore-errors (delete-file ready-player--metadata)))
     (let ((playing ready-player--process)
+          (point (point))
           (dired-buffer (ready-player--dired-playback-buffer)))
       (ready-player--stop-playback-process)
       (revert-buffer nil t)
