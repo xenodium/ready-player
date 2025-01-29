@@ -853,7 +853,7 @@ If SILENT, do not message errors."
 Render state from MEDIA-FILE BUSY REPEAT SHUFFLE AUTOPLAY THUMBNAIL METADATA
 and DIRED-BUFFER."
   (save-excursion
-    (let ((basename (file-name-nondirectory media-file))
+    (let ((metadata-rows (ready-player--make-metadata-rows metadata dired-buffer))
           (buffer-read-only nil))
       (when (buffer-live-p buffer)
         (with-current-buffer buffer
@@ -879,7 +879,8 @@ and DIRED-BUFFER."
                                                       (ready-player--file-bookmarked-p media-file) "Bookmark" 'bookmark
                                                       #'ready-player-toggle-bookmarked
                                                       (propertize "★" 'face 'info-title-1)))
-          (insert (format " %s" (propertize basename 'face 'info-title-2)))
+          (insert (format " %s" (propertize (or (ready-player--row-value metadata-rows "Title:")
+                                                (file-name-nondirectory media-file)) 'face 'info-title-2)))
           (insert " ")
           (insert (propertize "(playing)"
                               'face `(:foreground ,(face-foreground 'font-lock-comment-face) :inherit info-title-2)
@@ -893,7 +894,9 @@ and DIRED-BUFFER."
           (insert "\n")
           (when metadata
             (insert (ready-player--format-metadata-rows
-                     (ready-player--make-metadata-rows metadata dired-buffer))))
+                     ;; cdr to drop Title from list.
+                     ;; It's already displayed in large font.
+                     (cdr metadata-rows))))
           (set-buffer-modified-p nil))))))
 
 (defalias 'ready-player #'ready-player-view-player)
@@ -1054,6 +1057,12 @@ If no useful metadata found, use FALLBACK."
   "Make core METADATA row data."
   (let ((metadata-rows))
     (let-alist metadata
+      (when .format.filename
+        (setq metadata-rows
+              (append metadata-rows
+                      (list
+                       (list (cons 'label "File:")
+                             (cons 'value (file-name-nondirectory .format.filename)))))))
       (when .format.format_long_name
         (setq metadata-rows
               (append metadata-rows
