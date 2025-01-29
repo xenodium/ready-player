@@ -88,6 +88,7 @@
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "m") #'ready-player-view-player)
     (define-key map (kbd "/") #'ready-player-search)
+    (define-key map (kbd "k") #'ready-player-toggle-bookmarked)
     (define-key map (kbd "n") #'ready-player-next)
     (define-key map (kbd "p") #'ready-player-previous)
     (define-key map (kbd "i") #'ready-player-show-info)
@@ -3330,28 +3331,33 @@ Source: File list fed to the metadata indexer"
 
 ;;;###autoload
 (defun ready-player-toggle-bookmarked ()
-  "Toggle displaying the mode line."
+  "Toggle bookmarking currently played file."
   (interactive)
-  (ready-player--ensure-mode)
-  (if (ready-player--file-bookmarked-p (buffer-file-name))
-      (ready-player--delete-bookmark-file (buffer-file-name))
-    (ready-player--bookmark-file
-     :filename (buffer-file-name)
-     :title (or (ready-player--row-value
-                 (ready-player--make-metadata-rows ready-player--metadata)
-                 "Title:")
-                (file-name-nondirectory (buffer-file-name)))
-     :artist (ready-player--row-value
-              (ready-player--make-metadata-rows ready-player--metadata)
-              "Artist:")
-     :album (ready-player--row-value
-             (ready-player--make-metadata-rows ready-player--metadata)
-             "Album:")))
-  (ready-player--message
-   (format "Bookmark: %s" (if (ready-player--file-bookmarked-p (buffer-file-name))
-                              "ON"
-                            "OFF")) 2)
-  (ready-player--refresh))
+  (with-current-buffer (ready-player--active-buffer)
+    (let ((title (or (ready-player--row-value
+                      (ready-player--make-metadata-rows ready-player--metadata)
+                      "Title:")
+                     (file-name-nondirectory (buffer-file-name))))
+          (artist (ready-player--row-value
+                   (ready-player--make-metadata-rows ready-player--metadata)
+                   "Artist:"))
+          (album (ready-player--row-value
+                  (ready-player--make-metadata-rows ready-player--metadata)
+                  "Album:")))
+      (if (ready-player--file-bookmarked-p (buffer-file-name))
+          (ready-player--delete-bookmark-file (buffer-file-name))
+        (ready-player--bookmark-file
+         :filename (buffer-file-name)
+         :title title
+         :artist artist
+         :album album))
+      (ready-player--message
+       (format "%s %s"
+               (if (ready-player--file-bookmarked-p (buffer-file-name))
+                   "★"
+                 "☆")
+               title) 2)
+      (ready-player--refresh))))
 
 (defun ready-player--file-bookmarked-p (filename)
   "Return t if FILENAME is bookmarked."
