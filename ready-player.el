@@ -543,6 +543,13 @@ for configuration."
   (append ready-player-supported-audio
           ready-player-supported-video))
 
+(defun ready-player-is-supported-media-p (file)
+  "Return non-nil if FILE extension is supported.
+
+See `ready-player-supported-audio' and `ready-player-supported-video'."
+  (or (ready-player-is-audio-p file)
+      (ready-player-is-video-p file)))
+
 (defun ready-player-is-audio-p (file)
   "Return non-nil if FILE extension is found in `ready-player-supported-audio'."
   (seq-contains-p ready-player-supported-audio
@@ -3149,27 +3156,45 @@ Source: File list fed to the metadata indexer"
            (album-width (- (frame-width) 9 title-width artist-width))
            (bookmarks (seq-filter
                        (lambda (bookmark)
-                         (equal (bookmark-prop-get bookmark 'bookmarked-by) 'ready-player))
+                         (or (equal (bookmark-prop-get bookmark 'bookmarked-by) 'ready-player)
+                             (ready-player-is-supported-media-p (bookmark-prop-get bookmark 'filename))))
                        bookmark-alist))
            (tracks (progn
                      (when (seq-empty-p bookmarks)
                        (error "No bookmarks available"))
                      (mapcar
                       (lambda (bookmark)
-                        (let-alist bookmark
-                          (format "★ %s   %s   %s%s"
-                                  (truncate-string-to-width
-                                   (or (bookmark-prop-get bookmark 'title)
-                                       (file-name-nondirectory (bookmark-prop-get bookmark 'filename))) title-width nil ?\s "…")
-                                  (truncate-string-to-width (propertize (or
-                                                                         (bookmark-prop-get bookmark 'artist) "")
-                                                                        'face 'font-lock-string-face) artist-width nil ?\s "…")
-                                  (truncate-string-to-width
-                                   (propertize (or (bookmark-prop-get bookmark 'album) "")
-                                               'face 'font-lock-variable-name-face) album-width nil ?\s "…")
-                                  (propertize (format "file:%s" (or (bookmark-prop-get bookmark 'filename)
-                                                                    (error "No 'filename in %s" bookmark)))
-                                              'invisible t))))
+                        (unless (eq (bookmark-prop-get bookmark 'version)
+                                    ready-player--bookmark-schema-version)
+                          (ready-player--load-file-metadata
+                           :media-file (bookmark-prop-get bookmark 'filename)
+                           :on-loaded (lambda (metadata)
+                                        (ready-player--bookmark-file
+                                         :name (car bookmark)
+                                         :filename (bookmark-prop-get bookmark 'filename)
+                                         :title (ready-player--row-value
+                                                 (ready-player--make-metadata-rows metadata)
+                                                 "Title:")
+                                         :artist (ready-player--row-value
+                                                  (ready-player--make-metadata-rows metadata)
+                                                  "Artist:")
+                                         :album (ready-player--row-value
+                                                 (ready-player--make-metadata-rows metadata)
+                                                 "Album:"))
+                                        )))
+                        (format "★ %s   %s   %s%s"
+                                (truncate-string-to-width
+                                 (or (bookmark-prop-get bookmark 'title)
+                                     (file-name-nondirectory (bookmark-prop-get bookmark 'filename))) title-width nil ?\s "…")
+                                (truncate-string-to-width (propertize (or
+                                                                       (bookmark-prop-get bookmark 'artist) "")
+                                                                      'face 'font-lock-string-face) artist-width nil ?\s "…")
+                                (truncate-string-to-width
+                                 (propertize (or (bookmark-prop-get bookmark 'album) "")
+                                             'face 'font-lock-variable-name-face) album-width nil ?\s "…")
+                                (propertize (format "file:%s" (or (bookmark-prop-get bookmark 'filename)
+                                                                  (error "No 'filename in %s" bookmark)))
+                                            'invisible t)))
                       bookmarks)))
            (selection (if (seq-empty-p tracks)
                           (error "No index available")
@@ -3272,8 +3297,19 @@ Source: File list fed to the metadata indexer"
   (interactive)
   (ready-player--ensure-mode)
   (if (ready-player--file-bookmarked-p (buffer-file-name))
-      (ready-player--unbookmark-file (buffer-file-name))
-    (ready-player--bookmark-file (buffer-file-name)))
+      (ready-player--delete-bookmark-file (buffer-file-name))
+    (ready-player--bookmark-file
+     :filename (buffer-file-name)
+     :title (or (ready-player--row-value
+                 (ready-player--make-metadata-rows ready-player--metadata)
+                 "Title:")
+                (file-name-nondirectory (buffer-file-name)))
+     :artist (ready-player--row-value
+              (ready-player--make-metadata-rows ready-player--metadata)
+              "Artist:")
+     :album (ready-player--row-value
+             (ready-player--make-metadata-rows ready-player--metadata)
+             "Album:")))
   (ready-player--message
    (format "Bookmark: %s" (if (ready-player--file-bookmarked-p (buffer-file-name))
                               "ON"
@@ -3281,45 +3317,39 @@ Source: File list fed to the metadata indexer"
   (ready-player--refresh))
 
 (defun ready-player--file-bookmarked-p (filename)
-  "Return t if FILENAME is bookmakred."
-  (seq-some (lambda (bookmark)
+  "Return t if FILENAME is bookmarked."
+  (seq-find (lambda (bookmark)
               (equal (file-truename filename)
                      (bookmark-get-filename bookmark)))
             bookmark-alist))
 
-(defun ready-player--bookmark-file (filename)
-  "Bookmark FILENAME with optional NAME."
-  (let ((title (or (ready-player--row-value
-                    (ready-player--make-metadata-rows ready-player--metadata)
-                    "Title:")
-                   (file-name-nondirectory (buffer-file-name))))
-        (artist (or (ready-player--row-value
-                     (ready-player--make-metadata-rows ready-player--metadata)
-                     "Artist:") ""))
-        (album (or (ready-player--row-value
-                    (ready-player--make-metadata-rows ready-player--metadata)
-                    "Album:") ""))
-        (bookmark-name "♫"))
-    (when title
-      (setq bookmark-name (concat bookmark-name " " title)))
-    (when artist
-      (setq bookmark-name (concat bookmark-name " - " artist)))
-    (when album
-      (setq bookmark-name (concat bookmark-name " - " album)))
-    (bookmark-set bookmark-name)
-    (bookmark-prop-set bookmark-name 'filename (file-truename filename))
-    (bookmark-prop-set bookmark-name 'bookmarked-by 'ready-player)
-    (bookmark-prop-set bookmark-name 'title title)
-    (bookmark-prop-set bookmark-name 'artist artist)
-    (bookmark-prop-set bookmark-name 'album album)))
+(defvar ready-player--bookmark-schema-version 1)
 
-(defun ready-player--unbookmark-file (filename)
-  "Unbookmark FILENAME."
-  (let ((bookmark (seq-find (lambda (b)
-                              (string= (file-truename filename)
-                                       (bookmark-get-filename b)))
-                            bookmark-alist)))
-    (when bookmark
+(cl-defun ready-player--bookmark-file (&key name filename title artist album)
+  "Bookmark FILENAME with NAME."
+  (unless filename
+    (error "Must have a filename to bookmark a file"))
+  (let ((new-name "♫"))
+    (when (or title (file-name-nondirectory filename))
+      (setq new-name (concat new-name " " (or title (file-name-nondirectory filename)))))
+    (when artist
+      (setq new-name (concat new-name " - " artist)))
+    (unless name
+      (bookmark-set new-name))
+    (when name
+     (bookmark-rename name new-name))
+    (bookmark-prop-set new-name 'filename (file-truename filename))
+    (bookmark-prop-set new-name 'bookmarked-by 'ready-player)
+    (bookmark-prop-set new-name 'title title)
+    (bookmark-prop-set new-name 'artist artist)
+    (bookmark-prop-set new-name 'album album)
+    (bookmark-prop-set new-name 'version ready-player--bookmark-schema-version)))
+
+(defun ready-player--delete-bookmark-file (filename)
+  "Delete all bookmarks matching FILENAME."
+  (dolist (bookmark bookmark-alist)
+    (when (string= (file-truename filename)
+                   (bookmark-get-filename bookmark))
       (bookmark-delete (car bookmark)))))
 
 (provide 'ready-player)
