@@ -1962,7 +1962,8 @@ Returns response string."
        ready-player--metadata
        (ready-player--dired-playback-buffer))
       (when playing
-        (ready-player-play))))
+        (ready-player-play))
+      (goto-char point)))
   (ready-player--message "Reloaded" 2))
 
 (defun ready-player--refresh ()
