@@ -589,6 +589,10 @@ Note: This function needs to be added to `file-name-handler-alist'."
      (let* ((file-name-handler-alist nil)
 	    (attributes (apply #'file-name-non-special
                                (append (list operation) args))))
+       (unless attributes
+         (user-error "Are you creating a new %s file? Turn ready-player-mode off for editing"
+                     (or (file-name-extension (car args))
+                         (error "Unrecognized file type %s" (file-name-nondirectory (car args))))))
        ;; 7 is file size location
        ;; as per `file-attributes'.
        (setf (nth 7 attributes) 0)
