@@ -900,8 +900,8 @@ and DIRED-BUFFER."
                               'playing-status t))
           (insert "\n")
           (insert "\n")
-          (insert (ready-player--make-file-button-line busy repeat
-                                                       shuffle autoplay))
+          (insert (ready-player--make-button-line busy repeat
+                                                  shuffle autoplay))
           (insert "\n")
           (insert "\n")
           (when metadata
@@ -2048,7 +2048,7 @@ Note: <<socket>> is expanded to socket path."
                 (mapconcat
                  #'identity (seq-map #'seq-first ready-player-open-playback-commands) " "))))
 
-(defun ready-player--make-file-button-line (busy repeat shuffle autoplay)
+(defun ready-player--make-button-line (busy repeat shuffle autoplay)
   "Create button line with BUSY, REPEAT, AUTOPLAY, and SHUFFLE."
   (format " %s %s %s %s %s %s %s %s %s %s"
           (ready-player--make-button ready-player-previous-icon
@@ -2169,7 +2169,7 @@ Render FNAME, BUSY, REPEAT, SHUFFLE, and AUTOPLAY."
 
         (when (text-property-search-forward 'button 'previous)
           (delete-region (line-beginning-position) (line-end-position))
-          (insert (ready-player--make-file-button-line busy repeat shuffle autoplay))))
+          (insert (ready-player--make-button-line busy repeat shuffle autoplay))))
       (goto-char saved-point)
 
       (ready-player--update-buffer-name buffer busy)
