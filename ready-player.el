@@ -61,7 +61,7 @@
     (define-key map (kbd "TAB") #'ready-player-next-button)
     (define-key map (kbd "<backtab>") #'ready-player-previous-button)
     (define-key map (kbd "c") #'ready-player-open-my-media-collection)
-    (define-key map (kbd "K") #'ready-player-toggle-bookmarked)
+    (define-key map (kbd "K") #'ready-player-toggle-bookmark)
     (define-key map (kbd "k") #'ready-player-search-bookmarks)
     (define-key map (kbd "a") #'ready-player-toggle-autoplay)
     (define-key map (kbd "s") #'ready-player-toggle-shuffle)
@@ -88,7 +88,7 @@
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "m") #'ready-player-view-player)
     (define-key map (kbd "/") #'ready-player-search)
-    (define-key map (kbd "k") #'ready-player-toggle-bookmarked)
+    (define-key map (kbd "k") #'ready-player-toggle-bookmark)
     (define-key map (kbd "n") #'ready-player-next)
     (define-key map (kbd "p") #'ready-player-previous)
     (define-key map (kbd "i") #'ready-player-show-info)
@@ -146,7 +146,7 @@
   :description (lambda ()
                  (format "Bookmark  [%s]" (if (ready-player--file-bookmarked-p (buffer-file-name)) "x" " ")))
   (interactive)
-  (ready-player-toggle-bookmarked))
+  (ready-player-toggle-bookmark))
 
 (transient-define-suffix ready-player--transient-toggle-shuffle ()
   "Shuffle transient toggle."
@@ -889,7 +889,7 @@ and DIRED-BUFFER."
           (insert " ")
           (insert (ready-player--make-checkbox-button (propertize "☆" 'face 'info-title-1)
                                                       (ready-player--file-bookmarked-p media-file) "Bookmark" 'bookmark
-                                                      #'ready-player-toggle-bookmarked
+                                                      #'ready-player-toggle-bookmark
                                                       (propertize "★" 'face 'info-title-1)))
           (insert (format " %s" (propertize (or (ready-player--row-value metadata-rows "Title:")
                                                 (file-name-nondirectory media-file)) 'face 'info-title-2)))
@@ -952,7 +952,8 @@ known directory."
           (ready-player--message
            (ready-player--make-detailed-metadata-echo-text
             ready-player--metadata ready-player--thumbnail fallback-title
-            (frame-pixel-width))
+            (frame-pixel-width)
+            (ready-player--file-bookmarked-p (buffer-file-name)))
            5)
         (with-current-buffer (ready-player--active-buffer)
           (let ((media-file (buffer-file-name)))
@@ -969,18 +970,25 @@ known directory."
                                       (file-name-directory media-file))))
                              (ready-player--message
                               (ready-player--make-detailed-metadata-echo-text
-                               metadata thumbnail fallback-title (frame-pixel-width))
+                               metadata thumbnail fallback-title (frame-pixel-width)
+                               (ready-player--file-bookmarked-p media-file))
                               5)))))))))))
 
-(defun ready-player--make-detailed-metadata-echo-text (metadata &optional image-path fallback-title max-pixel-width)
+(defun ready-player--make-detailed-metadata-echo-text (metadata &optional image-path fallback-title max-pixel-width bookmarked)
   "Make echo text, rendering METADATA and IMAGE-PATH as svg in returned text.
 
  Provide FALLBACK-TITLE in case title is not present in METADATA.
 
- Use MAX-PIXEL-WIDTH to cap generated svg width."
-  (let* ((title (or (ready-player--row-value
+ Use MAX-PIXEL-WIDTH to cap generated svg width.
+
+ BOOKMARKED displayes a filled star."
+  (let* ((title (concat
+                 (or (ready-player--row-value
                      (ready-player--make-metadata-rows metadata)
-                     "Title:") fallback-title ""))
+                     "Title:") fallback-title "")
+                 (if bookmarked
+                     " ★"
+                   " ☆")))
          (artist (or (ready-player--row-value
                       (ready-player--make-metadata-rows metadata)
                       "Artist:") ""))
@@ -3311,7 +3319,8 @@ Source: File list fed to the metadata indexer"
                                           (ready-player--make-detailed-metadata-echo-text
                                            metadata thumbnail
                                            (file-name-nondirectory media-file)
-                                           (window-pixel-width))))))))
+                                           (window-pixel-width)
+                                           (ready-player--file-bookmarked-p media-file))))))))
           (forward-line 1))))))
 
 (defun ready-player-dired-remove-overlays ()
@@ -3330,34 +3339,35 @@ Source: File list fed to the metadata indexer"
     (message "(ready-player--temp-dir):\n\n%s\n" (ready-player--temp-dir))))
 
 ;;;###autoload
-(defun ready-player-toggle-bookmarked ()
-  "Toggle bookmarking currently played file."
+(defun ready-player-toggle-bookmark ()
+  "Toggle currently played file bookmark."
   (interactive)
-  (with-current-buffer (ready-player--active-buffer)
-    (let ((title (or (ready-player--row-value
-                      (ready-player--make-metadata-rows ready-player--metadata)
-                      "Title:")
-                     (file-name-nondirectory (buffer-file-name))))
-          (artist (ready-player--row-value
-                   (ready-player--make-metadata-rows ready-player--metadata)
-                   "Artist:"))
-          (album (ready-player--row-value
-                  (ready-player--make-metadata-rows ready-player--metadata)
-                  "Album:")))
-      (if (ready-player--file-bookmarked-p (buffer-file-name))
-          (ready-player--delete-bookmark-file (buffer-file-name))
-        (ready-player--bookmark-file
-         :filename (buffer-file-name)
-         :title title
-         :artist artist
-         :album album))
-      (ready-player--message
-       (format "%s %s"
-               (if (ready-player--file-bookmarked-p (buffer-file-name))
-                   "★"
-                 "☆")
-               title) 2)
-      (ready-player--refresh))))
+  (let ((in-player (eq major-mode 'ready-player-major-mode)))
+    (with-current-buffer (ready-player--active-buffer)
+      (let ((title (or (ready-player--row-value
+                        (ready-player--make-metadata-rows ready-player--metadata)
+                        "Title:")
+                       (file-name-nondirectory (buffer-file-name))))
+            (artist (ready-player--row-value
+                     (ready-player--make-metadata-rows ready-player--metadata)
+                     "Artist:"))
+            (album (ready-player--row-value
+                    (ready-player--make-metadata-rows ready-player--metadata)
+                    "Album:")))
+        (if (ready-player--file-bookmarked-p (buffer-file-name))
+            (ready-player--delete-bookmark-file (buffer-file-name))
+          (ready-player--bookmark-file
+           :filename (buffer-file-name)
+           :title title
+           :artist artist
+           :album album))
+        (if in-player
+            (ready-player--message
+             (format "Bookmark: %s" (if (ready-player--file-bookmarked-p (buffer-file-name))
+                                        "ON"
+                                      "OFF")) 2)
+          (ready-player-show-info))
+        (ready-player--refresh)))))
 
 (defun ready-player--file-bookmarked-p (filename)
   "Return t if FILENAME is bookmarked."
