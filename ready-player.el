@@ -1975,8 +1975,8 @@ Returns response string."
                           :max-height ready-player-thumbnail-max-pixel-height)))
         (file-error nil)))
     (when (equal ready-player--metadata
-                 (ready-player--cached-metadata-path buffer-file-name))
-      (ignore-errors (delete-file ready-player--metadata)))
+                 (ready-player--cached-metadata buffer-file-name))
+      (ignore-errors (delete-file (ready-player--cached-metadata-path buffer-file-name))))
     (let ((playing ready-player--process)
           (point (point))
           (dired-buffer (ready-player--dired-playback-buffer)))
