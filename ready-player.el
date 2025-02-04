@@ -183,7 +183,7 @@
   :group 'ready-player)
 
 (defcustom ready-player-set-global-bindings t
-  "When non-nil, bind global keys under `ready-player-minor-mode-map-prefix'.
+  "Non-nil means bind global keys under `ready-player-minor-mode-map-prefix'.
 
 Value must be set before invoking `ready-player-mode'."
   :type 'boolean
@@ -198,17 +198,17 @@ global bindings."
     :group 'ready-player)
 
 (defcustom ready-player-multi-buffer nil
-  "When non-nil, enable opening multiple buffers with parallel playback."
+  "Non-nil means enable opening multiple buffers with parallel playback."
   :type 'boolean
   :group 'ready-player)
 
 (defcustom ready-player-show-thumbnail t
-  "When non-nil, display file's thumbnail if available."
+  "Non-nil means display file's thumbnail if available."
   :type 'boolean
   :group 'ready-player)
 
 (defcustom ready-player-always-load-directory-recursively t
-  "When non-nil, load directory recursively without prompt."
+  "Non-nil means load directory recursively without prompt."
   :type 'boolean
   :group 'ready-player)
 
@@ -235,7 +235,7 @@ nil
   :group 'ready-player)
 
 (defcustom ready-player-autoplay t
-  "When non-nil, automatically start playing when media file opens."
+  "Non-nil means automatically start playing when media file opens."
   :type 'boolean
   :group 'ready-player)
 
@@ -247,17 +247,17 @@ Repeats and starts over from the beginning of the directory."
   :group 'ready-player)
 
 (defcustom ready-player-cache-thumbnails t
-  "When non-nil, cache thumbnail."
+  "Non-nil means cache thumbnails."
   :type 'boolean
   :group 'ready-player)
 
 (defcustom ready-player-cache-metadata t
-  "When non-nil, cache metadata."
+  "Non-nil means cache metadata."
   :type 'boolean
   :group 'ready-player)
 
 (defcustom ready-player-hide-modeline t
-  "If non-nil, hides mode line in buffer.
+  "Non-nil means hide the mode line in buffer.
 
 File information is already displayed in the buffer,
 so users can opt to hide the mode line."
