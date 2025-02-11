@@ -90,7 +90,7 @@ From then onwards, you can directly open your collection via =M-x ready-player= 
 | u         | ready-player-unmark-dired-file          | Unmark the current file in the appropriate `dired' buffer(s).              |
 
 * Global key bindings
-Global bindinds are under the =C-c m= prefix. If you prefer not to have these bindings disable them with:
+Global bindings are under the =C-c m= prefix. If you prefer not to have these bindings disable them with:
 
 #+begin_src emacs-lisp :lexical no
   (setq ready-player-set-global-bindings nil)
