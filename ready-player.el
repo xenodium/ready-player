@@ -41,6 +41,7 @@
 ;; Note: This is a new package.  Please report issues or send
 ;; patches to https://github.com/xenodium/ready-player
 
+(require 'bookmark)
 (require 'cl-lib)
 (require 'comint)
 (require 'dired)
