@@ -390,3 +390,7 @@ Although =olivetti-mode= handles edge cases well and is a robust solution
 for centering text, if you prefer not to use =olivetti-mode=, there are
 alternatives like =perfect-margin=, =centered-window-mode=, or =darkroom=,
 which you can configure similarly.
+
+* Feature requests
+
+- [ ] Consider using svg and minibuffer to propose new downloaded image for artwork.
