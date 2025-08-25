@@ -5,8 +5,8 @@
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; Package-Requires: ((emacs "28.1"))
 ;; URL: https://github.com/xenodium/ready-player
-;; Version: 0.31.2
-(defconst ready-player--version "0.31.2")
+;; Version: 0.31.3
+(defconst ready-player--version "0.31.3")
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -434,6 +434,11 @@ Default value attempts to reuse existing window."
 (defcustom ready-player-ask-for-project-sustainability t
   "Ask for project sustainability with a button."
   :type 'boolean
+  :group 'ready-player)
+
+(defcustom ready-player-metadata-separator "\n\n"
+  "Set the separator between metadata rows (default is '\n\n', i.e., one empty line)."
+  :type 'string
   :group 'ready-player)
 
 (defvar-local ready-player--process nil "Media-playing process.")
@@ -2397,7 +2402,7 @@ If SILENT, do not output any issues."
                                (propertize label 'face 'font-lock-comment-face)
                                (make-string (- max-label-length (length label)) ?\s)
                                value)))
-                   rows "\n\n"))
+                   rows ready-player-metadata-separator))
     ""))
 
 (defun ready-player--format-duration (duration)
