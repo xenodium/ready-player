@@ -35,9 +35,6 @@
 (require 'dired)
 (require 'ready-player)
 
-(defvar-local ready-player-dired--overlays nil
-  "Overlays storing media metadata info.")
-
 ;;;###autoload
 (define-minor-mode ready-player-dired-mode
   "Toggle display of media info as overlays in `dired.'."
@@ -57,8 +54,8 @@
   "Delete all ready-player-dired overlays."
   (unless (derived-mode-p 'dired-mode)
     (user-error "Not in a `dired' buffer (%s)" major-mode))
-  (mapc #'delete-overlay ready-player-dired--overlays)
-  (setq ready-player-dired--overlays nil))
+  (when (eq major-mode 'dired-mode)
+    (remove-overlays nil nil 'ready-player-dired-overlay t)))
 
 (defun ready-player-dired--add-overlays ()
   "Asynchronously overlay aligned metadata with track title first, hiding file names."
@@ -110,10 +107,10 @@
                         (msg (concat padded-title "    "
                                      padded-artist "    "
                                      padded-album)))
+                   (overlay-put overlay 'ready-player-dired-overlay t)
                    (overlay-put overlay 'invisible t)
                    (overlay-put overlay 'after-string (concat "  " msg))
-                   (overlay-put overlay 'priority -60)
-                   (push overlay ready-player-dired--overlays)))))))))))
+                   (overlay-put overlay 'priority -60)))))))))))
 
 (defun ready-player-dired--load-metadata (files on-finished)
   "Extract media metadata from FILES async and call ON-FINISHED."
