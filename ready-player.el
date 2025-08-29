@@ -436,6 +436,11 @@ Default value attempts to reuse existing window."
   :type 'boolean
   :group 'ready-player)
 
+(defcustom ready-player-metadata-separator "\n\n"
+  "Set the separator between metadata rows (default is '\n\n', i.e., one empty line)."
+  :type 'string
+  :group 'ready-player)
+
 (defvar-local ready-player--process nil "Media-playing process.")
 
 (defvar ready-player--active-buffer nil "Buffer to interact with.")
@@ -2397,7 +2402,7 @@ If SILENT, do not output any issues."
                                (propertize label 'face 'font-lock-comment-face)
                                (make-string (- max-label-length (length label)) ?\s)
                                value)))
-                   rows "\n\n"))
+                   rows ready-player-metadata-separator))
     ""))
 
 (defun ready-player--format-duration (duration)
