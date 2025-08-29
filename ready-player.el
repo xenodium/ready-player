@@ -565,7 +565,7 @@ See `ready-player-supported-audio' and `ready-player-supported-video'."
 (defun ready-player-is-audio-p (file)
   "Return non-nil if FILE extension is found in `ready-player-supported-audio'."
   (seq-contains-p ready-player-supported-audio
-                  (file-name-extension file)
+                  (or (file-name-extension file) "")
                   (lambda (a b)
                     (string-equal (downcase a) (downcase b)))))
 
