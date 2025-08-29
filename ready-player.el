@@ -3285,56 +3285,6 @@ Source: File list fed to the metadata indexer"
           (list
            (cons 'index (nreverse result))))))))
 
-(defun ready-player-dired-add-overlays ()
-  "Add metadata overlays for audio files and hide all other files."
-  (interactive)
-  (when (eq major-mode 'dired-mode)
-    (ready-player-dired-remove-overlays)
-    (save-restriction
-      (save-excursion
-        (when (use-region-p)
-          (narrow-to-region (region-beginning)
-                            (min (1+ (region-end)) (point-max))))
-        (goto-char (point-min))
-        (while (not (eobp))
-          (when-let* ((media-file (dired-get-filename nil t))
-                      (is-audio (seq-contains-p
-                                 ready-player-supported-audio
-                                 (file-name-extension media-file)))
-                      (start (dired-move-to-filename))
-                      (end (dired-move-to-end-of-filename))
-                      (line-prefix
-                       (buffer-substring
-                        (line-beginning-position)
-                        (dired-move-to-filename)))
-                      (overlay (make-overlay start end)))
-            (overlay-put overlay 'ready-player-dired-overlay t)
-            (overlay-put overlay 'invisible t)
-            (ready-player--load-file-metadata
-             :media-file media-file
-             :on-loaded
-             (lambda (metadata)
-               (ready-player--load-file-thumbnail
-                :media-file media-file
-                :on-loaded (lambda (thumbnail)
-                             (unless thumbnail
-                               (setq thumbnail
-                                     (ready-player--local-thumbnail-in-directory
-                                      (file-name-directory media-file))))
-                             (overlay-put overlay 'after-string
-                                          (ready-player--make-detailed-metadata-echo-text
-                                           metadata thumbnail
-                                           (file-name-nondirectory media-file)
-                                           (window-pixel-width)
-                                           (ready-player--file-bookmarked-p media-file))))))))
-          (forward-line 1))))))
-
-(defun ready-player-dired-remove-overlays ()
-  "Remove metadata overlays from `dired' buffer."
-  (interactive)
-  (when (eq major-mode 'dired-mode)
-    (remove-overlays nil nil 'ready-player-dired-overlay t)))
-
 (defun ready-player--dump-buffer-state ()
   "Dump some useful internal details for debugging."
   (with-current-buffer (ready-player--active-buffer)
