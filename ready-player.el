@@ -47,6 +47,7 @@
 (require 'dired)
 (require 'json)
 (require 'map)
+(require 'ready-player-dired)
 (require 'seq)
 (require 'subr-x)
 (require 'svg)
