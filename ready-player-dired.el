@@ -33,7 +33,8 @@
 ;;; Code:
 
 (require 'dired)
-(require 'ready-player)
+
+(declare-function ready-player-is-audio-p "ready-player")
 
 ;;;###autoload
 (define-minor-mode ready-player-dired-mode
