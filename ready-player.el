@@ -823,19 +823,20 @@ If SILENT, do not message errors."
   (interactive)
   (message "Ready Player Mode v%s" ready-player--version))
 
-(defun ready-player--make-thumbnail-placeholder (width height)
-  "Make a thumbnail placeholder with WIDTH and HEIGHT dimensions."
+(defun ready-player--make-thumbnail-placeholder (max-pixel-height)
+  "Make a thumbnail placeholder constrained by MAX-PIXEL-HEIGHT.
+Creates a square placeholder that will be displayed with :max-height constraint."
   (let* ((icon-size 96)
          ;; TODO: Choose colors.
          (background-color (face-attribute 'default :background))
          (foreground-color (face-attribute 'default :foreground))
-         (svg (svg-create width height)))
-    (svg-rectangle svg 0 0 width height :fill background-color)
+         (svg (svg-create max-pixel-height max-pixel-height)))
+    (svg-rectangle svg 0 0 max-pixel-height max-pixel-height :fill background-color)
     (svg-text svg "♫"
-              :x (/ width 2) :y (+ (/ height 2) (/ icon-size 3))
+              :x (/ max-pixel-height 2) :y (+ (/ max-pixel-height 2) (/ icon-size 3))
               :fill foreground-color :font-size icon-size
               :text-anchor "middle" :dominant-baseline "central")
-    (svg-image svg)))
+    (svg-image svg :max-height max-pixel-height)))
 
 (defun ready-player--save-state (key value)
   "Save KEY and VALUE in state across Emacs sessions."
@@ -888,7 +889,6 @@ and DIRED-BUFFER."
                     thumbnail nil nil
                     :max-height ready-player-thumbnail-max-pixel-height)
                  (ready-player--make-thumbnail-placeholder
-                  ready-player-thumbnail-max-pixel-height
                   ready-player-thumbnail-max-pixel-height)))
               (insert "\n")
               (set-buffer-modified-p nil)))
@@ -1007,13 +1007,7 @@ known directory."
          (image-width 90)
          (image-height 90)
          (text-height 25)
-         (svg-width (min max-pixel-width
-                         (+ image-width 20
-                            (apply #'max
-                                   (mapcar (lambda (text)
-                                             ;; Approximate char width.
-                                             (* (length (or text "")) 10))
-                                           (list title artist album))))))
+         (svg-width (- max-pixel-width 20))
          (svg (svg-create svg-width image-height)))
     (if image-path
         (svg-embed svg image-path
@@ -3066,6 +3060,33 @@ Use REQUESTED to force indexing and display messaging."
                       (message "Warning: Couldn't read track metadata for %s" path)
                       (message "Only found:\n%s" (buffer-string))
                       (list (cons 'filename path)))))
+                (defun cache-thumbnail (path)
+                  "Cache thumbnail for PATH during indexing."
+                  (setq path (file-name-unquote path))
+                  (let* ((temp-dir (file-name-concat temporary-file-directory "ready-player"))
+                         (thumbnail-file (concat (file-name-as-directory temp-dir)
+                                                 (md5 path) ".png"))
+                         (temp-file (concat (file-name-as-directory temp-dir)
+                                            (md5 path) "-temp.png")))
+                    (make-directory temp-dir t)
+                    ;; Only create thumbnail if it doesn't exist yet
+                    (unless (file-exists-p thumbnail-file)
+                      (ignore-errors (delete-file temp-file))
+                      (cond
+                       ;; Try ffmpegthumbnailer first (faster and better)
+                       ((executable-find "ffmpegthumbnailer")
+                        (when (eq 0 (call-process "ffmpegthumbnailer" nil nil nil
+                                                  "-i" path "-s" "0" "-m" "-o" temp-file))
+                          (when (file-exists-p temp-file)
+                            (rename-file temp-file thumbnail-file t))))
+                       ;; Fall back to ffmpeg
+                       ((executable-find "ffmpeg")
+                        (when (eq 0 (call-process "ffmpeg" nil nil nil
+                                                  "-i" path "-map" "0:v" "-map" "-0:V"
+                                                  "-c" "copy" "-f" "image2" "-frames:v" "1"
+                                                  temp-file))
+                          (when (file-exists-p temp-file)
+                            (rename-file temp-file thumbnail-file t))))))))
                 (message "Indexing %s %s" ,dired-buffer-name
                          (format-time-string "%Y-%m-%d %H:%M:%S"))
                 (let* ((paths (with-temp-buffer
@@ -3075,6 +3096,7 @@ Use REQUESTED to force indexing and display messaging."
                        (n 0)
                        (records (seq-map (lambda (path)
                                            (let ((tags (parse-tags path)))
+                                             (cache-thumbnail path)
                                              (message "%d/%d %s" (setq n (1+ n))
                                                       total (file-name-nondirectory path))
                                              tags))
