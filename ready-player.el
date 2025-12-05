@@ -2712,6 +2712,38 @@ loading into `ready-player'."
       (ready-player-load-dired-buffer dired-buffer))
     dired-buffer))
 
+(defun ready-player-open-my-bookmarks ()
+  "Open bookmarked media files.
+
+When invoked programmatically, return the `dired' buffer without
+loading into `ready-player'."
+  (interactive)
+  (let* ((bookmarks (ready-player--bookmarks))
+         (media-files (if (seq-empty-p bookmarks)
+                          (error "No bookmarks available")
+                        (seq-filter
+                         #'file-exists-p
+                         (mapcar (lambda (bookmark)
+                                   (expand-file-name (bookmark-prop-get bookmark 'filename)))
+                                 bookmarks))))
+         ;; Find a common parent via completion.
+         (default-directory (if media-files
+                                (file-name-directory
+                                 (try-completion "" media-files))
+                              (error "No media found")))
+         (dired-buffer-name "*bookmarks*")
+         (dired-buffer (progn
+                         (when (and (get-buffer dired-buffer-name)
+                                    (buffer-live-p (get-buffer dired-buffer-name)))
+                           (kill-buffer (get-buffer dired-buffer-name)))
+                         (dired-noselect (append (list dired-buffer-name)
+                                                 (mapcar (lambda (path)
+                                                           (file-relative-name path default-directory))
+                                                         media-files))))))
+    (when (called-interactively-p #'interactive)
+      (ready-player-load-dired-buffer dired-buffer))
+    dired-buffer))
+
 (defun ready-player--media-at-m3u-file (m3u-path)
   "Read m3u playlist at M3U-PATH and return files."
   ;; TODO/HACK: Creating a copy of the m3u without extension
@@ -3221,6 +3253,14 @@ Source: File list fed to the metadata indexer"
       (unless in-player
         (ready-player-show-info)))))
 
+(defun ready-player--bookmarks ()
+  "Get all bookmarked media files."
+  (seq-filter
+   (lambda (bookmark)
+     (or (equal (bookmark-prop-get bookmark 'bookmarked-by) 'ready-player)
+         (ready-player-is-supported-media-p (bookmark-prop-get bookmark 'filename))))
+   bookmark-alist))
+
 ;;;###autoload
 (defun ready-player-search-bookmarks ()
   "Search the bookmarked files."
@@ -3229,11 +3269,7 @@ Source: File list fed to the metadata indexer"
     (let* ((title-width (max 25 (round (* (- (frame-width) 9) 0.3))))
            (artist-width (round (* (- (frame-width) 9) 0.25)))
            (album-width (- (frame-width) 9 title-width artist-width))
-           (bookmarks (seq-filter
-                       (lambda (bookmark)
-                         (or (equal (bookmark-prop-get bookmark 'bookmarked-by) 'ready-player)
-                             (ready-player-is-supported-media-p (bookmark-prop-get bookmark 'filename))))
-                       bookmark-alist))
+           (bookmarks (ready-player--bookmarks))
            (tracks (progn
                      (when (seq-empty-p bookmarks)
                        (error "No bookmarks available"))
