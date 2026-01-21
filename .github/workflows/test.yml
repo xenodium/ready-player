@@ -1,0 +1,47 @@
+# Copied from https://github.com/purcell/emacs.d/blob/master/.github/workflows/test.yml
+name: CI
+
+on:
+  pull_request:
+  push:
+    paths-ignore:
+    - '**.org'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      matrix:
+        emacs_version:
+          - 29.3
+        experimental: [false]
+        include:
+          - emacs_version: snapshot
+            experimental: true
+    steps:
+    - uses: purcell/setup-emacs@master
+      with:
+        version: ${{ matrix.emacs_version }}
+
+    - uses: actions/checkout@v4
+    - name: Check startup
+      run: |
+        mkdir ~/test-unicode
+        pushd ~/test-unicode;
+          touch test.mp3 "avec espace.mp3" accent-$(echo -e "\0303\0251.mp3");
+        popd
+        ${EMACS:=emacs} -nw --batch \
+                --eval '(progn
+                        (let ((debug-on-error t))
+                          (prefer-coding-system 'utf-8-unix)
+                          ;; todo: try different find-ls-option here
+                          (use-package ready-player
+                            :load-path "."
+                            :custom
+                            (ready-player-my-media-collection-location "~/test-unicode/")
+                            :config
+                            (ready-player-mode +1))
+                          ;; perhaps there is a better function to test?
+                          (ready-player)
+                           ))'
