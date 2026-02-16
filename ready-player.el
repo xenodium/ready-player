@@ -2386,7 +2386,9 @@ If SILENT, do not output any issues."
     (with-current-buffer buffer
       (let ((inhibit-read-only t))
         (erase-buffer))
-      (comint-mode))
+      (comint-mode)
+      ;; Media player output may contain characters confusing bidi.
+      (setq bidi-paragraph-direction 'left-to-right))
     buffer))
 
 (defun ready-player--format-metadata-rows (rows)
