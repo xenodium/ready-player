@@ -628,6 +628,8 @@ Note: This function needs to be added to `file-name-handler-alist'."
   (set-buffer-multibyte t)
   (setq buffer-read-only t)
   (setq buffer-undo-list t)
+  ;; Unicode symbols (play, stop, etc.) can confuse bidi rendering?
+  (setq bidi-paragraph-direction 'left-to-right)
   (when ready-player-hide-modeline
     (setq mode-line-format nil))
   (when ready-player-display-action
@@ -1727,7 +1729,8 @@ Get in touch if keen to add for other players."
   "Display TEXT inthe echo area for SECONDS seconds, then clear if still displayed."
   ;; Uniquify text so it may only clear this and this message alone.
   (let ((message-log-max nil)
-        (unique-text (concat text
+        ;; Prepend LTR mark so Unicode symbols don't trigger RTL in echo area?
+        (unique-text (concat "\u200e" text
                              (propertize (format "%s" (random 100)) 'invisible t))))
     (message "%s" unique-text)
     (run-at-time seconds nil
