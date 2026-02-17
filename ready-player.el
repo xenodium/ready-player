@@ -2237,6 +2237,10 @@ Note: This needs the ffmpegthumbnailer command line utility."
                      (rename-file temp-file thumbnail-file t)
                      (funcall on-loaded thumbnail-file))
                  (ignore-errors (delete-file temp-file))
+                 (when (and (not silent)
+                            (buffer-live-p (process-buffer process)))
+                   (message "%s" (with-current-buffer (process-buffer process)
+                                   (string-trim (buffer-string)))))
                  (funcall on-loaded nil)))))
         (with-temp-buffer
           (let ((temp-file (ready-player--temp-thumbnail-path media-file))
