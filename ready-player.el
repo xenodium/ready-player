@@ -2708,26 +2708,27 @@ to directory."
                                (concat (file-name-sans-extension media-file) ".jpg")))
          (directory-artwork (ready-player--unique-new-file-path
                              (file-name-concat default-directory "artwork.jpg")))
-         (buffer (if temp-file
-                     (display-image-in-temp-buffer temp-file)
-                   (error "No artwork found")))
          (override)
          (reveal-file))
-    (unless buffer
-      (error "Couldn't display image"))
+    (unless temp-file
+      (error "No artwork found"))
     (if set-media-file
         (progn
-          (when (y-or-n-p (format "Override \"%s\" artwork? " (file-name-nondirectory media-file)))
+          (when (ready-player--confirm
+                 :image-path temp-file
+                 :message (format "Override \"%s\" artwork?" (file-name-nondirectory media-file)))
             (ready-player--set-media-file-artwork media-file temp-file)
             (setq override t))
-          (when (or override (y-or-n-p (format "Keep \"%s\"? " (file-name-nondirectory counterpart-artwork))))
+          (when (or override (ready-player--confirm
+                              :image-path temp-file
+                              :message (format "Keep \"%s\"?" (file-name-nondirectory counterpart-artwork))))
             (rename-file temp-file counterpart-artwork)
             (setq reveal-file counterpart-artwork)))
-      (when (y-or-n-p (format "Save \"%s\"? " (file-name-nondirectory directory-artwork)))
+      (when (ready-player--confirm
+             :image-path temp-file
+             :message (format "Save \"%s\"?" (file-name-nondirectory directory-artwork)))
         (rename-file temp-file directory-artwork t)
         (setq reveal-file directory-artwork)))
-    ;; Image buffer is already focused
-    (quit-window t)
     (cond ((and reveal-file (eq major-mode 'dired-mode))
            (dired-jump nil reveal-file))
           ((and (or override reveal-file) (eq major-mode 'ready-player-major-mode))
@@ -3477,6 +3478,18 @@ Source: File list fed to the metadata indexer"
     (when (string= (file-truename filename)
                    (bookmark-get-filename bookmark))
       (bookmark-delete (car bookmark)))))
+
+(cl-defun ready-player--confirm (&key image-path message)
+  "Show IMAGE-PATH with MESSAGE and prompt with `y-or-n-p'."
+  (y-or-n-p
+   (concat
+    (when image-path
+      (propertize "image"
+                  'display (create-image
+                            image-path nil nil
+                            :max-height ready-player-thumbnail-max-pixel-height)))
+    "\n"
+    message " ")))
 
 (provide 'ready-player)
 
