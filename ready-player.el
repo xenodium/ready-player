@@ -2481,7 +2481,8 @@ If TO is non-nil, save to that location.  Otherwise generate location."
               (json (with-current-buffer (url-retrieve-synchronously musicbrainz-id-url)
                       (goto-char (point-min))
                       (re-search-forward "^$")
-                      (json-read)))
+                      (let ((json-object-type 'alist))
+                        (json-read))))
               (release-groups (cdr (assq 'release-groups json)))
               (found (> (length release-groups) 0))
               (musicbrainz-id (cdr (assq 'id (aref release-groups 0))))
@@ -2495,6 +2496,24 @@ If TO is non-nil, save to that location.  Otherwise generate location."
                                 (keyboard-quit)))
                             (ready-player--url-copy-file cover-url destination))))
     destination))
+
+(defun ready-player--download-album-artwork-from-anywhere (artist album &optional to)
+  "Download album artwork for ARTIST ALBUM trying all providers.
+
+Try Deezer, Apple iTunes, and Internet Archive/MusicBrainz in order.
+Return the first successful result.
+
+If TO is non-nil, save to that location.  Otherwise generate location."
+  (let ((fetchers '(ready-player--download-deezer-album-artwork
+                    ready-player--download-itunes-album-artwork
+                    ready-player--download-musicbrainz-album-artwork))
+        (result nil))
+    (while (and fetchers (not result))
+      (condition-case nil
+          (setq result (funcall (pop fetchers) artist album to))
+        (error (setq result nil))))
+    (or result
+        (error "No album art found"))))
 
 (defun ready-player--download-itunes-album-artwork (artist album &optional to)
   "Download album artwork for ARTIST ALBUM from iTunes.
@@ -2516,6 +2535,32 @@ If TO is non-nil, save to that location.  Otherwise generate location."
                            (replace-regexp-in-string
                             "100x100bb" "600x600bb"
                             (cdr (assq 'artworkUrl100 (aref results 0))))))
+              (destination (or to (make-temp-file (replace-regexp-in-string
+                                                   "/" "_" (concat artist "-" album)) nil ".jpg")))
+              (downloaded (progn
+                            (when (and to (file-exists-p to))
+                              (unless (y-or-n-p (format "Override \"%s\"? " to))
+                                (keyboard-quit)))
+                            (ready-player--url-copy-file cover-url destination))))
+    destination))
+
+(defun ready-player--download-deezer-album-artwork (artist album &optional to)
+  "Download album artwork for ARTIST ALBUM from Deezer.
+
+If TO is non-nil, save to that location.  Otherwise generate location."
+  (when-let* ((search-url
+               (concat "https://api.deezer.com/search/album?q="
+                       (url-hexify-string (concat "artist:\"" artist "\" album:\"" album "\""))))
+              (json (with-current-buffer (url-retrieve-synchronously search-url)
+                      (goto-char (point-min))
+                      (re-search-forward "^$")
+                      (let ((json-object-type 'alist))
+                        (json-read))))
+              (results (cdr (assq 'data json)))
+              (cover-url (progn
+                           (when (seq-empty-p results)
+                             (error "No album art found"))
+                           (cdr (assq 'cover_xl (aref results 0)))))
               (destination (or to (make-temp-file (replace-regexp-in-string
                                                    "/" "_" (concat artist "-" album)) nil ".jpg")))
               (downloaded (progn
@@ -2634,12 +2679,15 @@ to directory."
                            (t
                             (error "This buffer is not supported"))))
          (metadata (ready-player--load-file-metadata :media-file media-file))
-         (fetcher (if (equal "Apple iTunes"
-                             (completing-read "Download from: "
-                                              '("Apple iTunes"
-                                                "Internet Archive / MusicBrainz") nil t))
-                      #'ready-player--download-itunes-album-artwork
-                    #'ready-player--download-musicbrainz-album-artwork))
+         (fetcher (pcase (completing-read "Download from: "
+                                          '("Any"
+                                            "Apple iTunes"
+                                            "Deezer"
+                                            "Internet Archive / MusicBrainz") nil t)
+                    ("Any" #'ready-player--download-album-artwork-from-anywhere)
+                    ("Apple iTunes" #'ready-player--download-itunes-album-artwork)
+                    ("Deezer" #'ready-player--download-deezer-album-artwork)
+                    ("Internet Archive / MusicBrainz" #'ready-player--download-musicbrainz-album-artwork)))
          (artist (or (when ask-user
                        (read-string "Artist: "))
                      (ready-player--row-value
