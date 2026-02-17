@@ -714,6 +714,7 @@ Note: This function needs to be added to `file-name-handler-alist'."
            (ready-player--dired-playback-buffer)))
       (ready-player--load-file-thumbnail
        :media-file media-file
+       :silent t
        :on-loaded (lambda (thumbnail)
                     (when (buffer-live-p buffer)
                       (with-current-buffer buffer
@@ -734,6 +735,7 @@ Note: This function needs to be added to `file-name-handler-alist'."
     (when local-thumbnail
       (ready-player--load-file-thumbnail
        :media-file media-file
+       :silent t
        :on-loaded (lambda (thumbnail)
                     (when (buffer-live-p buffer)
                       (with-current-buffer buffer
@@ -973,6 +975,7 @@ known directory."
              (lambda (metadata)
                (ready-player--load-file-thumbnail
                 :media-file media-file
+                :silent t
                 :on-loaded (lambda (thumbnail)
                              (unless thumbnail
                                (setq thumbnail
